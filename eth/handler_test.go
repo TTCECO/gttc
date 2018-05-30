@@ -21,18 +21,14 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/TTCECO/gttc/common"
-	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/state"
 	"github.com/TTCECO/gttc/core/types"
-	"github.com/TTCECO/gttc/core/vm"
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/eth/downloader"
 	"github.com/TTCECO/gttc/ethdb"
-	"github.com/TTCECO/gttc/event"
 	"github.com/TTCECO/gttc/p2p"
 	"github.com/TTCECO/gttc/params"
 )

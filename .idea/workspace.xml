@@ -2,23 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92e26f29-1678-49b2-8ec0-c411085a6460" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/consensus/clique/clique.go" afterPath="$PROJECT_DIR$/consensus/clique/clique.go" />
-      <change beforePath="$PROJECT_DIR$/consensus/ethash/consensus.go" afterPath="$PROJECT_DIR$/consensus/ethash/consensus.go" />
-      <change beforePath="$PROJECT_DIR$/consensus/misc/dao.go" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/consensus/misc/forks.go" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/containers/docker/develop-alpine/Dockerfile" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/containers/docker/develop-ubuntu/Dockerfile" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/containers/docker/master-alpine/Dockerfile" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/containers/docker/master-ubuntu/Dockerfile" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/core/chain_makers.go" afterPath="$PROJECT_DIR$/core/chain_makers.go" />
-      <change beforePath="$PROJECT_DIR$/core/dao_test.go" afterPath="$PROJECT_DIR$/core/dao_test.go" />
-      <change beforePath="$PROJECT_DIR$/core/state_processor.go" afterPath="$PROJECT_DIR$/core/state_processor.go" />
-      <change beforePath="$PROJECT_DIR$/eth/handler.go" afterPath="$PROJECT_DIR$/eth/handler.go" />
       <change beforePath="$PROJECT_DIR$/eth/handler_test.go" afterPath="$PROJECT_DIR$/eth/handler_test.go" />
-      <change beforePath="$PROJECT_DIR$/miner/worker.go" afterPath="$PROJECT_DIR$/miner/worker.go" />
-      <change beforePath="$PROJECT_DIR$/params/dao.go" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/params/version.go" afterPath="$PROJECT_DIR$/params/version.go" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -28,7 +12,18 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="FileEditorManager">
-    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300" />
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file leaf-file-name="handler_test.go" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/eth/handler_test.go">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-5304">
+              <caret line="30" column="34" lean-forward="false" selection-start-line="30" selection-start-column="34" selection-end-line="30" selection-end-column="34" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -86,6 +81,7 @@
         <option value="$PROJECT_DIR$/VERSION" />
         <option value="$PROJECT_DIR$/params/version.go" />
         <option value="$PROJECT_DIR$/miner/worker.go" />
+        <option value="$PROJECT_DIR$/eth/handler_test.go" />
       </list>
     </option>
   </component>
@@ -125,6 +121,11 @@
               <item name="gttc" type="b2602c69:ProjectViewProjectNode" />
               <item name="gttc" type="462c0819:PsiDirectoryNode" />
             </path>
+            <path>
+              <item name="gttc" type="b2602c69:ProjectViewProjectNode" />
+              <item name="gttc" type="462c0819:PsiDirectoryNode" />
+              <item name="eth" type="462c0819:PsiDirectoryNode" />
+            </path>
           </expand>
           <select />
         </subPane>
@@ -156,8 +157,9 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1400" height="867" extended-state="6" />
+    <editor active="true" />
     <layout>
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.20857143" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.20857143" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
@@ -488,14 +490,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/eth/handler_test.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="646">
-          <caret line="450" column="0" lean-forward="false" selection-start-line="450" selection-start-column="0" selection-end-line="450" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/params/config.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="350">
@@ -582,6 +576,14 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/eth/handler_test.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-5304">
+          <caret line="30" column="34" lean-forward="false" selection-start-line="30" selection-start-column="34" selection-end-line="30" selection-end-column="34" />
           <folding />
         </state>
       </provider>
