@@ -27,7 +27,6 @@ import (
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/common/math"
 	"github.com/TTCECO/gttc/consensus"
-	"github.com/TTCECO/gttc/consensus/misc"
 	"github.com/TTCECO/gttc/core/state"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/params"
@@ -274,13 +273,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 			return err
 		}
 	}
-	// If all checks passed, validate any special fields for hard forks
-	if err := misc.VerifyDAOHeaderExtraData(chain.Config(), header); err != nil {
-		return err
-	}
-	if err := misc.VerifyForkHashes(chain.Config(), header, uncle); err != nil {
-		return err
-	}
+
 	return nil
 }
 

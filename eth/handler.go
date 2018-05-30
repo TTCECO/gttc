@@ -28,7 +28,6 @@ import (
 
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/consensus"
-	"github.com/TTCECO/gttc/consensus/misc"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/eth/downloader"
@@ -446,11 +445,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				p.forkDrop.Stop()
 				p.forkDrop = nil
 
-				// Validate the header and either drop the peer or continue
-				if err := misc.VerifyDAOHeaderExtraData(pm.chainconfig, headers[0]); err != nil {
-					p.Log().Debug("Verified to be on the other side of the DAO fork, dropping")
-					return err
-				}
 				p.Log().Debug("Verified to be on the same side of the DAO fork")
 				return nil
 			}
