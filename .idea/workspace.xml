@@ -2,7 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="92e26f29-1678-49b2-8ec0-c411085a6460" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/eth/handler_test.go" afterPath="$PROJECT_DIR$/eth/handler_test.go" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change beforePath="$PROJECT_DIR$/cmd/geth/dao_test.go" afterPath="" />
+      <change beforePath="$PROJECT_DIR$/core/dao_test.go" afterPath="$PROJECT_DIR$/core/dao_test.go" />
+      <change beforePath="$PROJECT_DIR$/core/vm/runtime/runtime.go" afterPath="$PROJECT_DIR$/core/vm/runtime/runtime.go" />
+      <change beforePath="$PROJECT_DIR$/eth/handler.go" afterPath="$PROJECT_DIR$/eth/handler.go" />
+      <change beforePath="$PROJECT_DIR$/params/config.go" afterPath="$PROJECT_DIR$/params/config.go" />
+      <change beforePath="$PROJECT_DIR$/tests/difficulty_test.go" afterPath="$PROJECT_DIR$/tests/difficulty_test.go" />
+      <change beforePath="$PROJECT_DIR$/tests/init.go" afterPath="$PROJECT_DIR$/tests/init.go" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -13,12 +20,14 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="handler_test.go" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/eth/handler_test.go">
+      <file leaf-file-name="transaction_test.go" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/tests/transaction_test.go">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-5304">
-              <caret line="30" column="34" lean-forward="false" selection-start-line="30" selection-start-column="34" selection-end-line="30" selection-end-column="34" />
-              <folding />
+            <state relative-caret-position="41">
+              <caret line="18" column="7" lean-forward="true" selection-start-line="18" selection-start-column="7" selection-end-line="18" selection-end-column="7" />
+              <folding>
+                <element signature="e#808#875#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -44,8 +53,6 @@
       <find>github.com/TTCECO/gttc/consensus/clique</find>
       <find>clique</find>
       <find>Clique</find>
-      <find>DAOForkSupport</find>
-      <find>DAOForkBlock</find>
       <find>ErrBadProDAOExtra</find>
       <find>ErrBadNoDAOExtra</find>
       <find>VerifyDAOHeaderExtraData</find>
@@ -55,6 +62,10 @@
       <find>DAOForkExtraRange</find>
       <find>DAORefundContract</find>
       <find>DAODrainList</find>
+      <find>DAO</find>
+      <find>DAOForkBlock</find>
+      <find>DAOForkSupport</find>
+      <find>ChainConfig</find>
     </findStrings>
     <replaceStrings>
       <replace>github.com/TTCECO/gttc/</replace>
@@ -62,6 +73,7 @@
     </replaceStrings>
     <dirStrings>
       <dir>$PROJECT_DIR$/..</dir>
+      <dir>$PROJECT_DIR$/cmd</dir>
       <dir>$PROJECT_DIR$</dir>
     </dirStrings>
   </component>
@@ -82,6 +94,7 @@
         <option value="$PROJECT_DIR$/params/version.go" />
         <option value="$PROJECT_DIR$/miner/worker.go" />
         <option value="$PROJECT_DIR$/eth/handler_test.go" />
+        <option value="$PROJECT_DIR$/params/config.go" />
       </list>
     </option>
   </component>
@@ -124,7 +137,7 @@
             <path>
               <item name="gttc" type="b2602c69:ProjectViewProjectNode" />
               <item name="gttc" type="462c0819:PsiDirectoryNode" />
-              <item name="eth" type="462c0819:PsiDirectoryNode" />
+              <item name="tests" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -157,9 +170,8 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1400" height="867" extended-state="6" />
-    <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.20857143" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.20857143" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
@@ -189,42 +201,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/bmt/bmt_r.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1445">
-          <caret line="85" column="0" lean-forward="false" selection-start-line="85" selection-start-column="0" selection-end-line="85" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/common/debug.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-8">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/common/main_test.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/common/types.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="349">
-          <caret line="24" column="13" lean-forward="false" selection-start-line="24" selection-start-column="13" selection-end-line="24" selection-end-column="13" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../../ethereum/go-ethereum/interfaces.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="252">
-          <caret line="91" column="4" lean-forward="false" selection-start-line="91" selection-start-column="4" selection-end-line="91" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/accounts/usbwallet/wallet.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="459">
@@ -236,6 +212,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="454">
           <caret line="27" column="13" lean-forward="true" selection-start-line="27" selection-start-column="13" selection-end-line="27" selection-end-column="13" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -313,6 +290,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-598">
           <caret line="224" column="5" lean-forward="false" selection-start-line="224" selection-start-column="5" selection-end-line="224" selection-end-column="5" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -490,16 +468,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/params/config.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="350">
-          <caret line="108" column="72" lean-forward="false" selection-start-line="108" selection-start-column="65" selection-end-line="108" selection-end-column="120" />
-          <folding>
-            <element signature="e#809#872#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/eth/peer.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="256">
@@ -580,11 +548,61 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/cmd/clef/README.md">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/cmd/clef/4byte.json">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-122">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/cmd/geth/config.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="153">
+          <caret line="9" column="25" lean-forward="false" selection-start-line="9" selection-start-column="25" selection-end-line="9" selection-end-column="25" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/cmd/geth/dao_test.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/eth/handler_test.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-5304">
           <caret line="30" column="34" lean-forward="false" selection-start-line="30" selection-start-column="34" selection-end-line="30" selection-end-column="34" />
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/params/config.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="193">
+          <caret line="91" column="36" lean-forward="true" selection-start-line="91" selection-start-column="36" selection-end-line="91" selection-end-column="36" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tests/transaction_test.go">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="41">
+          <caret line="18" column="7" lean-forward="true" selection-start-line="18" selection-start-column="7" selection-end-line="18" selection-end-column="7" />
+          <folding>
+            <element signature="e#808#875#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

@@ -42,8 +42,6 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	gspec.MustCommit(proDb)
 
 	proConf := *params.TestChainConfig
-	proConf.DAOForkBlock = forkBlock
-	proConf.DAOForkSupport = true
 
 	proBc, _ := NewBlockChain(proDb, nil, &proConf, ethash.NewFaker(), vm.Config{})
 	defer proBc.Stop()
@@ -52,8 +50,6 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	gspec.MustCommit(conDb)
 
 	conConf := *params.TestChainConfig
-	conConf.DAOForkBlock = forkBlock
-	conConf.DAOForkSupport = false
 
 	conBc, _ := NewBlockChain(conDb, nil, &conConf, ethash.NewFaker(), vm.Config{})
 	defer conBc.Stop()
