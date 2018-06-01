@@ -34,6 +34,7 @@ import (
 	"github.com/TTCECO/gttc/common/fdlimit"
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/consensus/clique"
+	"github.com/TTCECO/gttc/consensus/alien"
 	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/state"
@@ -1223,6 +1224,9 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 	var engine consensus.Engine
 	if config.Clique != nil {
 		engine = clique.New(config.Clique, chainDb)
+	}else if config.Alien != nil{
+		engine = alien.New(config.Alien, chainDb)
+
 	} else {
 		engine = ethash.NewFaker()
 		if !ctx.GlobalBool(FakePoWFlag.Name) {

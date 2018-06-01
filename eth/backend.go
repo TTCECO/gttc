@@ -30,6 +30,7 @@ import (
 	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/consensus/clique"
+	"github.com/TTCECO/gttc/consensus/alien"
 	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/bloombits"
@@ -213,6 +214,8 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
+	}else if chainConfig.Alien != nil {
+		return alien.New(chainConfig.Alien, db)
 	}
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
@@ -345,6 +348,14 @@ func (s *Ethereum) StartMining(local bool) error {
 			return fmt.Errorf("signer missing: %v", err)
 		}
 		clique.Authorize(eb, wallet.SignHash)
+	}
+	if alien, ok := s.engine.(*alien.Alien); ok {
+		wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
+		if wallet == nil || err != nil {
+			log.Error("Etherbase account unavailable locally", "err", err)
+			return fmt.Errorf("signer missing: %v", err)
+		}
+		alien.Authorize(eb, wallet.SignHash)
 	}
 	if local {
 		// If local (CPU) mining is started, we can disable the transaction rejection
