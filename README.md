@@ -19,7 +19,7 @@ $ geth --datadir node1/ account new
 $ geth --datadir node2/ account new
 ```
 
-Write account info into files for run network
+#### Write account info into files for run network
 
 ```
 $ echo 'node1_address' >> account.txt
@@ -28,7 +28,7 @@ $ echo 'password1' >> node1/password.txt
 $ echo 'password2' >> node2/password.txt
 ```
 
-Build genesis.json file by puppeth
+#### Build genesis.json file by puppeth
 
 ```
 $ puppeth
