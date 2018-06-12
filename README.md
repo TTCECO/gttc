@@ -131,10 +131,10 @@ $ bootnode -nodekey boot.key -verbosity 9 -addr :30310
 #### Run node1 and node2
 
 ```
-geth --datadir node1/ --syncmode 'full' --port 30311 --rpc --rpcaddr 'localhost' --rpcport 8501 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock 'fa846876ef5ed3826e483303f42d987a66af8e15' --password node1/password.txt --mine
+$ geth --datadir node1/ --syncmode 'full' --port 30311 --rpc --rpcaddr 'localhost' --rpcport 8501 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock 'fa846876ef5ed3826e483303f42d987a66af8e15' --password node1/password.txt --mine
 ```
 ```
-geth --datadir node2/ --syncmode 'full' --port 30312 --rpc --rpcaddr 'localhost' --rpcport 8502 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock '62739566c666df9a057d7e7c92898511d4e64c07' --password node2/password.txt --mine
+$ geth --datadir node2/ --syncmode 'full' --port 30312 --rpc --rpcaddr 'localhost' --rpcport 8502 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock '62739566c666df9a057d7e7c92898511d4e64c07' --password node2/password.txt --mine
 ```
 
 #### Message show in Terminator
@@ -173,4 +173,67 @@ INFO [06-01|17:14:12] 🔨 mined potential block                  number=2 hash=
 INFO [06-01|17:14:12] Commit new mining work                   number=3 txs=0 uncles=1 elapsed=604.414µs
 INFO [06-01|17:14:12] Signed recently, must wait for others 
 
+```
+
+## Vote to change the Signer node
+
+#### Build a new node and Run
+
+```
+$ mkdir node3
+$ geth --datadir node3/ account new
+$ echo 'password3' >> node3/password.txt
+$ geth --datadir node3/ init genesis.json
+$ geth --datadir node3/ --syncmode 'full' --port 30313 --rpc --rpcaddr 'localhost' --rpcport 8503 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock '62739566c666df9a057d7e7c92898511d4e64c07' --password node3/password.txt --mine
+```
+
+Before vote by Signers, the message show in termintor should like
+```
+INFO [06-12|15:09:35] Imported new chain segment               blocks=1   txs=0  mgas=0.000 elapsed=361.629µs mgasps=0.000 number=1015 hash=6e83e3…c8a679 cache=1.72kB
+INFO [06-12|15:09:35] Commit new mining work                   number=1016 txs=0  uncles=0 elapsed=142.422µs
+WARN [06-12|15:09:35] Block sealing failed
+```
+
+#### Vote by signers
+```
+$ geth attach node1/geth.ipc console
+```
+
+```
+> alien
+{
+  proposals: {
+  },
+  discard: function(),
+  getProposals: function(callback),
+  getSigners: function(),
+  getSignersAtHash: function(),
+  getSnapshot: function(),
+  getSnapshotAtHash: function(),
+  propose: function()
+}
+> alien.getSigners()
+["0xfa846876ef5ed3826e483303f42d987a66af8e15","0x62739566c666df9a057d7e7c92898511d4e64c07"]
+```
+
+Two signers which create by puppeth when create the genesis.json file.
+
+Now create propose by alien.propose, first params is the address you want to vote, second param is your opinion.
+```
+> alien.propose("0xd90a772c478863d11fa48b1a48ccd69cc45c56ce",true)
+```
+
+When the number of vote 'YES' to the address is more the (all signer) / 2 + 1, the address can seal new block.
+
+```
+> alien.getSigners()
+["0xfa846876ef5ed3826e483303f42d987a66af8e15","0x62739566c666df9a057d7e7c92898511d4e64c07","0xd90a772c478863d11fa48b1a48ccd69cc45c56ce"]
+```
+
+The new node can seal new block now!
+```
+INFO [06-12|15:21:29] Commit new mining work                   number=1118 txs=0  uncles=0 elapsed=146.143µs
+INFO [06-12|15:21:36] Successfully sealed new block            number=1118 hash=da6dee…122995
+INFO [06-12|15:21:36] 🔗 block reached canonical chain          number=1113 hash=877129…a96eed
+INFO [06-12|15:21:36] 🔨 mined potential block                  number=1118 hash=da6dee…122995
 ```
