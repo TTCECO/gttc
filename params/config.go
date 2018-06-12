@@ -159,7 +159,7 @@ func (c *CliqueConfig) String() string {
 }
 
 
-// AlienConfig is the consensus engine configs for proof-of-authority based sealing.
+// AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
 type AlienConfig struct {
 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint

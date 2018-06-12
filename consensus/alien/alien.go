@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package clique implements the proof-of-authority consensus engine.
+// Package alien implements the delegated-proof-of-stake consensus engine.
 package alien
 
 import (
@@ -49,7 +49,7 @@ const (
 	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
 )
 
-// Alien proof-of-authority protocol constants.
+// Alien delegated-proof-of-stake protocol constants.
 var (
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
 	blockPeriod = uint64(15)    // Default minimum difference between two consecutive block's timestamps
@@ -135,7 +135,7 @@ var (
 // backing account.
 type SignerFn func(accounts.Account, []byte) ([]byte, error)
 
-// sigHash returns the hash which is used as input for the proof-of-authority
+// sigHash returns the hash which is used as input for the delegated-proof-of-stake
 // signing. It is the hash of the entire header apart from the 65 byte signature
 // contained at the end of the extra data.
 //
@@ -191,7 +191,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	return signer, nil
 }
 
-// Alien is the proof-of-authority consensus engine proposed to support the
+// Alien is the delegated-proof-of-stake consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
 type Alien struct {
 	config *params.AlienConfig // Consensus engine configuration parameters
@@ -207,7 +207,7 @@ type Alien struct {
 	lock   sync.RWMutex   // Protects the signer fields
 }
 
-// New creates a Alien proof-of-authority consensus engine with the initial
+// New creates a Alien delegated-proof-of-stake consensus engine with the initial
 // signers set to the ones provided by the user.
 func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	// Set any missing consensus parameters to their defaults
