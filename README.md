@@ -221,6 +221,34 @@ Two signers which create by puppeth when create the genesis.json file.
 Now create propose by alien.propose, first params is the address you want to vote, second param is your opinion.
 ```
 > alien.propose("0xd90a772c478863d11fa48b1a48ccd69cc45c56ce",true)
+
+
+> alien.getSnapshot()
+{
+  hash: "0x4a21f5d21323f06242dc13964e5c91b0b328caf51b5256f14a9af90426bffe60",
+  number: 3560,
+  recents: {
+    3559: "0xfa846876ef5ed3826e483303f42d987a66af8e15",
+    3560: "0x62739566c666df9a057d7e7c92898511d4e64c07"
+  },
+  signers: {
+    0xfa846876ef5ed3826e483303f42d987a66af8e15: {},
+    0x62739566c666df9a057d7e7c92898511d4e64c07: {}
+  },
+  tally: {
+    0xd90a772c478863d11fa48b1a48ccd69cc45c56ce: {
+      authorize: true,
+      votes: 1
+    }
+  },
+  votes: [{
+      address: "0xd90a772c478863d11fa48b1a48ccd69cc45c56ce",
+      authorize: true,
+      block: 3559,
+      signer: "0x2a84f498d27805d49a92277edbe670b83036f14b"
+  }]
+}
+
 ```
 
 When the number of vote 'YES' to the address is more the (all signer) / 2 + 1, the address can seal new block.
