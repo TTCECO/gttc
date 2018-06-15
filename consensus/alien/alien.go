@@ -596,6 +596,31 @@ func (c *Alien) Authorize(signer common.Address, signFn SignerFn) {
 func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 
+
+	// BEGIN -------------------------
+
+	// 1. Load all headers from the begin of this epoch
+
+	// 2. Get each voter.
+
+	// 3. Calculate vote count of each candidate
+
+	// 4. Check each Transaction of this block, is from/to a candidate or vote from candidate
+
+	// New Vote should like below
+	// > eth.sendTransaction({from:"0x.....",to:"0x......",value:0,data:web3.toHex("vote:v1")})
+	for _, tx := range block.Transactions(){
+		signer := types.NewEIP155Signer(tx.ChainId())
+		from, _ := types.Sender(signer, tx)
+		log.Info("From : ", "address", from.Hex())
+		log.Info("To : ", "address", tx.To().Hex())
+		log.Info("Data : ","msg", string(tx.Data()))
+
+	}
+
+
+	// END -------------------------------
+
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
