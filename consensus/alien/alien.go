@@ -49,8 +49,11 @@ const (
 	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
 )
 
+
 // Alien delegated-proof-of-stake protocol constants.
 var (
+	FrontierBlockReward    *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
 	blockPeriod = uint64(15)    // Default minimum difference between two consecutive block's timestamps
 
@@ -566,8 +569,11 @@ func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-	// No block rewards in PoA, so the state remains as is and uncles are dropped
+	// Accumulate any block rewards and commit the final state root
+	accumulateRewards(chain.Config(), state, header)
+
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	// No uncle block
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing
@@ -678,4 +684,15 @@ func (c *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 		Service:   &API{chain: chain, alien: c},
 		Public:    false,
 	}}
+}
+
+
+// AccumulateRewards credits the coinbase of the given block with the mining reward.
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header) {
+	// Calculate the block reword by year
+	blockNumPerYear := 365*24*3600/config.Alien.Period
+	yearCount := header.Number.Uint64()/ blockNumPerYear
+	blockReward := new(big.Int).Rsh( FrontierBlockReward , uint(yearCount))
+	// rewards for the miner
+	state.AddBalance(header.Coinbase, blockReward)
 }
