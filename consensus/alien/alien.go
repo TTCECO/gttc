@@ -47,6 +47,7 @@ const (
 	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
 	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
+	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
 )
 
 
@@ -690,8 +691,8 @@ func (c *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
 func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header) {
 	// Calculate the block reword by year
-	blockNumPerYear := 365*24*3600/config.Alien.Period
-	yearCount := header.Number.Uint64()/ blockNumPerYear
+	blockNumPerYear := secondsPerYear / config.Alien.Period
+	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh( FrontierBlockReward , uint(yearCount))
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, blockReward)
