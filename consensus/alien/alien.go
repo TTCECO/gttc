@@ -299,9 +299,9 @@ func (c *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 	}
 	// Ensure that the extra-data contains a signer list on checkpoint, but none otherwise
 	signersBytes := len(header.Extra) - extraVanity - extraSeal
-	//if !checkpoint && signersBytes != 0 {
-	//	return errExtraSigners
-	//}
+	if !checkpoint && signersBytes != 0 {
+		return errExtraSigners
+	}
 	if checkpoint && signersBytes%common.AddressLength != 0 {
 		return errInvalidCheckpointSigners
 	}
@@ -550,7 +550,7 @@ func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 			header.Extra = append(header.Extra, signer[:]...)
 		}
 	}
-	//header.Extra = append(header.Extra, make([]byte, extraSeal)...)
+	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
@@ -618,9 +618,9 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		if string(tx.Data()) == "vote" {
 
 			c.lock.RLock()
-			var signerNew common.Address
-			signerNew= *tx.To()
-			header.Extra = append(header.Extra, signerNew[:]...)
+			//var signerNew common.Address
+			//signerNew= *tx.To()
+			//header.Extra = append(header.Extra, signerNew[:]...)
 
 			c.proposals[*tx.To()] = true
 
@@ -628,8 +628,6 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		}
 	}
 
-
-	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	// END -------------------------------
 
