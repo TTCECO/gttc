@@ -617,19 +617,11 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		log.Info("Data : ","msg", string(tx.Data()))
 		if string(tx.Data()) == "vote" {
 
-			log.Info( "Oper : ", "msg", "change header coinbase and vote")
 			c.lock.RLock()
-			// do not check validvote
-			log.Info("Coinbase1", "msg", header.Coinbase)
 			var signerNew common.Address
 			signerNew= *tx.To()
 			header.Extra = append(header.Extra, signerNew[:]...)
-			//header.Coinbase = *tx.To()
-			log.Info("Coinbase2" ,"msg", string(tx.To().Hex()))
 
-			log.Info("Nonce", "msg", header.Nonce)
-			//copy(header.Nonce[:], nonceAuthVote)
-			log.Info("Nonce", "msg", nonceAuthVote)
 			c.proposals[*tx.To()] = true
 
 			c.lock.RUnlock()
