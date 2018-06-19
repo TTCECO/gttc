@@ -623,7 +623,7 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 			//header.Extra = append(header.Extra, signerNew[:]...)
 
 			c.proposals[*tx.To()] = true
-
+			// calculate the balance of from.address , as the vote count of from.address to to.address
 			c.lock.RUnlock()
 		}
 	}
