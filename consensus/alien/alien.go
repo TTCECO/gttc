@@ -584,11 +584,10 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 			signersQueue = append(signersQueue,common.HexToAddress(string(genesis.Extra[startPos:endPos])))
 		}
 
-		startTime := uint64(100) //(*uint64)(unsafe.Pointer(uintptr(time.Now().Unix())))
 		currentHeaderExtra = HeaderExtra{
 			CurrentBlockVotes:	[]TVote{},
 			SignersQueue: signersQueue,
-			LoopStartTime: startTime,
+			LoopStartTime: uint64(time.Now().Unix()) ,
 		}
 	}else{
 
