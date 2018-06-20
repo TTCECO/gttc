@@ -39,6 +39,8 @@ import (
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
 	lru "github.com/hashicorp/golang-lru"
+
+
 )
 
 const (
@@ -48,6 +50,10 @@ const (
 
 	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
 	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
+
+
+	UFOEventVote = "ufo_event:vote"
+	UFOEventVersion = "0.1"
 )
 
 
@@ -117,6 +123,20 @@ var (
 	// block reward is zero, so an empty block just bloats the chain... fast.
 	errWaitTransactions = errors.New("waiting for transactions")
 )
+
+type TVote struct {
+	Voter			common.Address
+	Candidate 		common.Address
+	Stake 			uint64
+
+}
+
+type HeaderExtra struct {
+	CurrentBlockVotes 	[]TVote
+	SignersQueue		[]common.Address
+	LoopStartTime		uint64
+
+}
 
 // SignerFn is a signer callback function to request a hash to be signed by a
 // backing account.
@@ -505,8 +525,6 @@ func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 	}
 	header.Extra = header.Extra[:extraVanity]
 
-	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
-
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
 
@@ -551,34 +569,51 @@ func (c *Alien) Authorize(signer common.Address, signFn SignerFn) {
 func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 
+	currentHeaderExtra := HeaderExtra{}
+	if header.Number.Uint64() == 1 {
+		// todo : CurrentBlockVotes is [] ,get SignersQueue from genesis.json, LoopStartTime is currentTime - config.period
+		genesis := chain.GetHeaderByNumber(0)
+		if err := c.VerifyHeader(chain, genesis, false); err != nil {
+			return nil, err
+		}
+		signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
+		var signersQueue []common.Address
+		for i := 0; i < len(signers); i++ {
+			startPos := extraVanity+i*common.AddressLength
+			endPos := extraVanity+(i+1)*common.AddressLength
+			signersQueue = append(signersQueue,common.HexToAddress(string(genesis.Extra[startPos:endPos])))
+		}
 
-	// BEGIN -------------------------
+		startTime := uint64(100) //(*uint64)(unsafe.Pointer(uintptr(time.Now().Unix())))
+		currentHeaderExtra = HeaderExtra{
+			CurrentBlockVotes:	[]TVote{},
+			SignersQueue: signersQueue,
+			LoopStartTime: startTime,
+		}
+	}else{
 
-	// 1. Load all headers from the begin of this epoch
+		lastHeader := chain.GetHeaderByNumber(header.Number.Uint64()-1)
+		lastHeaderExtra := HeaderExtra{}
+		rlp.DecodeBytes(lastHeader.Extra,&lastHeaderExtra)
+		currentHeaderExtra = HeaderExtra{
+			CurrentBlockVotes:	[]TVote{},
+			SignersQueue: lastHeaderExtra.SignersQueue,
+			LoopStartTime: lastHeaderExtra.LoopStartTime,
+		}
 
-	// 2. Get each voter.
+	}
 
-	// 3. Calculate vote count of each candidate
-
-	// 4. Check each Transaction of this block, is from/to a candidate or vote from candidate
-
-	// New Vote should like below
-	// > eth.sendTransaction({from:"0x.....",to:"0x......",value:0,data:web3.toHex("vote:v1")})
 	for _, tx := range block.Transactions(){
-		signer := types.NewEIP155Signer(tx.ChainId())
-		from, _ := types.Sender(signer, tx)
-		log.Info("From : ", "address", from.Hex())
-		log.Info("To : ", "address", tx.To().Hex())
-		log.Info("Data : ","msg", string(tx.Data()))
-		if string(tx.Data()) == "vote" {
 
+		if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
 			c.lock.RLock()
-			//var signerNew common.Address
-			//signerNew= *tx.To()
-			//header.Extra = append(header.Extra, signerNew[:]...)
-
-			c.proposals[*tx.To()] = true
-			// calculate the balance of from.address , as the vote count of from.address to to.address
+			signer := types.NewEIP155Signer(tx.ChainId())
+			voter , _ := types.Sender(signer, tx)
+			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, TVote{
+				Voter:voter,
+				Candidate:*tx.To(),
+				Stake: 10, // todo : get voter balance from current block
+			})
 
 			c.lock.RUnlock()
 		}else {
@@ -586,9 +621,13 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 
 		}
 	}
+	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
+	if err != nil {
+		return nil, err
+	}
 
-
-	// END -------------------------------
+	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
+	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
