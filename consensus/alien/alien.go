@@ -127,7 +127,7 @@ var (
 type TVote struct {
 	Voter			common.Address
 	Candidate 		common.Address
-	Stake 			uint64
+	Stake 			big.Int
 
 }
 
@@ -550,6 +550,12 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	// No uncle block
 	header.UncleHash = types.CalcUncleHash(nil)
 
+	//
+	err := c.calcuateVotes(chain, header, state, txs)
+	if err != nil{
+		return nil, err
+	}
+
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts), nil
 }
@@ -569,64 +575,7 @@ func (c *Alien) Authorize(signer common.Address, signFn SignerFn) {
 func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 
-	currentHeaderExtra := HeaderExtra{}
-	if header.Number.Uint64() == 1 {
-		// todo : CurrentBlockVotes is [] ,get SignersQueue from genesis.json, LoopStartTime is currentTime - config.period
-		genesis := chain.GetHeaderByNumber(0)
-		if err := c.VerifyHeader(chain, genesis, false); err != nil {
-			return nil, err
-		}
-		signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
-		var signersQueue []common.Address
-		for i := 0; i < len(signers); i++ {
-			startPos := extraVanity+i*common.AddressLength
-			endPos := extraVanity+(i+1)*common.AddressLength
-			signersQueue = append(signersQueue,common.HexToAddress(string(genesis.Extra[startPos:endPos])))
-		}
 
-		currentHeaderExtra = HeaderExtra{
-			CurrentBlockVotes:	[]TVote{},
-			SignersQueue: signersQueue,
-			LoopStartTime: uint64(time.Now().Unix()) ,
-		}
-	}else{
-
-		lastHeader := chain.GetHeaderByNumber(header.Number.Uint64()-1)
-		lastHeaderExtra := HeaderExtra{}
-		rlp.DecodeBytes(lastHeader.Extra,&lastHeaderExtra)
-		currentHeaderExtra = HeaderExtra{
-			CurrentBlockVotes:	[]TVote{},
-			SignersQueue: lastHeaderExtra.SignersQueue,
-			LoopStartTime: lastHeaderExtra.LoopStartTime,
-		}
-
-	}
-
-	for _, tx := range block.Transactions(){
-
-		if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
-			c.lock.RLock()
-			signer := types.NewEIP155Signer(tx.ChainId())
-			voter , _ := types.Sender(signer, tx)
-			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, TVote{
-				Voter:voter,
-				Candidate:*tx.To(),
-				Stake: 10, // todo : get voter balance from current block
-			})
-
-			c.lock.RUnlock()
-		}else {
-			// monitor all transaction related to voters to modify the vote count.
-
-		}
-	}
-	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
-	if err != nil {
-		return nil, err
-	}
-
-	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
-	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
@@ -728,4 +677,70 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	blockReward := new(big.Int).Rsh( FrontierBlockReward , uint(yearCount))
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, blockReward)
+}
+
+
+//
+func (c *Alien)calcuateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
+
+	currentHeaderExtra := HeaderExtra{}
+	if header.Number.Uint64() == 1 {
+		// todo : CurrentBlockVotes is [] ,get SignersQueue from genesis.json, LoopStartTime is currentTime - config.period
+		genesis := chain.GetHeaderByNumber(0)
+		if err := c.VerifyHeader(chain, genesis, false); err != nil {
+			return  err
+		}
+		signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
+		var signersQueue []common.Address
+		for i := 0; i < len(signers); i++ {
+			startPos := extraVanity+i*common.AddressLength
+			endPos := extraVanity+(i+1)*common.AddressLength
+			signersQueue = append(signersQueue,common.HexToAddress(string(genesis.Extra[startPos:endPos])))
+		}
+
+		currentHeaderExtra = HeaderExtra{
+			CurrentBlockVotes:	[]TVote{},
+			SignersQueue: signersQueue,
+			LoopStartTime: uint64(time.Now().Unix()) ,
+		}
+	}else{
+
+		lastHeader := chain.GetHeaderByNumber(header.Number.Uint64()-1)
+		lastHeaderExtra := HeaderExtra{}
+		rlp.DecodeBytes(lastHeader.Extra,&lastHeaderExtra)
+		currentHeaderExtra = HeaderExtra{
+			CurrentBlockVotes:	[]TVote{},
+			SignersQueue: lastHeaderExtra.SignersQueue,
+			LoopStartTime: lastHeaderExtra.LoopStartTime,
+		}
+
+	}
+
+	for _, tx := range txs{
+
+		if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
+			c.lock.RLock()
+			signer := types.NewEIP155Signer(tx.ChainId())
+			voter , _ := types.Sender(signer, tx)
+			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, TVote{
+				Voter:voter,
+				Candidate:*tx.To(),
+				Stake: *state.GetBalance(voter),
+			})
+
+			c.lock.RUnlock()
+			
+		}else {
+			// monitor all transaction related to voters to modify the vote count.
+
+		}
+	}
+	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
+	if err != nil {
+		return  err
+	}
+
+	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
+	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
+	return nil
 }
