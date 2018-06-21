@@ -551,7 +551,7 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	//
-	err := c.calcuateVotes(chain, header, state, txs)
+	err := c.calculateVotes(chain, header, state, txs)
 	if err != nil{
 		return nil, err
 	}
@@ -681,7 +681,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 
 
 //
-func (c *Alien)calcuateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
+func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
 
 	currentHeaderExtra := HeaderExtra{}
 	if header.Number.Uint64() == 1 {
