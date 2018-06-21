@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	checkpointInterval = 1024 // Number of blocks after which to save the vote snapshot to the database
+
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
 	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
@@ -59,6 +59,8 @@ const (
 
 // Alien delegated-proof-of-stake protocol constants.
 var (
+
+
 	FrontierBlockReward    *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
 
 	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
@@ -353,7 +355,15 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 	var (
 		headers []*types.Header
 		snap    *Snapshot
+		checkpointInterval  uint64 // Number of blocks after which to save the vote snapshot to the database
 	)
+
+	if c.config.Epoch > 2048{
+		checkpointInterval = 1024
+	}else{
+		checkpointInterval = c.config.Epoch / 2
+	}
+
 	for snap == nil {
 		// If an in-memory snapshot was found, use that
 		if s, ok := c.recents.Get(hash); ok {
@@ -377,10 +387,6 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			signers := c.config.SelfVoteSigners
 			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
 
-			//signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
-			//for i := 0; i < len(signers); i++ {
-			//	copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
-			//}
 			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
 			if err := snap.store(c.db); err != nil {
 				return nil, err
