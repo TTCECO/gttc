@@ -83,6 +83,7 @@ var (
 		Alien: &AlienConfig{
 			Period: 15,
 			Epoch:  30000,
+			MaxSignerCount: 21,
 			SelfVoteSigners: []common.Address{},
 		},
 	}
@@ -106,7 +107,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllAlienProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil,&AlienConfig{Period: 0, Epoch: 30000, SelfVoteSigners: []common.Address{}}}
+	AllAlienProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil,&AlienConfig{Period: 0, Epoch: 30000, MaxSignerCount:21, SelfVoteSigners: []common.Address{}}}
 
 
 
@@ -164,6 +165,7 @@ func (c *CliqueConfig) String() string {
 type AlienConfig struct {
 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+	MaxSignerCount uint64  `json:"maxsigners"`  // Max count of signers
 	SelfVoteSigners []common.Address `json:"signers"` // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
 }
 
