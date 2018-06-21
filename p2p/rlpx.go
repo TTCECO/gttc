@@ -55,7 +55,7 @@ const (
 	authMsgLen  = sigLen + shaLen + pubLen + shaLen + 1
 	authRespLen = pubLen + shaLen + 1
 
-	eciesOverhead = 65 /* pubkey */ + 16 /* IV */ + 32 /* MAC */
+	eciesOverhead = 65 + 16 + 32 /*  65 pubkey | 16 IV | 32 MAC */
 
 	encAuthMsgLen  = authMsgLen + eciesOverhead  // size of encrypted pre-EIP-8 initiator handshake
 	encAuthRespLen = authRespLen + eciesOverhead // size of encrypted pre-EIP-8 handshake reply
