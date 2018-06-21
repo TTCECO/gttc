@@ -374,10 +374,13 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			if err := c.VerifyHeader(chain, genesis, false); err != nil {
 				return nil, err
 			}
-			signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
-			for i := 0; i < len(signers); i++ {
-				copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
-			}
+			signers := c.config.SelfVoteSigners
+			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
+
+			//signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
+			//for i := 0; i < len(signers); i++ {
+			//	copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
+			//}
 			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
 			if err := snap.store(c.db); err != nil {
 				return nil, err

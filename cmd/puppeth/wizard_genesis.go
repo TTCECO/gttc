@@ -106,40 +106,39 @@ func (w *wizard) makeGenesis() {
 		genesis.Config.Alien = &params.AlienConfig{
 			Period: 15,
 			Epoch:  30000,
+			SelfVoteSigners: []common.Address{},
 		}
 		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 15)")
 		genesis.Config.Alien.Period = uint64(w.readDefaultInt(15))
 
+		fmt.Println()
+		fmt.Println("How many blocks create for one epoch? (default = 30000)")
+		genesis.Config.Alien.Epoch = uint64(w.readDefaultInt(30000))
+
 		// We also need the initial list of signers
 		fmt.Println()
-		fmt.Println("Which accounts are allowed to seal? (mandatory at least one)")
-
-		var signers []common.Address
+		fmt.Println("Which accounts are vote by themselves to seal the block?(least one, those accounts will be auto pre-funded)")
 		for {
 			if address := w.readAddress(); address != nil {
-				signers = append(signers, *address)
+				genesis.Config.Alien.SelfVoteSigners = append(genesis.Config.Alien.SelfVoteSigners, *address)
+				genesis.Alloc[*address] = core.GenesisAccount{
+					Balance: new(big.Int).Lsh(big.NewInt(1), 256-7), // 2^256 / 128 (allow many pre-funds without balance overflows)
+				}
 				continue
 			}
-			if len(signers) > 0 {
+			if len(genesis.Config.Alien.SelfVoteSigners) > 0 {
 				break
 			}
 		}
-		// Sort the signers and embed into the extra-data section
-		for i := 0; i < len(signers); i++ {
-			for j := i + 1; j < len(signers); j++ {
-				if bytes.Compare(signers[i][:], signers[j][:]) > 0 {
-					signers[i], signers[j] = signers[j], signers[i]
-				}
-			}
-		}
-		genesis.ExtraData = make([]byte, 32+len(signers)*common.AddressLength+65)
-		for i, signer := range signers {
-			copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
-		}
+
+		genesis.ExtraData = make([]byte, 32 + 65)
+
 	default:
 		log.Crit("Invalid consensus engine choice", "choice", choice)
 	}
+
+
 	// Consensus all set, just ask for initial funds and go
 	fmt.Println()
 	fmt.Println("Which accounts should be pre-funded? (advisable at least one)")
