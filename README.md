@@ -69,16 +69,20 @@ Which consensus engine to use? (default = alien)
 > 3
 
 How many seconds should blocks take? (default = 15)
+> 4
+
+How many blocks create for one epoch? (default = 30000)
+> 30
+
+What is the max number of signers? (default = 21)
 > 3
 
-Which accounts are allowed to seal? (mandatory at least one)
+Which accounts are vote by themselves to seal the block?(least one, those accounts will be auto pre-funded)
 > 0xfa846876ef5ed3826e483303f42d987a66af8e15
 > 0x62739566c666df9a057d7e7c92898511d4e64c07
 > 0x
 
 Which accounts should be pre-funded? (advisable at least one)
-> 0xfa846876ef5ed3826e483303f42d987a66af8e15
-> 0x62739566c666df9a057d7e7c92898511d4e64c07
 > 0x
 
 Specify your chain/network ID if you want an explicit one (default = random)
