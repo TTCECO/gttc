@@ -48,7 +48,7 @@ const (
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
 	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
-	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
+	wiggleTime = 3000 * time.Millisecond // Random delay (per signer) to allow concurrent signers
 	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
 
 
@@ -340,7 +340,7 @@ func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 		return ErrInvalidTimestamp
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	_ , err := c.snapshot(chain, number-1, header.ParentHash, parents)
+	_ , err := c.snapshot(chain, number-1, header.ParentHash, parents, nil)
 	if err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header) (*Snapshot, error) {
+func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, tvotes []*TVote) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -362,6 +362,9 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 		checkpointInterval = 1024
 	}else{
 		checkpointInterval = c.config.Epoch / 2
+		if checkpointInterval < 2 {
+			checkpointInterval = 2
+		}
 	}
 
 	for snap == nil {
@@ -387,7 +390,7 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			signers := c.config.SelfVoteSigners
 			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
 
-			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
+			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers, tvotes, uint64(time.Now().Unix()))
 			if err := snap.store(c.db); err != nil {
 				return nil, err
 			}
@@ -459,7 +462,7 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return errUnknownBlock
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents, nil)
 	if err != nil {
 		return err
 	}
@@ -469,19 +472,13 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	if err != nil {
 		return err
 	}
-	if _, ok := snap.Signers[signer]; !ok {
+
+	if !snap.inturn(signer, snap.LoopStartTime,snap.HeaderTime){
 		return errUnauthorized
 	}
-	for seen, recent := range snap.Recents {
-		if recent == signer {
-			// Signer is among recents, only fail if the current block doesn't shift it out
-			if limit := uint64(len(snap.Signers)/2 + 1); seen > number-limit {
-				return errUnauthorized
-			}
-		}
-	}
+
 	// Ensure that the difficulty corresponds to the turn-ness of the signer
-	inturn := snap.inturn(header.Number.Uint64(), signer)
+	inturn := snap.inturn(signer, snap.LoopStartTime, snap.HeaderTime)
 	if inturn && header.Difficulty.Cmp(diffInTurn) != 0 {
 		return errInvalidDifficulty
 	}
@@ -494,15 +491,38 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
+
+	return nil
+}
+
+// Finalize implements consensus.Engine, ensuring no uncles are set, nor block
+// rewards given, and returns the final block.
+func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+
 	// If the block isn't a checkpoint, cast a random vote (good enough for now)
 	header.Coinbase = common.Address{}
 	header.Nonce = types.BlockNonce{}
 
 	number := header.Number.Uint64()
+
+	var tvotes []*TVote
+	if number == 1{
+		for _, voter := range c.config.SelfVoteSigners {
+			tvotes = append(tvotes, &TVote{
+				Voter: voter,
+				Candidate: voter,
+				Stake: *state.GetBalance(voter),
+
+			})
+
+		}
+
+	}
+
 	// Assemble the voting snapshot to check which votes make sense
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, tvotes)
 	if err != nil {
-		return err
+		return nil,err
 	}
 
 	c.lock.RLock()
@@ -540,18 +560,18 @@ func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 	// Ensure the timestamp has the correct delay
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
-		return consensus.ErrUnknownAncestor
+		return nil,consensus.ErrUnknownAncestor
 	}
 	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(c.config.Period))
 	if header.Time.Int64() < time.Now().Unix() {
 		header.Time = big.NewInt(time.Now().Unix())
 	}
-	return nil
-}
 
-// Finalize implements consensus.Engine, ensuring no uncles are set, nor block
-// rewards given, and returns the final block.
-func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+
+
+
+
+
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)
 
@@ -560,7 +580,7 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	//
-	err := c.calculateVotes(chain, header, state, txs)
+	err = c.calculateVotes(chain, header, state, txs)
 	if err != nil{
 		return nil, err
 	}
@@ -601,24 +621,16 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	c.lock.RUnlock()
 
 	// Bail out if we're unauthorized to sign a block
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if _, authorized := snap.Signers[signer]; !authorized {
+	log.Info("@@@@@@@@@@@@","loop",snap.LoopStartTime)
+	log.Info("###########","headtime" ,header.Time.Uint64())
+	if !snap.inturn(signer,snap.LoopStartTime,header.Time.Uint64()){
 		return nil, errUnauthorized
 	}
-	// If we're amongst the recent signers, wait for the next block
-	for seen, recent := range snap.Recents {
-		if recent == signer {
-			// Signer is among recents, only wait if the current block doesn't shift it out
-			if limit := uint64(len(snap.Signers)/2 + 1); number < limit || seen > number-limit {
-				log.Info("Signed recently, must wait for others")
-				<-stop
-				return nil, nil
-			}
-		}
-	}
+
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
@@ -649,7 +661,8 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func (c *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil)
+
+	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil, nil)
 	if err != nil {
 		return nil
 	}
@@ -660,7 +673,7 @@ func (c *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent 
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
 func CalcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
-	if snap.inturn(snap.Number+1, signer) {
+	if snap.inturn(signer,snap.LoopStartTime,snap.HeaderTime) {
 		return new(big.Int).Set(diffInTurn)
 	}
 	return new(big.Int).Set(diffNoTurn)
@@ -723,6 +736,11 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 			LoopStartTime: lastHeaderExtra.LoopStartTime,
 		}
 
+	}
+
+	if header.Number.Uint64() % c.config.MaxSignerCount == 0{
+
+		currentHeaderExtra.LoopStartTime = uint64(time.Now().Unix())
 	}
 
 	for _, tx := range txs{

@@ -17,7 +17,6 @@
 package alien
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/TTCECO/gttc/common"
@@ -25,6 +24,10 @@ import (
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
 	lru "github.com/hashicorp/golang-lru"
+
+	"github.com/TTCECO/gttc/rlp"
+	"math/big"
+
 )
 
 // Vote represents a single vote that an authorized signer made to modify the
@@ -54,12 +57,21 @@ type Snapshot struct {
 	Recents map[uint64]common.Address   `json:"recents"` // Set of signers for this loop
 	Votes   []*Vote                     `json:"votes"`   // List of votes cast in chronological order
 	Tally   map[common.Address]Tally    `json:"tally"`   // Current vote tally to avoid recalculating
+
+	////////////////
+	XXXSigners map[int] common.Address 		`json:"xxxsigners"`
+	XXXVotes []*TVote						`json:"xxxvotes"`
+	XXXTally map[common.Address] *big.Int	`json:"xxxtally"`
+
+	HeaderTime uint64		`json:"headerTime"`
+	LoopStartTime uint64  	`json:"loopStartTime"`
+
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. This
 // method does not initialize the set of recent signers, so only ever use if for
 // the genesis block.
-func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint64, hash common.Hash, signers []common.Address) *Snapshot {
+func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint64, hash common.Hash, signers []common.Address, tvotes []*TVote, headerTime uint64) *Snapshot {
 	snap := &Snapshot{
 		config:   config,
 		sigcache: sigcache,
@@ -68,10 +80,49 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 		Signers:  make(map[common.Address]struct{}),
 		Recents:  make(map[uint64]common.Address),
 		Tally:    make(map[common.Address]Tally),
+
+		XXXSigners:make(map[int] common.Address),
+		XXXVotes: tvotes,
+		XXXTally: make(map[common.Address] *big.Int),
+		HeaderTime:headerTime,
+		LoopStartTime:headerTime,
+
 	}
 	for _, signer := range signers {
 		snap.Signers[signer] = struct{}{}
+
+
 	}
+
+
+	for _, vote := range tvotes {
+		_, ok := snap.XXXTally[vote.Candidate]
+		if !ok{
+			snap.XXXTally[vote.Candidate] = big.NewInt(0)
+		}
+
+		snap.XXXTally[vote.Candidate].Add(snap.XXXTally[vote.Candidate], &vote.Stake)
+
+	}
+
+
+	fill_loop := false
+	for tmp_index := 0; tmp_index < int(config.MaxSignerCount); {
+		for  candidate, _ := range snap.XXXTally{
+
+			snap.XXXSigners[tmp_index] = candidate
+			tmp_index += 1
+			if tmp_index == int(config.MaxSignerCount) {
+				fill_loop = true
+			}
+
+		}
+		if fill_loop == true {
+			break
+		}
+	}
+
+
 	return snap
 }
 
@@ -111,6 +162,15 @@ func (s *Snapshot) copy() *Snapshot {
 		Recents:  make(map[uint64]common.Address),
 		Votes:    make([]*Vote, len(s.Votes)),
 		Tally:    make(map[common.Address]Tally),
+
+
+		XXXSigners:make(map[int] common.Address),
+		XXXVotes: make([]*TVote, len(s.XXXVotes)),
+		XXXTally: make(map[common.Address] *big.Int),
+
+		HeaderTime:s.HeaderTime,
+		LoopStartTime:s.LoopStartTime,
+
 	}
 	for signer := range s.Signers {
 		cpy.Signers[signer] = struct{}{}
@@ -123,6 +183,15 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 	copy(cpy.Votes, s.Votes)
 
+
+	for index := range s.XXXSigners {
+		cpy.XXXSigners[index] = s.XXXSigners[index]
+	}
+	copy(cpy.XXXVotes, s.XXXVotes)
+
+	for address, tally := range s.XXXTally {
+		cpy.XXXTally[address] = tally
+	}
 	return cpy
 }
 
@@ -146,6 +215,16 @@ func (s *Snapshot) cast(address common.Address, authorize bool) bool {
 	} else {
 		s.Tally[address] = Tally{Authorize: authorize, Votes: 1}
 	}
+	return true
+}
+
+
+
+// cast adds a new vote into the tally.
+func (s *Snapshot) xxxcast(candidate common.Address, stake big.Int) bool {
+
+	s.XXXTally[candidate].Add(s.XXXTally[candidate], &stake)
+
 	return true
 }
 
@@ -192,87 +271,66 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	for _, header := range headers {
 		number := header.Number.Uint64()
 
-		// Delete the oldest signer from the recent list to allow it signing again
-		if limit := uint64(len(snap.Signers)/2 + 1); number >= limit {
-			delete(snap.Recents, number-limit)
-		}
 		// Resolve the authorization key and check against signers
 		signer, err := ecrecover(header, s.sigcache)
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := snap.Signers[signer]; !ok {
+
+
+
+		headerExtra := HeaderExtra{}
+		rlp.DecodeBytes(header.Extra,&headerExtra)
+
+		// todo : from the timestamp in header calculate the index of signer address
+		loop_index := int((header.Time.Uint64() - headerExtra.LoopStartTime) /  s.config.Period)
+		if loop_signer, ok := snap.XXXSigners[loop_index]; !ok {
+
 			return nil, errUnauthorized
-		}
-		for _, recent := range snap.Recents {
-			if recent == signer {
+		}else{
+			// todo : check if this signer should seal this block by timestamp in header
+			if loop_signer != signer{
 				return nil, errUnauthorized
 			}
+
 		}
-		snap.Recents[number] = signer
 
-		// Header authorized, discard any previous votes from the signer
-		for i, vote := range snap.Votes {
-			if vote.Signer == signer && vote.Address == header.Coinbase {
-				// Uncast the vote from the cached tally
-				snap.uncast(vote.Address, vote.Authorize)
 
-				// Uncast the vote from the chronological list
-				snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
-				break // only one vote allowed
+		for _,tvote := range headerExtra.CurrentBlockVotes{
+			if snap.xxxcast(tvote.Candidate,tvote.Stake) {
+
+				snap.XXXVotes = append(snap.XXXVotes, &TVote{
+					Voter:tvote.Voter,
+					Candidate:tvote.Candidate,
+					Stake:tvote.Stake,
+				})
 			}
-		}
-		// Tally up the new vote from the signer
-		var authorize bool
-		switch {
-		case bytes.Equal(header.Nonce[:], nonceAuthVote):
-			authorize = true
-		case bytes.Equal(header.Nonce[:], nonceDropVote):
-			authorize = false
-		default:
-			return nil, errInvalidVote
-		}
-		if snap.cast(header.Coinbase, authorize) {
-			snap.Votes = append(snap.Votes, &Vote{
-				Signer:    signer,
-				Block:     number,
-				Address:   header.Coinbase,
-				Authorize: authorize,
-			})
-		}
-		// If the vote passed, update the list of signers
-		if tally := snap.Tally[header.Coinbase]; tally.Votes > len(snap.Signers)/2 {
-			if tally.Authorize {
-				snap.Signers[header.Coinbase] = struct{}{}
-			} else {
-				delete(snap.Signers, header.Coinbase)
 
-				// Signer list shrunk, delete any leftover recent caches
-				if limit := uint64(len(snap.Signers)/2 + 1); number >= limit {
-					delete(snap.Recents, number-limit)
-				}
-				// Discard any previous votes the deauthorized signer cast
-				for i := 0; i < len(snap.Votes); i++ {
-					if snap.Votes[i].Signer == header.Coinbase {
-						// Uncast the vote from the cached tally
-						snap.uncast(snap.Votes[i].Address, snap.Votes[i].Authorize)
+		}
 
-						// Uncast the vote from the chronological list
-						snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
+		if number % s.config.MaxSignerCount == 0{
+			// change the signers and random the
 
-						i--
+			fill_loop := false
+			for tmp_index := 0; tmp_index < int(s.config.MaxSignerCount); {
+				for  candidate, _ := range s.XXXTally{
+
+					s.XXXSigners[tmp_index] = candidate
+					tmp_index += 1
+					if tmp_index == int(s.config.MaxSignerCount) {
+						fill_loop = true
 					}
+
+				}
+				if fill_loop == true {
+					break
 				}
 			}
-			// Discard any previous votes around the just changed account
-			for i := 0; i < len(snap.Votes); i++ {
-				if snap.Votes[i].Address == header.Coinbase {
-					snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
-					i--
-				}
-			}
-			delete(snap.Tally, header.Coinbase)
+
+
 		}
+
+
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
@@ -282,25 +340,35 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 // signers retrieves the list of authorized signers in ascending order.
 func (s *Snapshot) signers() []common.Address {
-	signers := make([]common.Address, 0, len(s.Signers))
-	for signer := range s.Signers {
-		signers = append(signers, signer)
+	signersMap := make(map[common.Address]struct{})
+
+	for index, _ :=range s.XXXSigners{
+		signersMap[s.XXXSigners[index]] = struct{}{}
 	}
-	for i := 0; i < len(signers); i++ {
-		for j := i + 1; j < len(signers); j++ {
-			if bytes.Compare(signers[i][:], signers[j][:]) > 0 {
-				signers[i], signers[j] = signers[j], signers[i]
-			}
-		}
+
+	var signers []common.Address
+	for signer, _:= range signersMap {
+		signers = append(signers,signer)
 	}
+
 	return signers
 }
 
 // inturn returns if a signer at a given block height is in-turn or not.
-func (s *Snapshot) inturn(number uint64, signer common.Address) bool {
-	signers, offset := s.signers(), 0
-	for offset < len(signers) && signers[offset] != signer {
-		offset++
+func (s *Snapshot) inturn(signer common.Address, loopStartTime uint64, headerTime uint64) bool {
+
+
+	loop_index := int((headerTime- loopStartTime) /  s.config.Period)
+	if loop_signer, ok := s.XXXSigners[loop_index]; !ok {
+		return false
+	}else{
+
+		// todo : check if this signer should seal this block by timestamp in header
+		if loop_signer != signer{
+			return false
+		}
 	}
-	return (number % uint64(len(signers))) == uint64(offset)
+
+	return true
+
 }
