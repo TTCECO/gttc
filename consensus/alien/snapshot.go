@@ -53,10 +53,6 @@ type Snapshot struct {
 
 	Number  uint64                      `json:"number"`  // Block number where the snapshot was created
 	Hash    common.Hash                 `json:"hash"`    // Block hash where the snapshot was created
-	Signers map[common.Address]struct{} `json:"signers"` // Set of authorized signers at this moment
-	Recents map[uint64]common.Address   `json:"recents"` // Set of signers for this loop
-	Votes   []*Vote                     `json:"votes"`   // List of votes cast in chronological order
-	Tally   map[common.Address]Tally    `json:"tally"`   // Current vote tally to avoid recalculating
 
 	////////////////
 	XXXSigners map[int] common.Address 		`json:"xxxsigners"`
@@ -77,9 +73,6 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 		sigcache: sigcache,
 		Number:   number,
 		Hash:     hash,
-		Signers:  make(map[common.Address]struct{}),
-		Recents:  make(map[uint64]common.Address),
-		Tally:    make(map[common.Address]Tally),
 
 		XXXSigners:make(map[int] common.Address),
 		XXXVotes: tvotes,
@@ -88,12 +81,6 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 		LoopStartTime:headerTime,
 
 	}
-	for _, signer := range signers {
-		snap.Signers[signer] = struct{}{}
-
-
-	}
-
 
 	for _, vote := range tvotes {
 		_, ok := snap.XXXTally[vote.Candidate]
@@ -107,12 +94,12 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 
 
 	fill_loop := false
-	for tmp_index := 0; tmp_index < int(config.MaxSignerCount); {
+	for tmp_index := 0; tmp_index < int(config.MaxSignerCount) ; {
 		for  candidate, _ := range snap.XXXTally{
 
 			snap.XXXSigners[tmp_index] = candidate
 			tmp_index += 1
-			if tmp_index == int(config.MaxSignerCount) {
+			if tmp_index == int(config.MaxSignerCount)  {
 				fill_loop = true
 			}
 
@@ -158,10 +145,6 @@ func (s *Snapshot) copy() *Snapshot {
 		sigcache: s.sigcache,
 		Number:   s.Number,
 		Hash:     s.Hash,
-		Signers:  make(map[common.Address]struct{}),
-		Recents:  make(map[uint64]common.Address),
-		Votes:    make([]*Vote, len(s.Votes)),
-		Tally:    make(map[common.Address]Tally),
 
 
 		XXXSigners:make(map[int] common.Address),
@@ -172,17 +155,6 @@ func (s *Snapshot) copy() *Snapshot {
 		LoopStartTime:s.LoopStartTime,
 
 	}
-	for signer := range s.Signers {
-		cpy.Signers[signer] = struct{}{}
-	}
-	for block, signer := range s.Recents {
-		cpy.Recents[block] = signer
-	}
-	for address, tally := range s.Tally {
-		cpy.Tally[address] = tally
-	}
-	copy(cpy.Votes, s.Votes)
-
 
 	for index := range s.XXXSigners {
 		cpy.XXXSigners[index] = s.XXXSigners[index]
@@ -198,25 +170,9 @@ func (s *Snapshot) copy() *Snapshot {
 // validVote returns whether it makes sense to cast the specified vote in the
 // given snapshot context (e.g. don't try to add an already authorized signer).
 func (s *Snapshot) validVote(address common.Address, authorize bool) bool {
-	_, signer := s.Signers[address]
-	return (signer && !authorize) || (!signer && authorize)
-}
-
-// cast adds a new vote into the tally.
-func (s *Snapshot) cast(address common.Address, authorize bool) bool {
-	// Ensure the vote is meaningful
-	if !s.validVote(address, authorize) {
-		return false
-	}
-	// Cast the vote into an existing or new tally
-	if old, ok := s.Tally[address]; ok {
-		old.Votes++
-		s.Tally[address] = old
-	} else {
-		s.Tally[address] = Tally{Authorize: authorize, Votes: 1}
-	}
 	return true
 }
+
 
 
 
@@ -228,26 +184,6 @@ func (s *Snapshot) xxxcast(candidate common.Address, stake big.Int) bool {
 	return true
 }
 
-// uncast removes a previously cast vote from the tally.
-func (s *Snapshot) uncast(address common.Address, authorize bool) bool {
-	// If there's no tally, it's a dangling vote, just drop
-	tally, ok := s.Tally[address]
-	if !ok {
-		return false
-	}
-	// Ensure we only revert counted votes
-	if tally.Authorize != authorize {
-		return false
-	}
-	// Otherwise revert the vote
-	if tally.Votes > 1 {
-		tally.Votes--
-		s.Tally[address] = tally
-	} else {
-		delete(s.Tally, address)
-	}
-	return true
-}
 
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
@@ -277,7 +213,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			return nil, err
 		}
 
-
+		snap.HeaderTime = header.Time.Uint64()
 
 		headerExtra := HeaderExtra{}
 		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
@@ -309,15 +245,17 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 
 		if number % s.config.MaxSignerCount == 0{
+
+			snap.LoopStartTime = snap.HeaderTime
 			// change the signers and random the
 
 			fill_loop := false
-			for tmp_index := 0; tmp_index < int(s.config.MaxSignerCount); {
+			for tmp_index := 0; tmp_index < int(s.config.MaxSignerCount) ; {
 				for  candidate, _ := range s.XXXTally{
 
 					s.XXXSigners[tmp_index] = candidate
 					tmp_index += 1
-					if tmp_index == int(s.config.MaxSignerCount) {
+					if tmp_index == int(s.config.MaxSignerCount)  {
 						fill_loop = true
 					}
 
@@ -326,11 +264,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 					break
 				}
 			}
-
-
 		}
-
-
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
@@ -356,7 +290,6 @@ func (s *Snapshot) signers() []common.Address {
 
 // inturn returns if a signer at a given block height is in-turn or not.
 func (s *Snapshot) inturn(signer common.Address, loopStartTime uint64, headerTime uint64) bool {
-
 
 	loop_index := int((headerTime- loopStartTime) /  s.config.Period)
 	if loop_signer, ok := s.XXXSigners[loop_index]; !ok {

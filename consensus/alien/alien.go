@@ -473,6 +473,10 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	if !snap.inturn(signer, snap.LoopStartTime,snap.HeaderTime){
+
+		log.Info("RRRRRRRR","signer", signer.Hex())
+		log.Info("########","loopstarttime", snap.LoopStartTime)
+		log.Info("###$$$$$$", "headertime", snap.HeaderTime)
 		return errUnauthorized
 	}
 
@@ -546,10 +550,6 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 
-
-
-
-
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)
 
@@ -603,7 +603,8 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	if err != nil {
 		return nil, err
 	}
-	if !snap.inturn(signer,snap.LoopStartTime,header.Time.Uint64()){
+	//if !snap.inturn(signer,snap.LoopStartTime,snap.HeaderTime){
+	if !snap.inturn(signer, snap.LoopStartTime, header.Time.Uint64()){
 		<-stop
 		return nil, nil
 		}
@@ -612,7 +613,7 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
+		wiggle := time.Duration(1) * wiggleTime
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
