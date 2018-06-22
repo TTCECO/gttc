@@ -48,7 +48,7 @@ const (
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
 	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
-	wiggleTime = 3000 * time.Millisecond // Random delay (per signer) to allow concurrent signers
+	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
 	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
 
 
@@ -135,7 +135,6 @@ type TVote struct {
 
 type HeaderExtra struct {
 	CurrentBlockVotes 	[]TVote
-	SignersQueue		[]common.Address
 	LoopStartTime		uint64
 
 }
@@ -505,6 +504,12 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	number := header.Number.Uint64()
 
+	// Ensure the extra data has all it's components
+	if len(header.Extra) < extraVanity {
+		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
+	}
+	header.Extra = header.Extra[:extraVanity]
+
 	var tvotes []*TVote
 	if number == 1{
 		for _, voter := range c.config.SelfVoteSigners {
@@ -512,11 +517,8 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 				Voter: voter,
 				Candidate: voter,
 				Stake: *state.GetBalance(voter),
-
 			})
-
 		}
-
 	}
 
 	// Assemble the voting snapshot to check which votes make sense
@@ -525,34 +527,10 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		return nil,err
 	}
 
-	c.lock.RLock()
-
-	// Gather all the proposals that make sense voting on
-	addresses := make([]common.Address, 0, len(c.proposals))
-	for address, authorize := range c.proposals {
-		if snap.validVote(address, authorize) {
-			addresses = append(addresses, address)
-		}
-	}
-	// If there's pending proposals, cast a vote on them
-	if len(addresses) > 0 {
-		header.Coinbase = addresses[rand.Intn(len(addresses))]
-		if c.proposals[header.Coinbase] {
-			copy(header.Nonce[:], nonceAuthVote)
-		} else {
-			copy(header.Nonce[:], nonceDropVote)
-		}
-	}
-	c.lock.RUnlock()
-
 	// Set the correct difficulty
 	header.Difficulty = CalcDifficulty(snap, c.signer)
 
-	// Ensure the extra data has all it's components
-	if len(header.Extra) < extraVanity {
-		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
-	}
-	header.Extra = header.Extra[:extraVanity]
+
 
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
@@ -625,11 +603,10 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	if err != nil {
 		return nil, err
 	}
-	log.Info("@@@@@@@@@@@@","loop",snap.LoopStartTime)
-	log.Info("###########","headtime" ,header.Time.Uint64())
 	if !snap.inturn(signer,snap.LoopStartTime,header.Time.Uint64()){
-		return nil, errUnauthorized
-	}
+		<-stop
+		return nil, nil
+		}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
@@ -712,27 +689,18 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 		if err := c.VerifyHeader(chain, genesis, false); err != nil {
 			return  err
 		}
-		signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
-		var signersQueue []common.Address
-		for i := 0; i < len(signers); i++ {
-			startPos := extraVanity+i*common.AddressLength
-			endPos := extraVanity+(i+1)*common.AddressLength
-			signersQueue = append(signersQueue,common.HexToAddress(string(genesis.Extra[startPos:endPos])))
-		}
 
 		currentHeaderExtra = HeaderExtra{
 			CurrentBlockVotes:	[]TVote{},
-			SignersQueue: signersQueue,
 			LoopStartTime: uint64(time.Now().Unix()) ,
 		}
 	}else{
 
 		lastHeader := chain.GetHeaderByNumber(header.Number.Uint64()-1)
 		lastHeaderExtra := HeaderExtra{}
-		rlp.DecodeBytes(lastHeader.Extra,&lastHeaderExtra)
+		rlp.DecodeBytes(lastHeader.Extra[extraVanity:len(lastHeader.Extra)-extraSeal],&lastHeaderExtra)
 		currentHeaderExtra = HeaderExtra{
 			CurrentBlockVotes:	[]TVote{},
-			SignersQueue: lastHeaderExtra.SignersQueue,
 			LoopStartTime: lastHeaderExtra.LoopStartTime,
 		}
 

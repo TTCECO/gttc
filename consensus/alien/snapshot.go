@@ -280,7 +280,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 
 		headerExtra := HeaderExtra{}
-		rlp.DecodeBytes(header.Extra,&headerExtra)
+		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
 
 		// todo : from the timestamp in header calculate the index of signer address
 		loop_index := int((header.Time.Uint64() - headerExtra.LoopStartTime) /  s.config.Period)
