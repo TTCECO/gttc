@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -38,7 +37,7 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
 
 
 )
@@ -607,10 +606,11 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	if !snap.inturn(signer, snap.LoopStartTime, header.Time.Uint64()){
 		<-stop
 		return nil, nil
-		}
+	}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
+	/*
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
 		wiggle := time.Duration(1) * wiggleTime
@@ -619,7 +619,7 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
 	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
-
+	*/
 	select {
 	case <-stop:
 		return nil, nil

@@ -83,8 +83,9 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 
 			snap.Signers[tmp_index] = candidate
 			tmp_index += 1
-			if tmp_index == int(config.MaxSignerCount)  {
+			if tmp_index == int(config.MaxSignerCount) {
 				fill_loop = true
+				break
 			}
 
 		}
@@ -239,8 +240,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 					s.Signers[tmp_index] = candidate
 					tmp_index += 1
-					if tmp_index == int(s.config.MaxSignerCount)  {
+					if tmp_index == int(s.config.MaxSignerCount) {
 						fill_loop = true
+						break
 					}
 
 				}
