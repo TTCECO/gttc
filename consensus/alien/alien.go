@@ -126,7 +126,7 @@ var (
 	errWaitTransactions = errors.New("waiting for transactions")
 )
 
-type TVote struct {
+type Vote struct {
 	Voter			common.Address
 	Candidate 		common.Address
 	Stake 			big.Int
@@ -134,7 +134,7 @@ type TVote struct {
 }
 
 type HeaderExtra struct {
-	CurrentBlockVotes 	[]TVote
+	CurrentBlockVotes 	[]Vote
 	LoopStartTime		uint64
 
 }
@@ -349,7 +349,7 @@ func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, tvotes []*TVote) (*Snapshot, error) {
+func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, votes []*Vote) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -389,7 +389,7 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			signers := c.config.SelfVoteSigners
 			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
 
-			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers, tvotes, uint64(time.Now().Unix()))
+			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers, votes, uint64(time.Now().Unix()))
 			if err := snap.store(c.db); err != nil {
 				return nil, err
 			}
@@ -514,10 +514,10 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 	header.Extra = header.Extra[:extraVanity]
 
-	var tvotes []*TVote
+	var votes []*Vote
 	if number == 1{
 		for _, voter := range c.config.SelfVoteSigners {
-			tvotes = append(tvotes, &TVote{
+			votes = append(votes, &Vote{
 				Voter: voter,
 				Candidate: voter,
 				Stake: *state.GetBalance(voter),
@@ -526,7 +526,7 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 	// Assemble the voting snapshot to check which votes make sense
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, tvotes)
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, votes)
 	if err != nil {
 		return nil,err
 	}
@@ -692,7 +692,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 		}
 
 		currentHeaderExtra = HeaderExtra{
-			CurrentBlockVotes:	[]TVote{},
+			CurrentBlockVotes:	[]Vote{},
 			LoopStartTime: uint64(time.Now().Unix()) ,
 		}
 	}else{
@@ -701,7 +701,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 		lastHeaderExtra := HeaderExtra{}
 		rlp.DecodeBytes(lastHeader.Extra[extraVanity:len(lastHeader.Extra)-extraSeal],&lastHeaderExtra)
 		currentHeaderExtra = HeaderExtra{
-			CurrentBlockVotes:	[]TVote{},
+			CurrentBlockVotes:	[]Vote{},
 			LoopStartTime: lastHeaderExtra.LoopStartTime,
 		}
 
@@ -718,7 +718,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 			c.lock.RLock()
 			signer := types.NewEIP155Signer(tx.ChainId())
 			voter , _ := types.Sender(signer, tx)
-			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, TVote{
+			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, Vote{
 				Voter:voter,
 				Candidate:*tx.To(),
 				Stake: *state.GetBalance(voter),
