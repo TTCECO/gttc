@@ -138,22 +138,6 @@ web3._extend({
 			call: 'alien_getSignersAtHash',
 			params: 1
 		}),
-		new web3._extend.Method({
-			name: 'propose',
-			call: 'alien_propose',
-			params: 2
-		}),
-		new web3._extend.Method({
-			name: 'discard',
-			call: 'alien_discard',
-			params: 1
-		}),
-	],
-	properties: [
-		new web3._extend.Property({
-			name: 'proposals',
-			getter: 'alien_proposals'
-		}),
 	]
 });
 `
