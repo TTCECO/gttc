@@ -595,9 +595,17 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 
 	if !snap.isSigner(signer){
 		<-stop
-		return nil, nil
+		return nil, errUnauthorized
 	}
 
+
+	// If we're amongst the recent signers, wait for the next block
+	if !snap.inturn(signer,snap.LoopStartTime,snap.HeaderTime){
+		log.Info("Not inturn, must wait for others")
+		<-stop
+		return nil, nil
+	}
+	
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
 
