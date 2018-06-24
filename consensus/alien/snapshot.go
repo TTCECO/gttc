@@ -38,12 +38,12 @@ type Snapshot struct {
 	Number  uint64                      `json:"number"`  // Block number where the snapshot was created
 	Hash    common.Hash                 `json:"hash"`    // Block hash where the snapshot was created
 
-	Signers map[int] common.Address 		`json:"signers"`
-	Votes []*Vote						`json:"votes"`
-	Tally map[common.Address] *big.Int	`json:"tally"`
+	Signers map[int] common.Address 	`json:"signers"`	// Signers queue in this loop
+	Votes []*Vote						`json:"votes"`		// All validate votes from genesis block
+	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each address
 
-	HeaderTime uint64		`json:"headerTime"`
-	LoopStartTime uint64  	`json:"loopStartTime"`
+	HeaderTime uint64		`json:"headerTime"`				// Time of the current header
+	LoopStartTime uint64  	`json:"loopStartTime"`			// Start Time of the current loop
 
 }
 
@@ -70,11 +70,19 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 		if !ok{
 			snap.Tally[vote.Candidate] = big.NewInt(0)
 		}
-
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], &vote.Stake)
-
 	}
 
+	err := createSignerQueue(snap,config)
+	if err != nil {
+		//
+	}
+
+	return snap
+}
+
+
+func createSignerQueue(snap *Snapshot, config *params.AlienConfig) error {
 
 	fill_loop := false
 	for tmp_index := 0; tmp_index < int(config.MaxSignerCount) ; {
@@ -92,9 +100,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, number uint
 			break
 		}
 	}
-
-
-	return snap
+	return nil
 }
 
 // loadSnapshot loads an existing snapshot from the database.
@@ -234,22 +240,13 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 		if number % s.config.MaxSignerCount == 0{
 			snap.LoopStartTime = snap.HeaderTime
-			fill_loop := false
-			for tmp_index := 0; tmp_index < int(s.config.MaxSignerCount) ; {
-				for  candidate, _ := range s.Tally{
+			createSignerQueue(snap, s.config)
 
-					s.Signers[tmp_index] = candidate
-					tmp_index += 1
-					if tmp_index == int(s.config.MaxSignerCount) {
-						fill_loop = true
-						break
-					}
+		}
 
-				}
-				if fill_loop == true {
-					break
-				}
-			}
+
+		if number == 1 {
+			snap.LoopStartTime = headerExtra.LoopStartTime
 		}
 	}
 	snap.Number += uint64(len(headers))
