@@ -473,13 +473,11 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	if !snap.inturn(signer, snap.LoopStartTime,snap.HeaderTime){
-		log.Info("AAAAAAAAA","signer", signer.Hex())
-		log.Info("AAAAAAAAA","loop start time", snap.LoopStartTime)
-		log.Info("AAAAAAAAA","header time", snap.HeaderTime)
-
-		return errUnauthorized
-	}
+	//headerExtra := HeaderExtra{}
+	//rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
+	//if !snap.inturn(signer, headerExtra.LoopStartTime, header.Time.Uint64()){
+	//	return errUnauthorized
+	//}
 
 	// Ensure that the difficulty corresponds to the turn-ness of the signer
 	inturn := snap.inturn(signer, snap.LoopStartTime, snap.HeaderTime)
@@ -690,6 +688,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 	currentHeaderExtra := HeaderExtra{}
 
 	if header.Number.Uint64() == 1 {
+
 		genesis := chain.GetHeaderByNumber(0)
 		if err := c.VerifyHeader(chain, genesis, false); err != nil {
 			return  err
