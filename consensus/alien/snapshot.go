@@ -202,22 +202,21 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		headerExtra := HeaderExtra{}
 		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
 
-		// todo : from the timestamp in header calculate the index of signer address
-		//loop_index := int((header.Time.Uint64() - headerExtra.LoopStartTime) /  s.config.Period)
-
-
-		//if loop_signer, ok := snap.Signers[loop_index]; !ok {
-		//	return nil, errUnauthorized
-		//}else{
-		//	// todo : check if this signer should seal this block by timestamp in header
-		//	if loop_signer != signer{
-		//		return nil, errUnauthorized
-		//	}
-
-		//}
 
 		if !snap.isSigner(signer) {
 			return nil,errUnauthorized
+		}
+		// todo : from the timestamp in header calculate the index of signer address
+		loop_index := int((header.Time.Uint64() - headerExtra.LoopStartTime) /  s.config.Period)
+
+		if loop_signer, ok := snap.Signers[loop_index]; !ok {
+			return nil, errUnauthorized
+		}else{
+			// todo : check if this signer should seal this block by timestamp in header
+			if loop_signer != signer{
+				return nil, errUnauthorized
+			}
+
 		}
 
 
@@ -290,6 +289,7 @@ func (s *Snapshot) inturn(signer common.Address, loopStartTime uint64, headerTim
 	}
 
 	return true
+
 
 }
 

@@ -474,6 +474,10 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	if !snap.inturn(signer, snap.LoopStartTime,snap.HeaderTime){
+		log.Info("AAAAAAAAA","signer", signer.Hex())
+		log.Info("AAAAAAAAA","loop start time", snap.LoopStartTime)
+		log.Info("AAAAAAAAA","header time", snap.HeaderTime)
+
 		return errUnauthorized
 	}
 
