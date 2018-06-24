@@ -23,8 +23,7 @@ import (
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
-	lru "github.com/hashicorp/golang-lru"
-
+	"github.com/hashicorp/golang-lru"
 	"github.com/TTCECO/gttc/rlp"
 	"math/big"
 
@@ -204,16 +203,21 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
 
 		// todo : from the timestamp in header calculate the index of signer address
-		loop_index := int((header.Time.Uint64() - headerExtra.LoopStartTime) /  s.config.Period)
-		if loop_signer, ok := snap.Signers[loop_index]; !ok {
+		//loop_index := int((header.Time.Uint64() - headerExtra.LoopStartTime) /  s.config.Period)
 
-			return nil, errUnauthorized
-		}else{
-			// todo : check if this signer should seal this block by timestamp in header
-			if loop_signer != signer{
-				return nil, errUnauthorized
-			}
 
+		//if loop_signer, ok := snap.Signers[loop_index]; !ok {
+		//	return nil, errUnauthorized
+		//}else{
+		//	// todo : check if this signer should seal this block by timestamp in header
+		//	if loop_signer != signer{
+		//		return nil, errUnauthorized
+		//	}
+
+		//}
+
+		if !snap.isSigner(signer) {
+			return nil,errUnauthorized
 		}
 
 
@@ -230,10 +234,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 
 		if number % s.config.MaxSignerCount == 0{
-
 			snap.LoopStartTime = snap.HeaderTime
-			// change the signers and random the
-
 			fill_loop := false
 			for tmp_index := 0; tmp_index < int(s.config.MaxSignerCount) ; {
 				for  candidate, _ := range s.Tally{
@@ -290,4 +291,14 @@ func (s *Snapshot) inturn(signer common.Address, loopStartTime uint64, headerTim
 
 	return true
 
+}
+
+func (s *Snapshot) isSigner(signer common.Address) bool {
+
+	for _, address := range s.Signers {
+		if signer == address{
+			return true
+		}
+	}
+	return false
 }

@@ -39,7 +39,7 @@ import (
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/hashicorp/golang-lru"
 
-
+	"math/rand"
 )
 
 const (
@@ -348,7 +348,7 @@ func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, votes []*Vote) (*Snapshot, error) {
+func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header,genesisVotes []*Vote) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -388,7 +388,7 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			signers := c.config.SelfVoteSigners
 			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
 
-			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers, votes, uint64(time.Now().Unix()))
+			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers, genesisVotes, uint64(time.Now().Unix()))
 			if err := snap.store(c.db); err != nil {
 				return nil, err
 			}
@@ -418,10 +418,12 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 	for i := 0; i < len(headers)/2; i++ {
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
+
 	snap, err := snap.apply(headers)
 	if err != nil {
 		return nil, err
 	}
+
 	c.recents.Add(snap.Hash, snap)
 
 	// If we've generated a new checkpoint snapshot, save to disk
@@ -472,10 +474,6 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	if !snap.inturn(signer, snap.LoopStartTime,snap.HeaderTime){
-
-		log.Info("RRRRRRRR","signer", signer.Hex())
-		log.Info("########","loopstarttime", snap.LoopStartTime)
-		log.Info("###$$$$$$", "headertime", snap.HeaderTime)
 		return errUnauthorized
 	}
 
@@ -501,39 +499,7 @@ func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 // rewards given, and returns the final block.
 func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 
-	// If the block isn't a checkpoint, cast a random vote (good enough for now)
-	header.Coinbase = common.Address{}
-	header.Nonce = types.BlockNonce{}
-
 	number := header.Number.Uint64()
-
-	// Ensure the extra data has all it's components
-	if len(header.Extra) < extraVanity {
-		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
-	}
-	header.Extra = header.Extra[:extraVanity]
-
-	var votes []*Vote
-	if number == 1{
-		for _, voter := range c.config.SelfVoteSigners {
-			votes = append(votes, &Vote{
-				Voter: voter,
-				Candidate: voter,
-				Stake: *state.GetBalance(voter),
-			})
-		}
-	}
-
-	// Assemble the voting snapshot to check which votes make sense
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, votes)
-	if err != nil {
-		return nil,err
-	}
-
-	// Set the correct difficulty
-	header.Difficulty = CalcDifficulty(snap, c.signer)
-
-
 
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
@@ -548,6 +514,38 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		header.Time = big.NewInt(time.Now().Unix())
 	}
 
+	// Ensure the extra data has all it's components
+	if len(header.Extra) < extraVanity {
+		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
+	}
+	header.Extra = header.Extra[:extraVanity]
+
+	// calculate votes write into header.extra
+	err := c.calculateVotes(chain, header, state, txs)
+	if err != nil{
+		return nil, err
+	}
+
+	genesisVotes := []*Vote{}
+	if number == 1{
+		for _, voter := range c.config.SelfVoteSigners {
+			genesisVotes = append(genesisVotes, &Vote{
+				Voter: voter,
+				Candidate: voter,
+				Stake: *state.GetBalance(voter),
+			})
+		}
+	}
+
+	// Assemble the voting snapshot to check which votes make sense
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
+	if err != nil {
+		return nil,err
+	}
+
+	// Set the correct difficulty
+	header.Difficulty = CalcDifficulty(snap, c.signer)
+
 
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)
@@ -555,12 +553,6 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
 	header.UncleHash = types.CalcUncleHash(nil)
-
-	//
-	err = c.calculateVotes(chain, header, state, txs)
-	if err != nil{
-		return nil, err
-	}
 
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts), nil
@@ -580,14 +572,12 @@ func (c *Alien) Authorize(signer common.Address, signFn SignerFn) {
 // the local signing credentials.
 func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
-
-
-
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return nil, errUnknownBlock
 	}
+
 	// For 0-period chains, refuse to seal empty blocks (no reward but would spin sealing)
 	if c.config.Period == 0 && len(block.Transactions()) == 0 {
 		return nil, errWaitTransactions
@@ -602,15 +592,15 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	if err != nil {
 		return nil, err
 	}
-	//if !snap.inturn(signer,snap.LoopStartTime,snap.HeaderTime){
-	if !snap.inturn(signer, snap.LoopStartTime, header.Time.Uint64()){
+
+	if !snap.isSigner(signer){
 		<-stop
 		return nil, nil
 	}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
-	/*
+
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
 		wiggle := time.Duration(1) * wiggleTime
@@ -619,17 +609,19 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
 	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
-	*/
+
 	select {
 	case <-stop:
 		return nil, nil
 	case <-time.After(delay):
 	}
+
 	// Sign all the things!
 	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
 	if err != nil {
 		return nil, err
 	}
+
 	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
 
 	return block.WithSeal(header), nil
@@ -684,19 +676,25 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
 
 	currentHeaderExtra := HeaderExtra{}
+
 	if header.Number.Uint64() == 1 {
-		// todo : CurrentBlockVotes is [] ,get SignersQueue from genesis.json, LoopStartTime is currentTime - config.period
 		genesis := chain.GetHeaderByNumber(0)
 		if err := c.VerifyHeader(chain, genesis, false); err != nil {
 			return  err
 		}
-
 		currentHeaderExtra = HeaderExtra{
 			CurrentBlockVotes:	[]Vote{},
-			LoopStartTime: uint64(time.Now().Unix()) ,
+			LoopStartTime: header.Time.Uint64() ,
+		}
+
+		for _, voter := range c.config.SelfVoteSigners {
+			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, Vote{
+				Voter: voter,
+				Candidate: voter,
+				Stake: *state.GetBalance(voter),
+			})
 		}
 	}else{
-
 		lastHeader := chain.GetHeaderByNumber(header.Number.Uint64()-1)
 		lastHeaderExtra := HeaderExtra{}
 		rlp.DecodeBytes(lastHeader.Extra[extraVanity:len(lastHeader.Extra)-extraSeal],&lastHeaderExtra)
@@ -706,11 +704,10 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 		}
 
 	}
-
-	if header.Number.Uint64() % c.config.MaxSignerCount == 0{
-
-		currentHeaderExtra.LoopStartTime = uint64(time.Now().Unix())
+	if header.Number.Uint64() % c.config.MaxSignerCount == 1{
+		currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 	}
+
 
 	for _, tx := range txs{
 
