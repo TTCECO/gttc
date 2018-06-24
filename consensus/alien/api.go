@@ -43,7 +43,19 @@ func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
+	//return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
+
+
+	var snap    *Snapshot
+	// If an in-memory snapshot was found, use that
+	if s, ok := api.alien.recents.Get(header.Hash()); ok {
+		snap = s.(*Snapshot)
+		}else{
+			return nil, errUnknownBlock
+
+	}
+	return snap, nil
+
 }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
