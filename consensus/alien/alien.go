@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sync"
 	"time"
+	"math/rand"
 
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
@@ -38,38 +39,27 @@ import (
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/hashicorp/golang-lru"
-
-	"math/rand"
 )
 
 const (
-
-	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
-
-	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
+	inMemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
+	inMemorySignatures = 4096 // Number of recent block signatures to keep in memory
 	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
-
-
-	UFOEventVote = "ufo_event:vote"
-	UFOEventVersion = "0.1"
+	UFOEventVote = "ufo:1:event:vote" // ufo:version:category:action/data
 )
 
 
 // Alien delegated-proof-of-stake protocol constants.
 var (
+	SignerBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
 
-
-	FrontierBlockReward    *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-
-	epochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
-	blockPeriod = uint64(15)    // Default minimum difference between two consecutive block's timestamps
+	defaultEpochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
+	defaultBlockPeriod = uint64(15)    // Default minimum difference between two consecutive block's timestamps
 
 	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
 
-	nonceAuthVote = hexutil.MustDecode("0xffffffffffffffff") // Magic nonce number to vote on adding a new signer
-	nonceDropVote = hexutil.MustDecode("0x0000000000000000") // Magic nonce number to vote on removing a signer.
+	nonceCountDown = hexutil.MustDecode("0x0000000000000000") // nonce number to count down for create random signer queue
 
 	uncleHash = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 
@@ -125,6 +115,7 @@ var (
 	errWaitTransactions = errors.New("waiting for transactions")
 )
 
+// Vote
 type Vote struct {
 	Voter			common.Address
 	Candidate 		common.Address
@@ -132,10 +123,25 @@ type Vote struct {
 
 }
 
+// HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
 	CurrentBlockVotes 	[]Vote
 	LoopStartTime		uint64
+	SignerQueue			[]common.Address
+}
 
+// Alien is the delegated-proof-of-stake consensus engine proposed to support the
+// Ethereum testnet following the Ropsten attacks.
+type Alien struct {
+	config *params.AlienConfig // Consensus engine configuration parameters
+	db     ethdb.Database       // Database to store and retrieve snapshot checkpoints
+
+	recents    *lru.ARCCache // Snapshots for recent block to speed up reorgs
+	signatures *lru.ARCCache // Signatures of recent blocks to speed up mining
+
+	signer common.Address // Ethereum address of the signing key
+	signFn SignerFn       // Signer function to authorize hashes with
+	lock   sync.RWMutex   // Protects the signer fields
 }
 
 // SignerFn is a signer callback function to request a hash to be signed by a
@@ -198,21 +204,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	return signer, nil
 }
 
-// Alien is the delegated-proof-of-stake consensus engine proposed to support the
-// Ethereum testnet following the Ropsten attacks.
-type Alien struct {
-	config *params.AlienConfig // Consensus engine configuration parameters
-	db     ethdb.Database       // Database to store and retrieve snapshot checkpoints
 
-	recents    *lru.ARCCache // Snapshots for recent block to speed up reorgs
-	signatures *lru.ARCCache // Signatures of recent blocks to speed up mining
-
-	proposals map[common.Address]bool // Current list of proposals we are pushing
-
-	signer common.Address // Ethereum address of the signing key
-	signFn SignerFn       // Signer function to authorize hashes with
-	lock   sync.RWMutex   // Protects the signer fields
-}
 
 // New creates a Alien delegated-proof-of-stake consensus engine with the initial
 // signers set to the ones provided by the user.
@@ -220,18 +212,20 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	// Set any missing consensus parameters to their defaults
 	conf := *config
 	if conf.Epoch == 0 {
-		conf.Epoch = epochLength
+		conf.Epoch = defaultEpochLength
+	}
+	if conf.Period == 0 {
+		conf.Period = defaultBlockPeriod
 	}
 	// Allocate the snapshot caches and create the engine
-	recents, _ := lru.NewARC(inmemorySnapshots)
-	signatures, _ := lru.NewARC(inmemorySignatures)
+	recents, _ := lru.NewARC(inMemorySnapshots)
+	signatures, _ := lru.NewARC(inMemorySignatures)
 
 	return &Alien{
 		config:     &conf,
 		db:         db,
 		recents:    recents,
 		signatures: signatures,
-		proposals:  make(map[common.Address]bool),
 	}
 }
 
@@ -282,10 +276,9 @@ func (c *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 		return consensus.ErrFutureBlock
 	}
 
-	// Nonces must be 0x00..0 or 0xff..f, zeroes enforced on checkpoints
-	if !bytes.Equal(header.Nonce[:], nonceAuthVote) && !bytes.Equal(header.Nonce[:], nonceDropVote) {
-		return errInvalidVote
-	}
+	// Nonces must be lower than config.alien.maxsigners
+	// todo
+
 
 	// Check that the extra-data contains both the vanity and signature
 	if len(header.Extra) < extraVanity {
@@ -334,7 +327,7 @@ func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
-	if parent.Time.Uint64()+c.config.Period > header.Time.Uint64() {
+	if parent.Time.Uint64() > header.Time.Uint64() {
 		return ErrInvalidTimestamp
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
@@ -676,7 +669,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
-	blockReward := new(big.Int).Rsh( FrontierBlockReward , uint(yearCount))
+	blockReward := new(big.Int).Rsh( SignerBlockReward , uint(yearCount))
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, blockReward)
 }
