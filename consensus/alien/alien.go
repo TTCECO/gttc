@@ -601,13 +601,13 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	}
 
 
-	// If we're amongst the recent signers, wait for the next block
-	if !snap.inturn(signer,snap.LoopStartTime,snap.HeaderTime){
-		log.Info("Not inturn, must wait for others")
+	headerExtra := HeaderExtra{}
+	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
+	if !snap.inturn(signer, headerExtra.LoopStartTime, header.Time.Uint64()){
 		<-stop
 		return nil, nil
 	}
-	
+
 	// Sweet, the protocol permits us to sign the block, wait for our time
 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
 
