@@ -276,11 +276,10 @@ func (s *Snapshot) signers() []common.Address {
 // inturn returns if a signer at a given block height is in-turn or not.
 func (s *Snapshot) inturn(signer common.Address, loopStartTime uint64, headerTime uint64) bool {
 
-	loop_index := int((headerTime- loopStartTime) /  s.config.Period)
+	loop_index := int((headerTime - loopStartTime) / s.config.Period)
 	if loop_signer, ok := s.Signers[loop_index]; !ok {
 		return false
 	}else{
-
 		// todo : check if this signer should seal this block by timestamp in header
 		if loop_signer != signer{
 			return false

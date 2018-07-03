@@ -63,8 +63,7 @@ var (
 
 	uncleHash = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 
-	diffInTurn = big.NewInt(2) // Block difficulty for in-turn signatures
-	diffNoTurn = big.NewInt(1) // Block difficulty for out-of-turn signatures
+	diffNoTurn = big.NewInt(1) // todo delete
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -269,7 +268,7 @@ func (c *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 	if header.Number == nil {
 		return errUnknownBlock
 	}
-	number := header.Number.Uint64()
+
 
 	// Don't waste time checking blocks from the future
 	if header.Time.Cmp(big.NewInt(time.Now().Unix())) > 0 {
@@ -296,12 +295,7 @@ func (c *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 	if header.UncleHash != uncleHash {
 		return errInvalidUncleHash
 	}
-	// Ensure that the block's difficulty is meaningful (may not be correct at this point)
-	if number > 0 {
-		if header.Difficulty == nil || (header.Difficulty.Cmp(diffInTurn) != 0 && header.Difficulty.Cmp(diffNoTurn) != 0) {
-			return errInvalidDifficulty
-		}
-	}
+
 
 	// All basic checks passed, verify cascading fields
 	return c.verifyCascadingFields(chain, header, parents)
@@ -466,20 +460,12 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	//headerExtra := HeaderExtra{}
-	//rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
-	//if !snap.inturn(signer, headerExtra.LoopStartTime, header.Time.Uint64()){
-	//	return errUnauthorized
-	//}
+	headerExtra := HeaderExtra{}
+	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
+	if !snap.inturn(signer, headerExtra.LoopStartTime, header.Time.Uint64()){
+		return errUnauthorized
+	}
 
-	// Ensure that the difficulty corresponds to the turn-ness of the signer
-	inturn := snap.inturn(signer, snap.LoopStartTime, snap.HeaderTime)
-	if inturn && header.Difficulty.Cmp(diffInTurn) != 0 {
-		return errInvalidDifficulty
-	}
-	if !inturn && header.Difficulty.Cmp(diffNoTurn) != 0 {
-		return errInvalidDifficulty
-	}
 	return nil
 }
 
@@ -533,13 +519,13 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 	// Assemble the voting snapshot to check which votes make sense
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
+	_, err = c.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
 	if err != nil {
 		return nil,err
 	}
 
 	// Set the correct difficulty
-	header.Difficulty = CalcDifficulty(snap, c.signer)
+	header.Difficulty = diffNoTurn
 
 
 	// Accumulate any block rewards and commit the final state root
@@ -635,22 +621,9 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 // current signer.
 func (c *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 
-	snap, err := c.snapshot(chain, parent.Number.Uint64(), parent.Hash(), nil, nil)
-	if err != nil {
-		return nil
-	}
-	return CalcDifficulty(snap, c.signer)
+	return diffNoTurn
 }
 
-// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
-// that a new block should have based on the previous blocks in the chain and the
-// current signer.
-func CalcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
-	if snap.inturn(signer,snap.LoopStartTime,snap.HeaderTime) {
-		return new(big.Int).Set(diffInTurn)
-	}
-	return new(big.Int).Set(diffNoTurn)
-}
 
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
 // controlling the signer voting.
