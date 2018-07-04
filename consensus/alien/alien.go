@@ -372,10 +372,10 @@ func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			if err := a.VerifyHeader(chain, genesis, false); err != nil {
 				return nil, err
 			}
-			signers := a.config.SelfVoteSigners
+
 			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
 
-			snap = newSnapshot(a.config, a.signatures, 0, genesis.Hash(), signers, genesisVotes, uint64(time.Now().Unix()))
+			snap = newSnapshot(a.config, a.signatures, genesis.Hash(), genesisVotes)
 			if err := snap.store(a.db); err != nil {
 				return nil, err
 			}
@@ -462,7 +462,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 
 	headerExtra := HeaderExtra{}
 	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
-	if !snap.inturn(signer, headerExtra.LoopStartTime, header.Time.Uint64()){
+	if !snap.inturn(signer,  header.Time.Uint64()){
 		return errUnauthorized
 	}
 
@@ -509,12 +509,17 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	genesisVotes := []*Vote{}
 	if number == 1{
+		alreadyVote := make(map[common.Address] struct{})
 		for _, voter := range a.config.SelfVoteSigners {
-			genesisVotes = append(genesisVotes, &Vote{
-				Voter: voter,
-				Candidate: voter,
-				Stake: *state.GetBalance(voter),
-			})
+
+			if _, ok := alreadyVote[voter]; !ok {
+				genesisVotes = append(genesisVotes, &Vote{
+					Voter: voter,
+					Candidate: voter,
+					Stake: *state.GetBalance(voter),
+				})
+				alreadyVote[voter] = struct{}{}
+			}
 		}
 	}
 
@@ -526,7 +531,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	// Set the correct difficulty
 	header.Difficulty = diffNoTurn
-
 
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)
@@ -574,17 +578,12 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		return nil, err
 	}
 
-	if !snap.isSigner(signer){
-		<-stop
-		return nil, errUnauthorized
-	}
-
 
 	headerExtra := HeaderExtra{}
 	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
-	if !snap.inturn(signer, headerExtra.LoopStartTime, header.Time.Uint64()){
+	if !snap.inturn(signer, header.Time.Uint64()){
 		<-stop
-		return nil, nil
+		return nil, errUnauthorized
 	}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time

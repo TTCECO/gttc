@@ -46,7 +46,7 @@ func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 		return nil, errUnknownBlock
 	}
 	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
-	
+
 }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
