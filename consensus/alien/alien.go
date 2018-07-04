@@ -38,7 +38,6 @@ import (
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/hashicorp/golang-lru"
-	"github.com/coreos/etcd/snap"
 )
 
 const (
