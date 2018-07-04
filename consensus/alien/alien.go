@@ -474,14 +474,16 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 // header for running the transactions on top.
 func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
 
-	// Sweet, the protocol permits us to sign the block, wait for our time
-	delay := time.Unix(int64(a.config.GenesisTimestamp), 0).Sub(time.Now())
-	log.Trace("Waiting for seal block", "delay", common.PrettyDuration(delay))
-	select {
-		case <-time.After(delay):
-			log.Trace("Ready for seal block", "delay", time.Now())
-	}
+	if header.Number.Uint64() == 1 {
+		// Sweet, the protocol permits us to sign the block, wait for our time
+		delay := time.Unix(int64(a.config.GenesisTimestamp - 2), 0).Sub(time.Now())
 
+		log.Info("Waiting for seal block", "delay", common.PrettyDuration(delay))
+		select {
+		case <-time.After(delay):
+			log.Info("Ready for seal block", "delay", time.Now())
+		}
+	}
 	return nil
 }
 
@@ -539,6 +541,14 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
 
 	// todo : if this block (number % a.config.MaxSignerCount == 0) missing,then ...
+	if number == 1{
+		currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
+		for i := 0; i < int(a.config.MaxSignerCount); i++{
+			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i % len(a.config.SelfVoteSigners)])
+
+		}
+
+	}
 	if number % a.config.MaxSignerCount == 0 {
 		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period * a.config.MaxSignerCount
