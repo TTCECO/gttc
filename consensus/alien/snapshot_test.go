@@ -369,15 +369,15 @@ func TestVoting(t *testing.T) {
 			if j > 0 {
 				headers[j].ParentHash = headers[j-1].Hash()
 			}
-			if vote.auth {
-				copy(headers[j].Nonce[:], nonceAuthVote)
-			}
+			//if vote.auth {
+			//	copy(headers[j].Nonce[:], nonceAuthVote)
+			//}
 			accounts.sign(headers[j], vote.signer)
 		}
 		// Pass all the headers through alien and ensure tallying succeeds
 		head := headers[len(headers)-1]
 
-		snap, err := New(&params.AlienConfig{Epoch: tt.epoch}, db).snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers)
+		snap, err := New(&params.AlienConfig{Epoch: tt.epoch}, db).snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil)
 		if err != nil {
 			t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 			continue
