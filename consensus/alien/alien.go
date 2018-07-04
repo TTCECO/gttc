@@ -38,6 +38,7 @@ import (
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/hashicorp/golang-lru"
+	"github.com/coreos/etcd/snap"
 )
 
 const (
@@ -473,6 +474,14 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
+
+	// Sweet, the protocol permits us to sign the block, wait for our time
+	delay := time.Unix(int64(a.config.GenesisTimestamp), 0).Sub(time.Now())
+	log.Trace("Waiting for seal block", "delay", common.PrettyDuration(delay))
+	select {
+		case <-time.After(delay):
+			log.Trace("Ready for seal block", "delay", time.Now())
+	}
 
 	return nil
 }
