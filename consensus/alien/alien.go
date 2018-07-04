@@ -473,6 +473,9 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	if a.config.GenesisTimestamp < uint64(time.Now().Unix()) {
+		return nil
+	}
 
 	if header.Number.Uint64() == 1 {
 		// Sweet, the protocol permits us to sign the block, wait for our time
