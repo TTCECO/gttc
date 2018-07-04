@@ -104,14 +104,15 @@ func (w *wizard) makeGenesis() {
 		// In the case of alien, configure the consensus parameters
 		genesis.Difficulty = big.NewInt(1)
 		genesis.Config.Alien = &params.AlienConfig{
-			Period: 15,
+			Period: 3,
 			Epoch:  30000,
 			MaxSignerCount: 21,
+			GenesisTimestamp: uint64(time.Now().Unix()) + (60 * 5), // Add five minutes
 			SelfVoteSigners: []common.Address{},
 		}
 		fmt.Println()
-		fmt.Println("How many seconds should blocks take? (default = 15)")
-		genesis.Config.Alien.Period = uint64(w.readDefaultInt(15))
+		fmt.Println("How many seconds should blocks take? (default = 3)")
+		genesis.Config.Alien.Period = uint64(w.readDefaultInt(3))
 
 		fmt.Println()
 		fmt.Println("How many blocks create for one epoch? (default = 30000)")
@@ -121,6 +122,10 @@ func (w *wizard) makeGenesis() {
 		fmt.Println()
 		fmt.Println("What is the max number of signers? (default = 21)")
 		genesis.Config.Alien.MaxSignerCount = uint64(w.readDefaultInt(21))
+
+		fmt.Println()
+		fmt.Println("How many minutes delay to create first block ? (default = 5 minutes)")
+		genesis.Config.Alien.GenesisTimestamp = uint64(time.Now().Unix()) + uint64(w.readDefaultInt(5) * 60)
 
 		// We also need the initial list of signers
 		fmt.Println()
