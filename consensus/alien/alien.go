@@ -23,7 +23,6 @@ import (
 	"math/big"
 	"sync"
 	"time"
-	"math/rand"
 
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
@@ -54,7 +53,8 @@ var (
 	SignerBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
 
 	defaultEpochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
-	defaultBlockPeriod = uint64(15)    // Default minimum difference between two consecutive block's timestamps
+	defaultBlockPeriod = uint64(3)    // Default minimum difference between two consecutive block's timestamps
+	defaultMaxSignerCount = uint64(21) //
 
 	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
@@ -216,6 +216,9 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	if conf.Period == 0 {
 		conf.Period = defaultBlockPeriod
 	}
+	if conf.MaxSignerCount == 0 {
+		conf.MaxSignerCount = defaultMaxSignerCount
+	}
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inMemorySnapshots)
 	signatures, _ := lru.NewARC(inMemorySignatures)
@@ -373,8 +376,6 @@ func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 				return nil, err
 			}
 
-			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
-
 			snap = newSnapshot(a.config, a.signatures, genesis.Hash(), genesisVotes)
 			if err := snap.store(a.db); err != nil {
 				return nil, err
@@ -502,11 +503,12 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = header.Extra[:extraVanity]
 
 	// calculate votes write into header.extra
-	err := a.calculateVotes(chain, header, state, txs)
+	currentBlockVotes , err := a.calculateVotes(chain, header, state, txs)
 	if err != nil{
 		return nil, err
 	}
 
+	// genesisVotes write direct into snapshot, which number is 0
 	genesisVotes := []*Vote{}
 	if number == 1{
 		alreadyVote := make(map[common.Address] struct{})
@@ -522,6 +524,28 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			}
 		}
 	}
+
+
+	currentHeaderExtra := HeaderExtra{}
+	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal],&currentHeaderExtra)
+	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
+
+	// todo : if this block (number % a.config.MaxSignerCount == 0) missing,then ...
+	if number % a.config.MaxSignerCount == 0 {
+		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
+		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period * a.config.MaxSignerCount
+		// create random signersQueue in currentHeaderExtra by snapshot.Tally
+
+	}
+
+	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
+	if err != nil {
+		return  nil,err
+	}
+
+	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
+	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
+
 
 	// Assemble the voting snapshot to check which votes make sense
 	_, err = a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
@@ -587,16 +611,8 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	}
 
 	// Sweet, the protocol permits us to sign the block, wait for our time
-	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
-
-	if header.Difficulty.Cmp(diffNoTurn) == 0 {
-		// It's not our turn explicitly to sign, delay it a bit
-		wiggle :=  time.Millisecond * 1000 * time.Duration(a.config.Period)
-		delay += time.Duration(rand.Int63n(int64(wiggle)))
-
-		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
-	}
-	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
+	//delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
+	delay := time.Duration(100) * time.Millisecond
 
 	select {
 	case <-stop:
@@ -645,42 +661,8 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
-
-	currentHeaderExtra := HeaderExtra{}
-
-	if header.Number.Uint64() == 1 {
-
-		genesis := chain.GetHeaderByNumber(0)
-		if err := a.VerifyHeader(chain, genesis, false); err != nil {
-			return  err
-		}
-		currentHeaderExtra = HeaderExtra{
-			CurrentBlockVotes:	[]Vote{},
-			LoopStartTime: header.Time.Uint64() ,
-		}
-
-		for _, voter := range a.config.SelfVoteSigners {
-			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, Vote{
-				Voter: voter,
-				Candidate: voter,
-				Stake: *state.GetBalance(voter),
-			})
-		}
-	}else{
-		lastHeader := chain.GetHeaderByNumber(header.Number.Uint64()-1)
-		lastHeaderExtra := HeaderExtra{}
-		rlp.DecodeBytes(lastHeader.Extra[extraVanity:len(lastHeader.Extra)-extraSeal],&lastHeaderExtra)
-		currentHeaderExtra = HeaderExtra{
-			CurrentBlockVotes:	[]Vote{},
-			LoopStartTime: lastHeaderExtra.LoopStartTime,
-		}
-
-	}
-	if header.Number.Uint64() % a.config.MaxSignerCount == 1{
-		currentHeaderExtra.LoopStartTime = header.Time.Uint64()
-	}
-
+func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction)  ([]Vote, error){
+	var currentBlockVotes []Vote
 
 	for _, tx := range txs{
 
@@ -688,7 +670,7 @@ func (a *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 			a.lock.RLock()
 			signer := types.NewEIP155Signer(tx.ChainId())
 			voter , _ := types.Sender(signer, tx)
-			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, Vote{
+			currentBlockVotes = append(currentBlockVotes, Vote{
 				Voter:voter,
 				Candidate:*tx.To(),
 				Stake: *state.GetBalance(voter),
@@ -696,17 +678,8 @@ func (a *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 
 			a.lock.RUnlock()
 			
-		}else {
-			// monitor all transaction related to voters to modify the vote count.
-
 		}
 	}
-	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
-	if err != nil {
-		return  err
-	}
 
-	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
-	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
-	return nil
+	return currentBlockVotes, nil
 }
