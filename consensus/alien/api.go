@@ -45,19 +45,8 @@ func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	//return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
-
-
-	var snap    *Snapshot
-	// If an in-memory snapshot was found, use that
-	if s, ok := api.alien.recents.Get(header.Hash()); ok {
-		snap = s.(*Snapshot)
-		}else{
-			return nil, errUnknownBlock
-
-	}
-	return snap, nil
-
+	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
+	
 }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
@@ -69,36 +58,4 @@ func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
 	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil,nil)
 }
 
-// GetSigners retrieves the list of authorized signers at the specified block.
-func (api *API) GetSigners(number *rpc.BlockNumber) ([]common.Address, error) {
-	// Retrieve the requested block number (or current if none requested)
-	var header *types.Header
-	if number == nil || *number == rpc.LatestBlockNumber {
-		header = api.chain.CurrentHeader()
-	} else {
-		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
-	}
-	// Ensure we have an actually valid block and return the signers from its snapshot
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return snap.signers(), nil
-}
-
-// GetSignersAtHash retrieves the state snapshot at a given block.
-func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
-	header := api.chain.GetHeaderByHash(hash)
-	if header == nil {
-		return nil, errUnknownBlock
-	}
-	snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	return snap.signers(), nil
-}
 

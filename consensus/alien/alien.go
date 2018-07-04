@@ -113,6 +113,7 @@ var (
 	// block reward is zero, so an empty block just bloats the chain... fast.
 	errWaitTransactions = errors.New("waiting for transactions")
 
+	// errUnclesNotAllowed is returned if uncles exists
 	errUnclesNotAllowed = errors.New("uncles not allowed")
 )
 
@@ -121,7 +122,6 @@ type Vote struct {
 	Voter			common.Address
 	Candidate 		common.Address
 	Stake 			big.Int
-
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
@@ -204,8 +204,6 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	sigcache.Add(hash, signer)
 	return signer, nil
 }
-
-
 
 // New creates a Alien delegated-proof-of-stake consensus engine with the initial
 // signers set to the ones provided by the user.
@@ -626,7 +624,6 @@ func (a *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent 
 	return diffNoTurn
 }
 
-
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
 // controlling the signer voting.
 func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
@@ -638,7 +635,6 @@ func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
 func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header) {
 	// Calculate the block reword by year
@@ -649,8 +645,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	state.AddBalance(header.Coinbase, blockReward)
 }
 
-
-//
+// Calculate Votes from transaction in this block, write into header.Extra
 func (a *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
 
 	currentHeaderExtra := HeaderExtra{}

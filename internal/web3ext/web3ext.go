@@ -127,17 +127,6 @@ web3._extend({
 			call: 'alien_getSnapshotAtHash',
 			params: 1
 		}),
-		new web3._extend.Method({
-			name: 'getSigners',
-			call: 'alien_getSigners',
-			params: 1,
-			inputFormatter: [null]
-		}),
-		new web3._extend.Method({
-			name: 'getSignersAtHash',
-			call: 'alien_getSignersAtHash',
-			params: 1
-		}),
 	]
 });
 `
