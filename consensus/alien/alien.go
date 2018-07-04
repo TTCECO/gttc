@@ -682,7 +682,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 
 	}
 	if header.Number.Uint64() % c.config.MaxSignerCount == 1{
-		currentHeaderExtra.LoopStartTime = c.config.GenesisTimestamp
+		currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 	}
 
 
