@@ -112,6 +112,8 @@ var (
 	// on an instant chain (0 second period). It's important to refuse these as the
 	// block reward is zero, so an empty block just bloats the chain... fast.
 	errWaitTransactions = errors.New("waiting for transactions")
+
+	errUnclesNotAllowed = errors.New("uncles not allowed")
 )
 
 // Vote
@@ -230,25 +232,25 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 
 // Author implements consensus.Engine, returning the Ethereum address recovered
 // from the signature in the header's extra-data section.
-func (c *Alien) Author(header *types.Header) (common.Address, error) {
-	return ecrecover(header, c.signatures)
+func (a *Alien) Author(header *types.Header) (common.Address, error) {
+	return ecrecover(header, a.signatures)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules.
-func (c *Alien) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
-	return c.verifyHeader(chain, header, nil)
+func (a *Alien) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	return a.verifyHeader(chain, header, nil)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The
 // method returns a quit channel to abort the operations and a results channel to
 // retrieve the async verifications (the order is that of the input slice).
-func (c *Alien) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (a *Alien) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{})
 	results := make(chan error, len(headers))
 
 	go func() {
 		for i, header := range headers {
-			err := c.verifyHeader(chain, header, headers[:i])
+			err := a.verifyHeader(chain, header, headers[:i])
 
 			select {
 			case <-abort:
@@ -264,7 +266,7 @@ func (c *Alien) VerifyHeaders(chain consensus.ChainReader, headers []*types.Head
 // caller may optionally pass in a batch of parents (ascending order) to avoid
 // looking those up from the database. This is useful for concurrently verifying
 // a batch of new headers.
-func (c *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+func (a *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -298,14 +300,14 @@ func (c *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 
 
 	// All basic checks passed, verify cascading fields
-	return c.verifyCascadingFields(chain, header, parents)
+	return a.verifyCascadingFields(chain, header, parents)
 }
 
 // verifyCascadingFields verifies all the header fields that are not standalone,
 // rather depend on a batch of previous headers. The caller may optionally pass
 // in a batch of parents (ascending order) to avoid looking those up from the
 // database. This is useful for concurrently verifying a batch of new headers.
-func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
 	// The genesis block is the always valid dead-end
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -325,17 +327,17 @@ func (c *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 		return ErrInvalidTimestamp
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	_ , err := c.snapshot(chain, number-1, header.ParentHash, parents, nil)
+	_ , err := a.snapshot(chain, number-1, header.ParentHash, parents, nil)
 	if err != nil {
 		return err
 	}
 
 	// All basic checks passed, verify the seal and return
-	return c.verifySeal(chain, header, parents)
+	return a.verifySeal(chain, header, parents)
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header,genesisVotes []*Vote) (*Snapshot, error) {
+func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header,genesisVotes []*Vote) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -343,10 +345,10 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 		checkpointInterval  uint64 // Number of blocks after which to save the vote snapshot to the database
 	)
 
-	if c.config.Epoch > 2048{
+	if a.config.Epoch > 2048{
 		checkpointInterval = 1024
 	}else{
-		checkpointInterval = c.config.Epoch / 2
+		checkpointInterval = a.config.Epoch / 2
 		if checkpointInterval < 2 {
 			checkpointInterval = 2
 		}
@@ -354,13 +356,13 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 
 	for snap == nil {
 		// If an in-memory snapshot was found, use that
-		if s, ok := c.recents.Get(hash); ok {
+		if s, ok := a.recents.Get(hash); ok {
 			snap = s.(*Snapshot)
 			break
 		}
 		// If an on-disk checkpoint snapshot can be found, use that
 		if number%checkpointInterval == 0 {
-			if s, err := loadSnapshot(c.config, c.signatures, c.db, hash); err == nil {
+			if s, err := loadSnapshot(a.config, a.signatures, a.db, hash); err == nil {
 				log.Trace("Loaded voting snapshot from disk", "number", number, "hash", hash)
 				snap = s
 				break
@@ -369,14 +371,14 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 		// If we're at block zero, make a snapshot
 		if number == 0 {
 			genesis := chain.GetHeaderByNumber(0)
-			if err := c.VerifyHeader(chain, genesis, false); err != nil {
+			if err := a.VerifyHeader(chain, genesis, false); err != nil {
 				return nil, err
 			}
-			signers := c.config.SelfVoteSigners
+			signers := a.config.SelfVoteSigners
 			// todo: should deal the vote by the balance of selfVoteSigners in snap.apply
 
-			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers, genesisVotes, uint64(time.Now().Unix()))
-			if err := snap.store(c.db); err != nil {
+			snap = newSnapshot(a.config, a.signatures, 0, genesis.Hash(), signers, genesisVotes, uint64(time.Now().Unix()))
+			if err := snap.store(a.db); err != nil {
 				return nil, err
 			}
 			log.Trace("Stored genesis voting snapshot to disk")
@@ -411,11 +413,11 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 		return nil, err
 	}
 
-	c.recents.Add(snap.Hash, snap)
+	a.recents.Add(snap.Hash, snap)
 
 	// If we've generated a new checkpoint snapshot, save to disk
 	if snap.Number%checkpointInterval == 0 && len(headers) > 0 {
-		if err = snap.store(c.db); err != nil {
+		if err = snap.store(a.db); err != nil {
 			return nil, err
 		}
 		log.Trace("Stored voting snapshot to disk", "number", snap.Number, "hash", snap.Hash)
@@ -425,37 +427,37 @@ func (c *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 
 // VerifyUncles implements consensus.Engine, always returning an error for any
 // uncles as this consensus mechanism doesn't permit uncles.
-func (c *Alien) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+func (a *Alien) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
 	if len(block.Uncles()) > 0 {
-		return errors.New("uncles not allowed")
+		return errUnclesNotAllowed
 	}
 	return nil
 }
 
 // VerifySeal implements consensus.Engine, checking whether the signature contained
 // in the header satisfies the consensus protocol requirements.
-func (c *Alien) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
-	return c.verifySeal(chain, header, nil)
+func (a *Alien) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+	return a.verifySeal(chain, header, nil)
 }
 
 // verifySeal checks whether the signature contained in the header satisfies the
 // consensus protocol requirements. The method accepts an optional list of parent
 // headers that aren't yet part of the local blockchain to generate the snapshots
 // from.
-func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
+func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, parents []*types.Header) error {
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return errUnknownBlock
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents, nil)
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil)
 	if err != nil {
 		return err
 	}
 
 	// Resolve the authorization key and check against signers
-	signer, err := ecrecover(header, c.signatures)
+	signer, err := ecrecover(header, a.signatures)
 	if err != nil {
 		return err
 	}
@@ -471,14 +473,14 @@ func (c *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
-func (c *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
+func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
 
 	return nil
 }
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
-func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 
 	number := header.Number.Uint64()
 
@@ -490,7 +492,7 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	if parent == nil {
 		return nil,consensus.ErrUnknownAncestor
 	}
-	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(c.config.Period))
+	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(a.config.Period))
 	if header.Time.Int64() < time.Now().Unix() {
 		header.Time = big.NewInt(time.Now().Unix())
 	}
@@ -502,14 +504,14 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = header.Extra[:extraVanity]
 
 	// calculate votes write into header.extra
-	err := c.calculateVotes(chain, header, state, txs)
+	err := a.calculateVotes(chain, header, state, txs)
 	if err != nil{
 		return nil, err
 	}
 
 	genesisVotes := []*Vote{}
 	if number == 1{
-		for _, voter := range c.config.SelfVoteSigners {
+		for _, voter := range a.config.SelfVoteSigners {
 			genesisVotes = append(genesisVotes, &Vote{
 				Voter: voter,
 				Candidate: voter,
@@ -519,7 +521,7 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 	// Assemble the voting snapshot to check which votes make sense
-	_, err = c.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
+	_, err = a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
 	if err != nil {
 		return nil,err
 	}
@@ -541,17 +543,17 @@ func (c *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
-func (c *Alien) Authorize(signer common.Address, signFn SignerFn) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (a *Alien) Authorize(signer common.Address, signFn SignerFn) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
 
-	c.signer = signer
-	c.signFn = signFn
+	a.signer = signer
+	a.signFn = signFn
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
 // the local signing credentials.
-func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
@@ -560,16 +562,16 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	}
 
 	// For 0-period chains, refuse to seal empty blocks (no reward but would spin sealing)
-	if c.config.Period == 0 && len(block.Transactions()) == 0 {
+	if a.config.Period == 0 && len(block.Transactions()) == 0 {
 		return nil, errWaitTransactions
 	}
 	// Don't hold the signer fields for the entire sealing procedure
-	c.lock.RLock()
-	signer, signFn := c.signer, c.signFn
-	c.lock.RUnlock()
+	a.lock.RLock()
+	signer, signFn := a.signer, a.signFn
+	a.lock.RUnlock()
 
 	// Bail out if we're unauthorized to sign a block
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil, nil)
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -592,7 +594,7 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle :=  time.Millisecond * 1000 * time.Duration(c.config.Period)
+		wiggle :=  time.Millisecond * 1000 * time.Duration(a.config.Period)
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
@@ -619,7 +621,7 @@ func (c *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have based on the previous blocks in the chain and the
 // current signer.
-func (c *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+func (a *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 
 	return diffNoTurn
 }
@@ -627,11 +629,11 @@ func (c *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent 
 
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
 // controlling the signer voting.
-func (c *Alien) APIs(chain consensus.ChainReader) []rpc.API {
+func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "alien",
 		Version:   "0.1",
-		Service:   &API{chain: chain, alien: c},
+		Service:   &API{chain: chain, alien: a},
 		Public:    false,
 	}}
 }
@@ -649,14 +651,14 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 
 
 //
-func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
+func (a *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) error{
 
 	currentHeaderExtra := HeaderExtra{}
 
 	if header.Number.Uint64() == 1 {
 
 		genesis := chain.GetHeaderByNumber(0)
-		if err := c.VerifyHeader(chain, genesis, false); err != nil {
+		if err := a.VerifyHeader(chain, genesis, false); err != nil {
 			return  err
 		}
 		currentHeaderExtra = HeaderExtra{
@@ -664,7 +666,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 			LoopStartTime: header.Time.Uint64() ,
 		}
 
-		for _, voter := range c.config.SelfVoteSigners {
+		for _, voter := range a.config.SelfVoteSigners {
 			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, Vote{
 				Voter: voter,
 				Candidate: voter,
@@ -681,7 +683,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 		}
 
 	}
-	if header.Number.Uint64() % c.config.MaxSignerCount == 1{
+	if header.Number.Uint64() % a.config.MaxSignerCount == 1{
 		currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 	}
 
@@ -689,7 +691,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 	for _, tx := range txs{
 
 		if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
-			c.lock.RLock()
+			a.lock.RLock()
 			signer := types.NewEIP155Signer(tx.ChainId())
 			voter , _ := types.Sender(signer, tx)
 			currentHeaderExtra.CurrentBlockVotes = append(currentHeaderExtra.CurrentBlockVotes, Vote{
@@ -698,7 +700,7 @@ func (c *Alien)calculateVotes(chain consensus.ChainReader, header *types.Header,
 				Stake: *state.GetBalance(voter),
 			})
 
-			c.lock.RUnlock()
+			a.lock.RUnlock()
 			
 		}else {
 			// monitor all transaction related to voters to modify the vote count.
