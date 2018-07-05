@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/TTCECO/gttc/rlp"
 	"math/big"
+	"sort"
 
 )
 
@@ -212,4 +213,34 @@ func (s *Snapshot) inturn(signer common.Address,  headerTime uint64) bool {
 		}
 	}
 	return true
+}
+
+
+func (s *Snapshot) getSignerQueue() []common.Address {
+
+	var stakeList []int
+	var topStakeAddress []common.Address
+
+	for _, stake := range s.Tally {
+		stakeList = append(stakeList, int(stake.Uint64()))
+	}
+	sort.Sort(sort.IntSlice(stakeList))
+
+	minStakeForCandidate := 0
+	if len(stakeList) >= int(s.config.MaxSignerCount) {
+		minStakeForCandidate = stakeList[s.config.MaxSignerCount - 1]
+	}
+	for address, stake := range s.Tally{
+		if len(topStakeAddress) == int(s.config.MaxSignerCount) {
+			break
+		}
+
+		if int(stake.Uint64()) >= minStakeForCandidate {
+			topStakeAddress = append(topStakeAddress, address)
+		}
+
+	}
+
+	return topStakeAddress
+
 }

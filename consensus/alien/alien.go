@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -543,7 +544,14 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal],&currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
 
-	// todo : if this block (number % a.config.MaxSignerCount == 0) missing,then ...
+
+	// Assemble the voting snapshot to check which votes make sense
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
+	if err != nil {
+		return nil,err
+	}
+
+
 	if number == 1{
 		currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
 		for i := 0; i < int(a.config.MaxSignerCount); i++{
@@ -556,7 +564,17 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period * a.config.MaxSignerCount
 		// create random signersQueue in currentHeaderExtra by snapshot.Tally
+		currentHeaderExtra.SignerQueue = []common.Address{}
+		newSignerQueue := snap.getSignerQueue()
+		for i := 0; i < int(a.config.MaxSignerCount); i++ {
+			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[i % len(newSignerQueue)])
 
+		}
+
+		for i :=0 ; i < int(a.config.MaxSignerCount); i++ {
+			switchPos := rand.Int() % int(a.config.MaxSignerCount )
+			currentHeaderExtra.SignerQueue[switchPos],currentHeaderExtra.SignerQueue[i] = currentHeaderExtra.SignerQueue[i],currentHeaderExtra.SignerQueue[switchPos]
+		}
 	}
 
 	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
@@ -568,11 +586,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 
-	// Assemble the voting snapshot to check which votes make sense
-	_, err = a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
-	if err != nil {
-		return nil,err
-	}
+
 
 	// Set the correct difficulty
 	header.Difficulty = diffNoTurn
