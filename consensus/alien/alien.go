@@ -635,9 +635,8 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		return nil, errUnauthorized
 	}
 
-	// Sweet, the protocol permits us to sign the block, wait for our time
-	//delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now()) // nolint: gosimple
-	delay := time.Duration(100) * time.Millisecond
+	// correct the time
+ 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now())
 
 	select {
 	case <-stop:

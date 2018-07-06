@@ -230,6 +230,13 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 		}
 	}
+
+	for address,tally := range snap.Tally{
+		if tally.Cmp(big.NewInt(0)) <= 0 {
+			delete(snap.Tally, address)
+		}
+	}
+
 	return snap, nil
 }
 
