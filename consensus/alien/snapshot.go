@@ -47,6 +47,7 @@ type Snapshot struct {
 															// The signer validate should judge by last snapshot
 	Votes []*Vote						`json:"votes"`		// All validate votes from genesis block
 	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each candidate address
+	Voters map[common.Address] uint64   `json:"voters"`		// block number for each voter address
 
 	HeaderTime uint64		`json:"headerTime"`				// Time of the current header
 	LoopStartTime uint64  	`json:"loopStartTime"`			// Start Time of the current loop
@@ -64,16 +65,24 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 		Signers:make(map[int] common.Address),
 		Votes: votes,
 		Tally: make(map[common.Address] *big.Int),
+		Voters:make(map[common.Address] uint64),
 		HeaderTime:config.GenesisTimestamp - 1, //
 		LoopStartTime:config.GenesisTimestamp,
 	}
 
 	for _, vote := range votes {
+		// init Tally from each vote
 		_, ok := snap.Tally[vote.Candidate]
 		if !ok{
 			snap.Tally[vote.Candidate] = big.NewInt(0)
 		}
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], &vote.Stake)
+
+		// init Voters from each vote
+		_, ok = snap.Voters[vote.Voter]
+		if !ok{
+			snap.Voters[vote.Voter] = 0 // block number is 0 , vote in genesis block
+		}
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++{
@@ -117,10 +126,10 @@ func (s *Snapshot) copy() *Snapshot {
 		Number:   s.Number,
 		Hash:     s.Hash,
 
-
 		Signers:make(map[int] common.Address),
 		Votes: make([]*Vote, len(s.Votes)),
 		Tally: make(map[common.Address] *big.Int),
+		Voters: make(map[common.Address] uint64),
 
 		HeaderTime:s.HeaderTime,
 		LoopStartTime:s.LoopStartTime,
@@ -131,21 +140,14 @@ func (s *Snapshot) copy() *Snapshot {
 		cpy.Signers[index] = address
 	}
 	copy(cpy.Votes, s.Votes)
-	for address, tally := range s.Tally {
-		cpy.Tally[address] = tally
+	for candidate, tally := range s.Tally {
+		cpy.Tally[candidate] = tally
+	}
+	for voter, number := range s.Voters {
+		cpy.Voters[voter] = number
 	}
 	return cpy
 }
-
-
-// cast adds a new vote into the tally.
-func (s *Snapshot) cast(candidate common.Address, stake big.Int) bool {
-
-
-
-	return true
-}
-
 
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
@@ -185,12 +187,17 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 
 		for _, vote := range headerExtra.CurrentBlockVotes{
+			// update Votes, Tally, Voters data
+
+
 			snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], &vote.Stake)
+
 			snap.Votes = append(snap.Votes, &Vote{
 				Voter: vote.Voter,
 				Candidate: vote.Candidate,
 				Stake: vote.Stake,
 			})
+
 
 		}
 
