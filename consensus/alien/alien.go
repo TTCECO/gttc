@@ -466,6 +466,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 // Prepare implements consensus.Engine, preparing all the consensus fields of the
 // header for running the transactions on top.
 func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error {
+
+	// Set the correct difficulty
+	header.Difficulty = new(big.Int).Set(diffNoTurn)
+
 	if a.config.GenesisTimestamp < uint64(time.Now().Unix()) {
 		return nil
 	}
@@ -480,8 +484,6 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 			log.Info("Ready for seal block", "delay", time.Now())
 		}
 	}
-	// Set the correct difficulty
-	header.Difficulty = new(big.Int).Set(diffNoTurn)
 
 	return nil
 }
