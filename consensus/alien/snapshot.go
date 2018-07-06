@@ -249,18 +249,28 @@ func (s *Snapshot) inturn(signer common.Address,  headerTime uint64) bool {
 	return true
 }
 
+
+
+type BigIntSlice []*big.Int
+
+func (s BigIntSlice) Len() int { return len(s) }
+func (s BigIntSlice) Swap(i, j int){ s[i], s[j] = s[j], s[i] }
+func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
+
+
 // get signer queue when one loop finished
 func (s *Snapshot) getSignerQueue() []common.Address {
 
-	var stakeList []int
+	var stakeList []*big.Int
 	var topStakeAddress []common.Address
 
 	for _, stake := range s.Tally {
-		stakeList = append(stakeList, int(stake.Uint64()))
+		stakeList = append(stakeList, stake)
 	}
-	sort.Sort(sort.IntSlice(stakeList))
 
-	minStakeForCandidate := 0
+	sort.Sort(BigIntSlice(stakeList))
+	minStakeForCandidate := s.config.MinVoterBalance
+
 	if len(stakeList) >= int(s.config.MaxSignerCount) {
 		minStakeForCandidate = stakeList[s.config.MaxSignerCount - 1]
 	}
@@ -268,12 +278,10 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 		if len(topStakeAddress) == int(s.config.MaxSignerCount) {
 			break
 		}
-
-		if int(stake.Uint64()) >= minStakeForCandidate {
+		if stake.Cmp(minStakeForCandidate) >= 0 {
 			topStakeAddress = append(topStakeAddress, address)
 		}
 	}
-
 	// Set the top candidates in random order
 	for i:= 0;i< len(topStakeAddress);i ++{
 		newPos := rand.Int() % len(topStakeAddress)
