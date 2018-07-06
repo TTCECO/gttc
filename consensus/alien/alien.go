@@ -710,7 +710,7 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 
 		if len(string(tx.Data())) >= len(UFOEventVote){
 			if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
-				//a.lock.RLock()
+				a.lock.RLock()
 				signer := types.NewEIP155Signer(tx.ChainId())
 				voter , _ := types.Sender(signer, tx)
 				if state.GetBalance(voter).Cmp( a.config.MinVoterBalance) > 0 {
@@ -720,15 +720,14 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 					Stake: state.GetBalance(voter),
 				})
 				}
-				//a.lock.RUnlock()
-
+				a.lock.RUnlock()
 			}
 
 
 			
 		}else if number > 1 {
-			if tx.Value().Uint64() > 0 {
-				//a.lock.RLock()
+			if tx.Value().Cmp(big.NewInt(0)) > 0 {
+				a.lock.RLock()
 				signer := types.NewEIP155Signer(tx.ChainId())
 				voter , _ := types.Sender(signer, tx)
 				if snap.isVoter(voter) {
@@ -746,7 +745,7 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 					})
 
 				}
-				//a.lock.RUnlock()
+				a.lock.RUnlock()
 			}
 		}
 
