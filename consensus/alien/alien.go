@@ -45,24 +45,21 @@ const (
 	inMemorySignatures = 4096 // Number of recent block signatures to keep in memory
 	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
 	UFOEventVote = "ufo:1:event:vote" // ufo:version:category:action/data
+	checkpointInterval = 3600 // About N hours if config.period is N
+
 )
 
 
 // Alien delegated-proof-of-stake protocol constants.
 var (
 	SignerBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
-
-	defaultEpochLength = uint64(30000) // Default number of blocks after which to checkpoint and reset the pending votes
+	defaultEpochLength = uint64(3000000) // Default number of blocks after which vote's period of validity
 	defaultBlockPeriod = uint64(3)    // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount = uint64(21) //
-
 	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
-
 	nonceCountDown = hexutil.MustDecode("0x0000000000000000") // nonce number to count down for create random signer queue
-
 	uncleHash = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-
 	diffNoTurn = big.NewInt(1) // todo delete
 )
 
@@ -343,17 +340,7 @@ func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 	var (
 		headers []*types.Header
 		snap    *Snapshot
-		checkpointInterval  uint64 // Number of blocks after which to save the vote snapshot to the database
 	)
-
-	if a.config.Epoch > 2048{
-		checkpointInterval = 1024
-	}else{
-		checkpointInterval = a.config.Epoch / 2
-		if checkpointInterval < 2 {
-			checkpointInterval = 2
-		}
-	}
 
 	for snap == nil {
 		// If an in-memory snapshot was found, use that

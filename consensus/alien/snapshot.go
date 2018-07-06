@@ -46,7 +46,7 @@ type Snapshot struct {
 	Signers map[int] common.Address 	`json:"signers"`	// Signers queue in current header
 															// The signer validate should judge by last snapshot
 	Votes []*Vote						`json:"votes"`		// All validate votes from genesis block
-	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each address
+	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each candidate address
 
 	HeaderTime uint64		`json:"headerTime"`				// Time of the current header
 	LoopStartTime uint64  	`json:"loopStartTime"`			// Start Time of the current loop
@@ -192,8 +192,8 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				Stake: vote.Stake,
 			})
 
-
 		}
+
 
 	}
 	snap.Number += uint64(len(headers))
@@ -206,7 +206,8 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 // inturn returns if a signer at a given block height is in-turn or not.
 func (s *Snapshot) inturn(signer common.Address,  headerTime uint64) bool {
 
-	loopIndex := int((headerTime - s.LoopStartTime) / s.config.Period)
+	// if all node stop more than period of one loop
+	loopIndex := int((headerTime - s.LoopStartTime) / s.config.Period) % len(s.Signers)
 	if currentSigner, ok := s.Signers[loopIndex]; !ok {
 		return false
 	}else{
@@ -240,7 +241,6 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 		if int(stake.Uint64()) >= minStakeForCandidate {
 			topStakeAddress = append(topStakeAddress, address)
 		}
-
 	}
 
 	// Set the top candidates in random order
