@@ -45,7 +45,7 @@ type Snapshot struct {
 
 	Signers map[int] common.Address 	`json:"signers"`	// Signers queue in current header
 															// The signer validate should judge by last snapshot
-	Votes []*Vote						`json:"votes"`		// All validate votes from genesis block
+	Votes map[common.Address] *Vote		`json:"votes"`		// All validate votes from genesis block
 	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each candidate address
 	Voters map[common.Address] *big.Int  `json:"voters"`		// block number for each voter address
 
@@ -63,7 +63,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 		Number:   0,
 		Hash:     hash,
 		Signers:make(map[int] common.Address),
-		Votes: votes,
+		Votes: make(map[common.Address] *Vote),
 		Tally: make(map[common.Address] *big.Int),
 		Voters:make(map[common.Address] *big.Int),
 		HeaderTime:config.GenesisTimestamp - 1, //
@@ -71,18 +71,19 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 	}
 
 	for _, vote := range votes {
-		// init Tally from each vote
+		// init Votes from each vote
+		snap.Votes[vote.Voter] = vote
+
+		// init Tally
 		_, ok := snap.Tally[vote.Candidate]
 		if !ok{
 			snap.Tally[vote.Candidate] = big.NewInt(0)
 		}
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
 
-		// init Voters from each vote
-		_, ok = snap.Voters[vote.Voter]
-		if !ok{
-			snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
-		}
+		// init Voters
+		snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
+
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++{
@@ -126,8 +127,8 @@ func (s *Snapshot) copy() *Snapshot {
 		Number:   s.Number,
 		Hash:     s.Hash,
 
-		Signers:make(map[int] common.Address),
-		Votes: make([]*Vote, len(s.Votes)),
+		Signers:make(map[int] common.Address ),
+		Votes: make(map[common.Address] *Vote ),
 		Tally: make(map[common.Address] *big.Int),
 		Voters: make(map[common.Address] *big.Int),
 
@@ -139,7 +140,9 @@ func (s *Snapshot) copy() *Snapshot {
 	for index, address := range s.Signers {
 		cpy.Signers[index] = address
 	}
-	copy(cpy.Votes, s.Votes)
+	for voter, vote := range s.Votes {
+		cpy.Votes[voter] = vote
+	}
 	for candidate, tally := range s.Tally {
 		cpy.Tally[candidate] = tally
 	}
@@ -185,27 +188,42 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		for i,sig := range headerExtra.SignerQueue{
 			snap.Signers[i] = sig
 		}
-
+		// deal the new vote from voter
 		for _, vote := range headerExtra.CurrentBlockVotes{
 			// update Votes, Tally, Voters data
-
-
+			if lastVote, ok := snap.Votes[vote.Voter]; ok{
+				snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
+			}
 			snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
-
-			snap.Votes = append(snap.Votes, &Vote{
-				Voter: vote.Voter,
-				Candidate: vote.Candidate,
-				Stake: vote.Stake,
-			})
-
-
+			snap.Votes[vote.Voter] = &vote
+			snap.Voters[vote.Voter] = header.Number
 		}
-
-
+		// deal the voter which balance modified
+		for _, txVote := range headerExtra.ModifyPredecessorVotes{
+			if lastVote, ok := snap.Votes[txVote.Voter]; ok{
+				snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
+				snap.Tally[lastVote.Candidate].Add(snap.Tally[lastVote.Candidate], txVote.Stake )
+				snap.Votes[txVote.Voter] = &Vote{Voter:txVote.Voter,Candidate:lastVote.Candidate,Stake:txVote.Stake}
+				// do not modify header number of snap.Voters
+			}
+		}
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
 
+	// deal the expired vote,
+	if len(snap.Voters) > int(s.config.MaxSignerCount) {
+		for voterAddress, voteNumber := range snap.Voters {
+			if snap.Number - voteNumber.Uint64() > s.config.Epoch {
+				// clear the vote
+				if expiredVote, ok := snap.Votes[voterAddress]; ok{
+					snap.Tally[expiredVote.Candidate].Sub(snap.Tally[expiredVote.Candidate], expiredVote.Stake)
+					delete(snap.Votes, expiredVote.Voter)
+					delete(snap.Voters, expiredVote.Voter)
+				}
+			}
+		}
+	}
 	return snap, nil
 }
 

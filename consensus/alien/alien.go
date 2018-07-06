@@ -683,7 +683,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 // Calculate Votes from transaction in this block, write into header.Extra
 func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction)  ([]Vote,[]Vote, error){
 	// if predecessor voter make transaction and vote in this block,
-	// just process as vote
+	// just process as vote, do it in snapshot.apply
 
 	var (
 		currentBlockVotes []Vote
