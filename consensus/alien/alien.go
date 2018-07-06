@@ -56,6 +56,7 @@ var (
 	defaultEpochLength = uint64(3000000) // Default number of blocks after which vote's period of validity
 	defaultBlockPeriod = uint64(3)    // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount = uint64(21) //
+	defaultMinVoterBalance = new(big.Int).Lsh(big.NewInt(1), 64)
 	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
 	nonceCountDown = hexutil.MustDecode("0x0000000000000000") // nonce number to count down for create random signer queue
@@ -118,12 +119,13 @@ var (
 type Vote struct {
 	Voter			common.Address
 	Candidate 		common.Address
-	Stake 			big.Int
+	Stake 			*big.Int
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
 	CurrentBlockVotes 	[]Vote
+	ModifyPredecessorVotes []Vote
 	LoopStartTime		uint64
 	SignerQueue			[]common.Address
 }
@@ -216,6 +218,10 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	if conf.MaxSignerCount == 0 {
 		conf.MaxSignerCount = defaultMaxSignerCount
 	}
+	if conf.MinVoterBalance.Uint64() > 0 {
+		conf.MinVoterBalance = defaultMinVoterBalance
+	}
+
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inMemorySnapshots)
 	signatures, _ := lru.NewARC(inMemorySignatures)
@@ -503,7 +509,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = header.Extra[:extraVanity]
 
 	// calculate votes write into header.extra
-	currentBlockVotes , err := a.calculateVotes(chain, header, state, txs)
+	currentBlockVotes , modifyPredecessorVotes, err := a.calculateVotes(chain, header, state, txs)
 	if err != nil{
 		return nil, err
 	}
@@ -518,7 +524,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 				genesisVotes = append(genesisVotes, &Vote{
 					Voter: voter,
 					Candidate: voter,
-					Stake: *state.GetBalance(voter),
+					Stake: state.GetBalance(voter),
 				})
 				alreadyVote[voter] = struct{}{}
 			}
@@ -529,10 +535,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	currentHeaderExtra := HeaderExtra{}
 	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal],&currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
+	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 
 
 	// Assemble the voting snapshot to check which votes make sense
-	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes )
 	if err != nil {
 		return nil,err
 	}
@@ -565,9 +572,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
-
-
-
 
 	// Set the correct difficulty
 	header.Difficulty = diffNoTurn
@@ -677,25 +681,66 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction)  ([]Vote, error){
-	var currentBlockVotes []Vote
+func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction)  ([]Vote,[]Vote, error){
+	// if predecessor voter make transaction and vote in this block,
+	// just process as vote
+
+	var (
+		currentBlockVotes []Vote
+		// candidate is nil in modifyPredecessorVotes
+		modifyPredecessorVotes []Vote
+		snap *Snapshot
+		err error
+		number uint64
+	)
+	number = header.Number.Uint64()
+	if number > 1{
+		snap, err = a.snapshot(chain, number -1, header.ParentHash, nil, nil)
+		if err != nil {
+			return nil,nil,err
+		}
+	}
 
 	for _, tx := range txs{
 
 		if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
-			a.lock.RLock()
+			//a.lock.RLock()
 			signer := types.NewEIP155Signer(tx.ChainId())
 			voter , _ := types.Sender(signer, tx)
 			currentBlockVotes = append(currentBlockVotes, Vote{
 				Voter:voter,
 				Candidate:*tx.To(),
-				Stake: *state.GetBalance(voter),
+				Stake: state.GetBalance(voter),
 			})
 
-			a.lock.RUnlock()
+			//a.lock.RUnlock()
 			
+		}else if number > 1 {
+			if tx.Value().Uint64() > 0 {
+				//a.lock.RLock()
+				signer := types.NewEIP155Signer(tx.ChainId())
+				voter , _ := types.Sender(signer, tx)
+				if snap.isVoter(voter) {
+					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
+						Voter:voter,
+						Candidate: common.Address{},
+						Stake: state.GetBalance(voter),
+					})
+				}
+				if snap.isVoter(*tx.To()){
+					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
+						Voter:*tx.To(),
+						Candidate: common.Address{},
+						Stake: state.GetBalance(*tx.To()),
+					})
+
+				}
+				//a.lock.RUnlock()
+			}
 		}
+
+
 	}
 
-	return currentBlockVotes, nil
+	return currentBlockVotes, modifyPredecessorVotes, nil
 }

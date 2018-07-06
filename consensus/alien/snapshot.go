@@ -47,7 +47,7 @@ type Snapshot struct {
 															// The signer validate should judge by last snapshot
 	Votes []*Vote						`json:"votes"`		// All validate votes from genesis block
 	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each candidate address
-	Voters map[common.Address] uint64   `json:"voters"`		// block number for each voter address
+	Voters map[common.Address] *big.Int  `json:"voters"`		// block number for each voter address
 
 	HeaderTime uint64		`json:"headerTime"`				// Time of the current header
 	LoopStartTime uint64  	`json:"loopStartTime"`			// Start Time of the current loop
@@ -65,7 +65,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 		Signers:make(map[int] common.Address),
 		Votes: votes,
 		Tally: make(map[common.Address] *big.Int),
-		Voters:make(map[common.Address] uint64),
+		Voters:make(map[common.Address] *big.Int),
 		HeaderTime:config.GenesisTimestamp - 1, //
 		LoopStartTime:config.GenesisTimestamp,
 	}
@@ -76,12 +76,12 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 		if !ok{
 			snap.Tally[vote.Candidate] = big.NewInt(0)
 		}
-		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], &vote.Stake)
+		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
 
 		// init Voters from each vote
 		_, ok = snap.Voters[vote.Voter]
 		if !ok{
-			snap.Voters[vote.Voter] = 0 // block number is 0 , vote in genesis block
+			snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
 		}
 	}
 
@@ -129,7 +129,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Signers:make(map[int] common.Address),
 		Votes: make([]*Vote, len(s.Votes)),
 		Tally: make(map[common.Address] *big.Int),
-		Voters: make(map[common.Address] uint64),
+		Voters: make(map[common.Address] *big.Int),
 
 		HeaderTime:s.HeaderTime,
 		LoopStartTime:s.LoopStartTime,
@@ -190,7 +190,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			// update Votes, Tally, Voters data
 
 
-			snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], &vote.Stake)
+			snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
 
 			snap.Votes = append(snap.Votes, &Vote{
 				Voter: vote.Voter,
@@ -258,4 +258,12 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 
 	return topStakeAddress
 
+}
+
+// check if address belong to voter
+func (s *Snapshot) isVoter(address common.Address) bool{
+	if _, ok := s.Voters[address]; ok{
+		return true
+	}
+	return false
 }

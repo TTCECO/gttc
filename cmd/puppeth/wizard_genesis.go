@@ -107,6 +107,7 @@ func (w *wizard) makeGenesis() {
 			Period: 3,
 			Epoch:  30000,
 			MaxSignerCount: 21,
+			MinVoterBalance: new(big.Int).Lsh(big.NewInt(1), 64) ,
 			GenesisTimestamp: uint64(time.Now().Unix()) + (60 * 5), // Add five minutes
 			SelfVoteSigners: []common.Address{},
 		}
@@ -122,6 +123,10 @@ func (w *wizard) makeGenesis() {
 		fmt.Println()
 		fmt.Println("What is the max number of signers? (default = 21)")
 		genesis.Config.Alien.MaxSignerCount = uint64(w.readDefaultInt(21))
+
+		fmt.Println()
+		fmt.Println("What is the minimize balance for valid voter ? (default = 2^64)")
+		genesis.Config.Alien.MinVoterBalance = new(big.Int).Lsh(big.NewInt(1), uint(w.readDefaultInt(64)))
 
 		fmt.Println()
 		fmt.Println("How many minutes delay to create first block ? (default = 5 minutes)")
