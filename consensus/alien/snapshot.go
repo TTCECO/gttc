@@ -194,7 +194,13 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			if lastVote, ok := snap.Votes[vote.Voter]; ok{
 				snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
 			}
-			snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
+			if _,ok := snap.Tally[vote.Candidate]; ok{
+
+				snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
+			}else{
+				snap.Tally[vote.Candidate] = vote.Stake
+			}
+
 			snap.Votes[vote.Voter] = &vote
 			snap.Voters[vote.Voter] = header.Number
 		}

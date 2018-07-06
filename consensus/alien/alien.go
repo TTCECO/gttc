@@ -480,6 +480,9 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 			log.Info("Ready for seal block", "delay", time.Now())
 		}
 	}
+	// Set the correct difficulty
+	header.Difficulty = new(big.Int).Set(diffNoTurn)
+
 	return nil
 }
 
@@ -574,7 +577,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	// Set the correct difficulty
-	header.Difficulty = diffNoTurn
+	header.Difficulty = new(big.Int).Set(diffNoTurn)
 
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)
@@ -656,7 +659,7 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 // current signer.
 func (a *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
 
-	return diffNoTurn
+	return new(big.Int).Set(diffNoTurn)
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC API to allow
@@ -703,18 +706,23 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 
 	for _, tx := range txs{
 
-		if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
-			//a.lock.RLock()
-			signer := types.NewEIP155Signer(tx.ChainId())
-			voter , _ := types.Sender(signer, tx)
-			if state.GetBalance(voter).Cmp( a.config.MinVoterBalance) > 0 {
+		if len(string(tx.Data())) >= len(UFOEventVote){
+			if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
+				//a.lock.RLock()
+				signer := types.NewEIP155Signer(tx.ChainId())
+				voter , _ := types.Sender(signer, tx)
+				if state.GetBalance(voter).Cmp( a.config.MinVoterBalance) > 0 {
 				currentBlockVotes = append(currentBlockVotes, Vote{
 					Voter:voter,
 					Candidate:*tx.To(),
 					Stake: state.GetBalance(voter),
 				})
+				}
+				//a.lock.RUnlock()
+
 			}
-			//a.lock.RUnlock()
+
+
 			
 		}else if number > 1 {
 			if tx.Value().Uint64() > 0 {
