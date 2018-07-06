@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -569,11 +568,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		for i := 0; i < int(a.config.MaxSignerCount); i++ {
 			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[i % len(newSignerQueue)])
 
-		}
-
-		for i :=0 ; i < int(a.config.MaxSignerCount); i++ {
-			switchPos := rand.Int() % int(a.config.MaxSignerCount )
-			currentHeaderExtra.SignerQueue[switchPos],currentHeaderExtra.SignerQueue[i] = currentHeaderExtra.SignerQueue[i],currentHeaderExtra.SignerQueue[switchPos]
 		}
 	}
 

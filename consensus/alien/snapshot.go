@@ -19,6 +19,10 @@
 package alien
 
 import (
+
+	"sort"
+	"math/big"
+	"math/rand"
 	"encoding/json"
 
 	"github.com/TTCECO/gttc/common"
@@ -27,8 +31,6 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/hashicorp/golang-lru"
 	"github.com/TTCECO/gttc/rlp"
-	"math/big"
-	"sort"
 
 )
 
@@ -215,7 +217,7 @@ func (s *Snapshot) inturn(signer common.Address,  headerTime uint64) bool {
 	return true
 }
 
-
+// get signer queue when one loop finished
 func (s *Snapshot) getSignerQueue() []common.Address {
 
 	var stakeList []int
@@ -239,6 +241,12 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 			topStakeAddress = append(topStakeAddress, address)
 		}
 
+	}
+
+	// Set the top candidates in random order
+	for i:= 0;i< len(topStakeAddress);i ++{
+		newPos := rand.Int() % len(topStakeAddress)
+		topStakeAddress[i],topStakeAddress[newPos] = topStakeAddress[newPos],topStakeAddress[i]
 	}
 
 	return topStakeAddress
