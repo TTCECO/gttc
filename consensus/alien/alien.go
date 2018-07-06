@@ -707,12 +707,13 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 			//a.lock.RLock()
 			signer := types.NewEIP155Signer(tx.ChainId())
 			voter , _ := types.Sender(signer, tx)
-			currentBlockVotes = append(currentBlockVotes, Vote{
-				Voter:voter,
-				Candidate:*tx.To(),
-				Stake: state.GetBalance(voter),
-			})
-
+			if state.GetBalance(voter).Cmp( a.config.MinVoterBalance) > 0 {
+				currentBlockVotes = append(currentBlockVotes, Vote{
+					Voter:voter,
+					Candidate:*tx.To(),
+					Stake: state.GetBalance(voter),
+				})
+			}
 			//a.lock.RUnlock()
 			
 		}else if number > 1 {
