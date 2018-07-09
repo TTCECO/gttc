@@ -218,7 +218,7 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	if conf.MaxSignerCount == 0 {
 		conf.MaxSignerCount = defaultMaxSignerCount
 	}
-	if conf.MinVoterBalance.Cmp(big.NewInt(0)) <= 0 {
+	if conf.MinVoterBalance.Uint64() == 0 {
 		conf.MinVoterBalance = defaultMinVoterBalance
 	}
 
@@ -275,15 +275,10 @@ func (a *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 		return errUnknownBlock
 	}
 
-
 	// Don't waste time checking blocks from the future
 	if header.Time.Cmp(big.NewInt(time.Now().Unix())) > 0 {
 		return consensus.ErrFutureBlock
 	}
-
-	// Nonces must be lower than config.alien.maxsigners
-	// todo
-
 
 	// Check that the extra-data contains both the vanity and signature
 	if len(header.Extra) < extraVanity {
@@ -301,7 +296,6 @@ func (a *Alien) verifyHeader(chain consensus.ChainReader, header *types.Header, 
 	if header.UncleHash != uncleHash {
 		return errInvalidUncleHash
 	}
-
 
 	// All basic checks passed, verify cascading fields
 	return a.verifyCascadingFields(chain, header, parents)
@@ -476,12 +470,20 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 
 	if header.Number.Uint64() == 1 {
 		// Sweet, the protocol permits us to sign the block, wait for our time
-		delay := time.Unix(int64(a.config.GenesisTimestamp - 2), 0).Sub(time.Now())
+		for {
+			delay := time.Unix(int64(a.config.GenesisTimestamp-2), 0).Sub(time.Now())
+			if delay <= time.Duration(0) {
+				log.Info("Ready for seal block", "time", time.Now())
+				break
+			} else if delay > time.Duration(a.config.Period) * time.Second {
+				delay = time.Duration(a.config.Period) * time.Second
+			}
+			log.Info("Waiting for seal block", "delay", common.PrettyDuration(time.Unix(int64(a.config.GenesisTimestamp-2), 0).Sub(time.Now())))
+			select {
+			case <-time.After(delay):
 
-		log.Info("Waiting for seal block", "delay", common.PrettyDuration(delay))
-		select {
-		case <-time.After(delay):
-			log.Info("Ready for seal block", "delay", time.Now())
+				continue
+			}
 		}
 	}
 
