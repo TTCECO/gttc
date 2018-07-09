@@ -240,12 +240,15 @@ func TestVoting(t *testing.T) {
 			t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 			continue
 		}
-		result := snap.getSignerQueue()
-		if result[0] !=  accounts.address(tt.result.Signers[0]){
-			t.Errorf("test mismatch")
-			continue
-		}
 
+		snapSigners := snap.getSignerQueue()
+		for j,signer := range tt.result.Signers{
+			if snapSigners[j] != accounts.address(signer){
+				t.Errorf("test %d: signer %d dismatch: %v, %v, %v", i, j, signer, accounts.address(signer), snapSigners[j])
+				continue
+			}
+
+		}
 
 
 	}
