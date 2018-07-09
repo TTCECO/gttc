@@ -31,6 +31,7 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/hashicorp/golang-lru"
 	"github.com/TTCECO/gttc/rlp"
+	"github.com/TTCECO/gttc/log"
 
 )
 
@@ -141,7 +142,11 @@ func (s *Snapshot) copy() *Snapshot {
 		cpy.Signers[index] = address
 	}
 	for voter, vote := range s.Votes {
-		cpy.Votes[voter] = vote
+		cpy.Votes[voter] = &Vote{
+			Voter: vote.Voter,
+			Candidate: vote.Candidate,
+			Stake: new(big.Int).Set(vote.Stake),
+		}
 	}
 	for candidate, tally := range s.Tally {
 		cpy.Tally[candidate] = tally
@@ -206,6 +211,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 		// deal the voter which balance modified
 		for _, txVote := range headerExtra.ModifyPredecessorVotes{
+
 			if lastVote, ok := snap.Votes[txVote.Voter]; ok{
 				snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
 				snap.Tally[lastVote.Candidate].Add(snap.Tally[lastVote.Candidate], txVote.Stake )
