@@ -163,7 +163,6 @@ func TestVoting(t *testing.T) {
 	for i, tt := range tests {
 		// Create the account pool and generate the initial set of signers
 		accounts := newTesterAccountPool()
-
 		addrNames := make([]common.Address, len(tt.addrNames))
 		for j, signer := range tt.addrNames {
 			addrNames[j] = accounts.address(signer)
@@ -176,9 +175,9 @@ func TestVoting(t *testing.T) {
 			}
 		}
 
+		// Prepare data for the genesis block
 		genesisVotes := []*Vote{}
-		currentBlockVotes := []Vote{}
-		voterQueue := []common.Address{}
+		selfVoteSigners := []common.Address{}
 		alreadyVote := make(map[common.Address] struct{})
 		for _, voter := range tt.selfVoters {
 
@@ -188,36 +187,21 @@ func TestVoting(t *testing.T) {
 					Candidate: accounts.address(voter.voter),
 					Stake: big.NewInt(int64(voter.balance)),
 				})
-				currentBlockVotes = append(currentBlockVotes, Vote{
-					Voter: accounts.address(voter.voter),
-					Candidate: accounts.address(voter.voter),
-					Stake: big.NewInt(int64(voter.balance)),
 
-				})
-
-				voterQueue = append(voterQueue, accounts.address(voter.voter))
+				selfVoteSigners = append(selfVoteSigners, accounts.address(voter.voter))
 				alreadyVote[accounts.address(voter.voter)] = struct{}{}
 			}
 		}
 
-
 		currentHeaderExtra := HeaderExtra{}
-		currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
-		currentHeaderExtra.ModifyPredecessorVotes = []Vote{}
-		currentHeaderExtra.LoopStartTime = tt.genesisTimestamp
-		for j := 0; j < int(tt.maxSignerCount); j++{
-			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, voterQueue[j % len(voterQueue)])
-		}
 		currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
 		if err != nil {
 			t.Errorf("test %d: failed to rlp encode to bytes: %v", currentHeaderExtra, err)
 			continue
 		}
-		// Create the genesis block with the initial set of signers
 		genesis := &core.Genesis{
 			ExtraData: make([]byte, extraVanity+len(currentHeaderExtraEnc)+extraSeal),
 		}
-		copy(genesis.ExtraData[extraVanity:], currentHeaderExtraEnc)
 
 		// Create a pristine blockchain with the genesis injected
 		db := ethdb.NewMemDatabase()
@@ -226,28 +210,43 @@ func TestVoting(t *testing.T) {
 		// Assemble a chain of headers from the cast votes
 		headers := make([]*types.Header, len(tt.txHeaders))
 		for j, header := range tt.txHeaders {
+			currentBlockVotes := []Vote{}
+			modifyPredecessorVotes := []Vote{}
 			for _,trans := range header.txs {
-				currentBlockVotes := []Vote{}
 				if trans.isVote{
+					// vote event
 					currentBlockVotes = append(currentBlockVotes, Vote{
 						Voter: accounts.address(trans.from),
 						Candidate: accounts.address(trans.to),
 						Stake: big.NewInt(int64(trans.balance)),
 					})
-
 				}else {
-
+					// modify balance
+					// modifyPredecessorVotes
 				}
 			}
 
-			
 			currentHeaderExtra := HeaderExtra{}
 			currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
-			currentHeaderExtra.ModifyPredecessorVotes = []Vote{}
-			currentHeaderExtra.LoopStartTime = tt.genesisTimestamp
-			for j := 0; j < int(tt.maxSignerCount); j++{
-				currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, voterQueue[j % len(voterQueue)])
+			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
+
+			currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
+
+			if j == 0 {
+				for k := 0; k < int(tt.maxSignerCount); k++{
+					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, selfVoteSigners[k % len(selfVoteSigners)])
+				}
+
+			}else {
+				if j% int(tt.maxSignerCount) == 0{
+					//snap.getSignerQueue
+
+				}else{
+					//signeQueue is same as signerQueue of parent header
+				}
+
 			}
+			
 			currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
 			if err != nil {
 				t.Errorf("test %d: failed to rlp encode to bytes: %v", currentHeaderExtra, err)
@@ -277,7 +276,7 @@ func TestVoting(t *testing.T) {
 							Epoch: tt.epoch ,
 							MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
 							MaxSignerCount: tt.maxSignerCount ,
-							SelfVoteSigners: voterQueue,
+							SelfVoteSigners: selfVoteSigners,
 							},
 					db)
 		snap, err :=alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, genesisVotes)
