@@ -31,7 +31,6 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/hashicorp/golang-lru"
 	"github.com/TTCECO/gttc/rlp"
-	"github.com/TTCECO/gttc/log"
 
 )
 
