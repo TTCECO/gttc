@@ -56,7 +56,7 @@ var (
 	defaultEpochLength = uint64(3000000) // Default number of blocks after which vote's period of validity
 	defaultBlockPeriod = uint64(3)    // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount = uint64(21) //
-	defaultMinVoterBalance = new(big.Int).Lsh(big.NewInt(1), 64)
+	defaultMinVoterBalance = new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000))
 	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
 	nonceCountDown = hexutil.MustDecode("0x0000000000000000") // nonce number to count down for create random signer queue
@@ -218,7 +218,7 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	if conf.MaxSignerCount == 0 {
 		conf.MaxSignerCount = defaultMaxSignerCount
 	}
-	if conf.MinVoterBalance.Uint64() > 0 {
+	if conf.MinVoterBalance.Cmp(big.NewInt(0)) <= 0 {
 		conf.MinVoterBalance = defaultMinVoterBalance
 	}
 

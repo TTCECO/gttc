@@ -84,7 +84,7 @@ var (
 			Period: 3,
 			Epoch:  30000,
 			MaxSignerCount: 21,
-			MinVoterBalance: new(big.Int).Lsh(big.NewInt(1), 64) ,
+			MinVoterBalance: new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)) ,
 			GenesisTimestamp: 0,
 			SelfVoteSigners: []common.Address{},
 		},
@@ -109,7 +109,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllAlienProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil,&AlienConfig{Period: 3, Epoch: 30000, MaxSignerCount:21, MinVoterBalance: new(big.Int).Lsh(big.NewInt(1), 64)  , GenesisTimestamp:0, SelfVoteSigners: []common.Address{}}}
+	AllAlienProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil,&AlienConfig{Period: 3, Epoch: 30000, MaxSignerCount:21, MinVoterBalance: new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)) , GenesisTimestamp:0, SelfVoteSigners: []common.Address{}}}
 
 
 

@@ -68,7 +68,7 @@ Which consensus engine to use? (default = alien)
  3. Alien  - delegated-proof-of-stake
 > 3
 
-How many seconds should blocks take? (default = 15)
+How many seconds should blocks take? (default = 3)
 > 4
 
 How many blocks create for one epoch? (default = 30000)
@@ -76,6 +76,9 @@ How many blocks create for one epoch? (default = 30000)
 
 What is the max number of signers? (default = 21)
 > 3
+
+What is the minimize balance for valid voter ? (default = 10000TTC)
+> 100
 
 How many minutes delay to create first block ? (default = 5 minutes)
 > 5
