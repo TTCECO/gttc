@@ -31,12 +31,41 @@ import (
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
+	"github.com/TTCECO/gttc/rlp"
+	"time"
 )
 
+type testerTransaction struct {
+	from string 		// name of from address
+	to 	 string 		// name of to address
+	value int 			// value
+	balance int    		// balance address in snap.voter
+	isVote bool			// is msg in data is "ufo:1:event:vote"
+}
+
+
+
+type testerSingleHeader struct {
+	signer string		// signer of current block
+	txs []testerTransaction
+}
+
+type testerSelfVoter struct {
+	voter string		// name of self voter address in genesis block
+	balance int 	// balance
+}
+
 type testerVote struct {
-	signer string
-	voted  string
-	auth   bool
+	voter string
+	candidate string
+	stake int
+}
+
+type testerSnapshot struct {
+	Signers map[int] string
+	Votes map[string] *testerVote
+	Tally map[string] int
+	Voters map[string] int
 }
 
 // testerAccountPool is a pool to maintain currently active tester accounts,
@@ -93,241 +122,32 @@ func (r *testerChainReader) GetHeaderByNumber(number uint64) *types.Header {
 func TestVoting(t *testing.T) {
 	// Define the various voting scenarios to test
 	tests := []struct {
-		epoch   uint64
-		signers []string
-		votes   []testerVote
-		results []string
+		addrNames []string 				// accounts used in this case
+		epoch  	uint64					// default 30000
+		maxSignerCount uint64			// default 5 for test
+		minVoterBalance int				// default 50
+		selfVoters []testerSelfVoter	//
+		txHeaders   []testerSingleHeader //
+		result testerSnapshot			// the result of current snapshot
 	}{
 		{
-			// Single signer, no votes cast
-			signers: []string{"A"},
-			votes:   []testerVote{{signer: "A"}},
-			results: []string{"A"},
-		}, {
-			// Single signer, voting to add two others (only accept first, second needs 2 votes)
-			signers: []string{"A"},
-			votes: []testerVote{
-				{signer: "A", voted: "B", auth: true},
-				{signer: "B"},
-				{signer: "A", voted: "C", auth: true},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Two signers, voting to add three others (only accept first two, third needs 3 votes already)
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: true},
-				{signer: "B", voted: "C", auth: true},
-				{signer: "A", voted: "D", auth: true},
-				{signer: "B", voted: "D", auth: true},
-				{signer: "C"},
-				{signer: "A", voted: "E", auth: true},
-				{signer: "B", voted: "E", auth: true},
-			},
-			results: []string{"A", "B", "C", "D"},
-		}, {
-			// Single signer, dropping itself (weird, but one less cornercase by explicitly allowing this)
-			signers: []string{"A"},
-			votes: []testerVote{
-				{signer: "A", voted: "A", auth: false},
-			},
-			results: []string{},
-		}, {
-			// Two signers, actually needing mutual consent to drop either of them (not fulfilled)
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "B", auth: false},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Two signers, actually needing mutual consent to drop either of them (fulfilled)
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "B", auth: false},
-				{signer: "B", voted: "B", auth: false},
-			},
-			results: []string{"A"},
-		}, {
-			// Three signers, two of them deciding to drop the third
-			signers: []string{"A", "B", "C"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B", voted: "C", auth: false},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Four signers, consensus of two not being enough to drop anyone
-			signers: []string{"A", "B", "C", "D"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B", voted: "C", auth: false},
-			},
-			results: []string{"A", "B", "C", "D"},
-		}, {
-			// Four signers, consensus of three already being enough to drop someone
-			signers: []string{"A", "B", "C", "D"},
-			votes: []testerVote{
-				{signer: "A", voted: "D", auth: false},
-				{signer: "B", voted: "D", auth: false},
-				{signer: "C", voted: "D", auth: false},
-			},
-			results: []string{"A", "B", "C"},
-		}, {
-			// Authorizations are counted once per signer per target
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: true},
-				{signer: "B"},
-				{signer: "A", voted: "C", auth: true},
-				{signer: "B"},
-				{signer: "A", voted: "C", auth: true},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Authorizing multiple accounts concurrently is permitted
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: true},
-				{signer: "B"},
-				{signer: "A", voted: "D", auth: true},
-				{signer: "B"},
-				{signer: "A"},
-				{signer: "B", voted: "D", auth: true},
-				{signer: "A"},
-				{signer: "B", voted: "C", auth: true},
-			},
-			results: []string{"A", "B", "C", "D"},
-		}, {
-			// Deauthorizations are counted once per signer per target
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "B", auth: false},
-				{signer: "B"},
-				{signer: "A", voted: "B", auth: false},
-				{signer: "B"},
-				{signer: "A", voted: "B", auth: false},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Deauthorizing multiple accounts concurrently is permitted
-			signers: []string{"A", "B", "C", "D"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B"},
-				{signer: "C"},
-				{signer: "A", voted: "D", auth: false},
-				{signer: "B"},
-				{signer: "C"},
-				{signer: "A"},
-				{signer: "B", voted: "D", auth: false},
-				{signer: "C", voted: "D", auth: false},
-				{signer: "A"},
-				{signer: "B", voted: "C", auth: false},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Votes from deauthorized signers are discarded immediately (deauth votes)
-			signers: []string{"A", "B", "C"},
-			votes: []testerVote{
-				{signer: "C", voted: "B", auth: false},
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B", voted: "C", auth: false},
-				{signer: "A", voted: "B", auth: false},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Votes from deauthorized signers are discarded immediately (auth votes)
-			signers: []string{"A", "B", "C"},
-			votes: []testerVote{
-				{signer: "C", voted: "B", auth: false},
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B", voted: "C", auth: false},
-				{signer: "A", voted: "B", auth: false},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Cascading changes are not allowed, only the account being voted on may change
-			signers: []string{"A", "B", "C", "D"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B"},
-				{signer: "C"},
-				{signer: "A", voted: "D", auth: false},
-				{signer: "B", voted: "C", auth: false},
-				{signer: "C"},
-				{signer: "A"},
-				{signer: "B", voted: "D", auth: false},
-				{signer: "C", voted: "D", auth: false},
-			},
-			results: []string{"A", "B", "C"},
-		}, {
-			// Changes reaching consensus out of bounds (via a deauth) execute on touch
-			signers: []string{"A", "B", "C", "D"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B"},
-				{signer: "C"},
-				{signer: "A", voted: "D", auth: false},
-				{signer: "B", voted: "C", auth: false},
-				{signer: "C"},
-				{signer: "A"},
-				{signer: "B", voted: "D", auth: false},
-				{signer: "C", voted: "D", auth: false},
-				{signer: "A"},
-				{signer: "C", voted: "C", auth: true},
-			},
-			results: []string{"A", "B"},
-		}, {
-			// Changes reaching consensus out of bounds (via a deauth) may go out of consensus on first touch
-			signers: []string{"A", "B", "C", "D"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: false},
-				{signer: "B"},
-				{signer: "C"},
-				{signer: "A", voted: "D", auth: false},
-				{signer: "B", voted: "C", auth: false},
-				{signer: "C"},
-				{signer: "A"},
-				{signer: "B", voted: "D", auth: false},
-				{signer: "C", voted: "D", auth: false},
-				{signer: "A"},
-				{signer: "B", voted: "C", auth: true},
-			},
-			results: []string{"A", "B", "C"},
-		}, {
-			// Ensure that pending votes don't survive authorization status changes. This
-			// corner case can only appear if a signer is quickly added, removed and then
-			// readded (or the inverse), while one of the original voters dropped. If a
-			// past vote is left cached in the system somewhere, this will interfere with
-			// the final signer outcome.
-			signers: []string{"A", "B", "C", "D", "E"},
-			votes: []testerVote{
-				{signer: "A", voted: "F", auth: true}, // Authorize F, 3 votes needed
-				{signer: "B", voted: "F", auth: true},
-				{signer: "C", voted: "F", auth: true},
-				{signer: "D", voted: "F", auth: false}, // Deauthorize F, 4 votes needed (leave A's previous vote "unchanged")
-				{signer: "E", voted: "F", auth: false},
-				{signer: "B", voted: "F", auth: false},
-				{signer: "C", voted: "F", auth: false},
-				{signer: "D", voted: "F", auth: true}, // Almost authorize F, 2/3 votes needed
-				{signer: "E", voted: "F", auth: true},
-				{signer: "B", voted: "A", auth: false}, // Deauthorize A, 3 votes needed
-				{signer: "C", voted: "A", auth: false},
-				{signer: "D", voted: "A", auth: false},
-				{signer: "B", voted: "F", auth: true}, // Finish authorizing F, 3/3 votes needed
-			},
-			results: []string{"B", "C", "D", "E", "F"},
-		}, {
-			// Epoch transitions reset all votes to allow chain checkpointing
-			epoch:   3,
-			signers: []string{"A", "B"},
-			votes: []testerVote{
-				{signer: "A", voted: "C", auth: true},
-				{signer: "B"},
-				{signer: "A"}, // Checkpoint block, (don't vote here, it's validated outside of snapshots)
-				{signer: "B", voted: "C", auth: true},
-			},
-			results: []string{"A", "B"},
+			addrNames : []string{"A","B","C","D"},
+			selfVoters : []testerSelfVoter{{voter:"A",balance:100},{voter:"B",balance:200}},
+			txHeaders: 	[]testerSingleHeader{
+								{"A",[]testerTransaction{{from: "C", to: "D", balance: 200, value:0, isVote:true},},},
+								},
+			result: 	testerSnapshot{
+								Signers:map[int]string{0:"A",1:"B"},
+								Tally:map[string]int {"A":100,"B":200,"D":200},
+								Voters:map[string]int {"A":0,"B":0,"D":3},
+								Votes:map[string]*testerVote{
+											"A":{"A","A",100},
+											"B":{"B","B",200},
+											"C":{"C","D",200},
+
+											},
+										},
+
 		},
 	}
 	// Run through the scenarios and test them
@@ -335,74 +155,98 @@ func TestVoting(t *testing.T) {
 		// Create the account pool and generate the initial set of signers
 		accounts := newTesterAccountPool()
 
-		signers := make([]common.Address, len(tt.signers))
-		for j, signer := range tt.signers {
-			signers[j] = accounts.address(signer)
+		addrNames := make([]common.Address, len(tt.addrNames))
+		for j, signer := range tt.addrNames {
+			addrNames[j] = accounts.address(signer)
 		}
-		for j := 0; j < len(signers); j++ {
-			for k := j + 1; k < len(signers); k++ {
-				if bytes.Compare(signers[j][:], signers[k][:]) > 0 {
-					signers[j], signers[k] = signers[k], signers[j]
+		for j := 0; j < len(addrNames); j++ {
+			for k := j + 1; k < len(addrNames); k++ {
+				if bytes.Compare(addrNames[j][:], addrNames[k][:]) > 0 {
+					addrNames[j], addrNames[k] = addrNames[k], addrNames[j]
 				}
 			}
 		}
+
+		genesisVotes := []*Vote{}
+		alreadyVote := make(map[common.Address] struct{})
+		for _, voter := range tt.selfVoters {
+
+			if _, ok := alreadyVote[accounts.address(voter.voter)]; !ok {
+				genesisVotes = append(genesisVotes, &Vote{
+					Voter: accounts.address(voter.voter),
+					Candidate: accounts.address(voter.voter),
+					Stake: big.NewInt(int64(voter.balance)),
+				})
+				alreadyVote[accounts.address(voter.voter)] = struct{}{}
+			}
+		}
+		currentHeaderExtra := HeaderExtra{}
+		currentHeaderExtra.CurrentBlockVotes = []Vote{}
+		currentHeaderExtra.ModifyPredecessorVotes = []Vote{}
+		currentHeaderExtra.LoopStartTime = uint64(time.Now().Unix())
+		currentHeaderExtra.SignerQueue = []common.Address{}
+
+		currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
+		if err != nil {
+			t.Errorf("test %d: failed to rlp encode to bytes: %v", currentHeaderExtra, err)
+			continue
+		}
 		// Create the genesis block with the initial set of signers
 		genesis := &core.Genesis{
-			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signers)+extraSeal),
-		}
-		for j, signer := range signers {
-			copy(genesis.ExtraData[extraVanity+j*common.AddressLength:], signer[:])
+			ExtraData: make([]byte, extraVanity+len(currentHeaderExtraEnc)+extraSeal),
 		}
 		// Create a pristine blockchain with the genesis injected
 		db := ethdb.NewMemDatabase()
 		genesis.Commit(db)
 
 		// Assemble a chain of headers from the cast votes
-		headers := make([]*types.Header, len(tt.votes))
-		for j, vote := range tt.votes {
+		headers := make([]*types.Header, len(tt.txHeaders))
+		for j, header := range tt.txHeaders {
+			for _,trans := range header.txs {
+				currentBlockVotes := []Vote{}
+				if trans.isVote{
+					currentBlockVotes = append(currentBlockVotes, Vote{
+						Voter: accounts.address(trans.from),
+						Candidate: accounts.address(trans.to),
+						Stake: big.NewInt(int64(trans.balance)),
+					})
+				}else {
+
+				}
+			}
 			headers[j] = &types.Header{
 				Number:   big.NewInt(int64(j) + 1),
 				Time:     big.NewInt(int64(j) * int64(defaultBlockPeriod)),
-				Coinbase: accounts.address(vote.voted),
+				Coinbase: accounts.address(header.signer),
 				Extra:    make([]byte, extraVanity+extraSeal),
 			}
 			if j > 0 {
 				headers[j].ParentHash = headers[j-1].Hash()
 			}
-			//if vote.auth {
-			//	copy(headers[j].Nonce[:], nonceAuthVote)
-			//}
-			accounts.sign(headers[j], vote.signer)
+			accounts.sign(headers[j], header.signer)
 		}
 		// Pass all the headers through alien and ensure tallying succeeds
 		head := headers[len(headers)-1]
 
-		snap, err := New(&params.AlienConfig{Epoch: tt.epoch}, db).snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil)
+		selfVoteSigners := []common.Address{}
+		selfVoteSigners = append(selfVoteSigners, accounts.address("A"))
+		selfVoteSigners = append(selfVoteSigners, accounts.address("B"))
+
+		snap, err := New(&params.AlienConfig{Epoch: tt.epoch ,MinVoterBalance: big.NewInt(100), MaxSignerCount: 21 , SelfVoteSigners: selfVoteSigners},
+			db).snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, genesisVotes)
+
+
 		if err != nil {
 			t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 			continue
 		}
-		// Verify the final list of signers against the expected ones
-		signers = make([]common.Address, len(tt.results))
-		for j, signer := range tt.results {
-			signers[j] = accounts.address(signer)
-		}
-		for j := 0; j < len(signers); j++ {
-			for k := j + 1; k < len(signers); k++ {
-				if bytes.Compare(signers[j][:], signers[k][:]) > 0 {
-					signers[j], signers[k] = signers[k], signers[j]
-				}
-			}
-		}
-		result := snap.signers()
-		if len(result) != len(signers) {
-			t.Errorf("test %d: signers mismatch: have %x, want %x", i, result, signers)
+		result := snap.getSignerQueue()
+		if result[0] !=  accounts.address(tt.result.Signers[0]){
+			t.Errorf("test mismatch")
 			continue
 		}
-		for j := 0; j < len(result); j++ {
-			if !bytes.Equal(result[j][:], signers[j][:]) {
-				t.Errorf("test %d, signer %d: signer mismatch: have %x, want %x", i, j, result[j], signers[j])
-			}
-		}
+
+
+
 	}
 }
