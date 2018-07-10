@@ -138,14 +138,14 @@ func TestVoting(t *testing.T) {
 		result           testerSnapshot       // the result of current snapshot
 	}{
 		{
-			/* 	Case 1:
-			*	Just two self vote address in genesis
+			/* 	Case 0:
+			*	Just two self vote address A B in genesis
 			*  	No votes or transactions through blocks
 			*/
 			addrNames:        []string{"A", "B"},
 			period:           uint64(3),
 			epoch:            uint64(31),
-			maxSignerCount:   uint64(15),
+			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
@@ -158,7 +158,7 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{0: "A", 1: "B"},
+				Signers: []string{ "A",  "B"},
 				Tally:   map[string]int{"A": 100, "B": 200},
 				Voters:  map[string]int{"A": 0, "B": 0},
 				Votes: map[string]*testerVote{
@@ -167,15 +167,15 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},{
-			/*	Case 2:
-			*	Two self vote address in  genesis
+			/*	Case 1:
+			*	Two self vote address A B in  genesis
 			* 	C vote D to be signer in block 3
 			* 	balance of C is higher than minVoterBalance
 			*/
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
-			maxSignerCount:   uint64(15),
+			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
@@ -185,9 +185,11 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{0: "A", 1: "B"},
+				Signers: []string{"A","B","D"},
 				Tally:   map[string]int{"A": 100, "B": 200, "D": 200},
 				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
 				Votes: map[string]*testerVote{
@@ -198,15 +200,15 @@ func TestVoting(t *testing.T) {
 			},
 		},
 		{
-			/*	Case 3:
+			/*	Case 2:
 			*	Two self vote address in  genesis
 			* 	C vote D to be signer in block 2
 			* 	balance of C is lower than minVoterBalance, so this vote not processed
 			*/
-			addrNames:        []string{"A", "B"},
+			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
-			maxSignerCount:   uint64(15),
+			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
@@ -219,12 +221,45 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{0: "A", 1: "B"},
+				Signers: []string{ "A", "B"},
 				Tally:   map[string]int{"A": 100, "B": 200},
 				Voters:  map[string]int{"A": 0, "B": 0},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
+				},
+			},
+		},
+		{
+			/*	Case 3:
+			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 2
+			*  	C vote B to be signer in block 3
+			* 	balance of C is lower higher minVoterBalance
+			*/
+			addrNames:        []string{"A", "B", "C", "D"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 20, isVote: true}}},
+				{[]testerTransaction{{from: "C", to: "B", balance: 20, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{ "A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 220},
+				Voters:  map[string]int{"A": 0, "B": 0, "C":3},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "B", 20},
 				},
 			},
 		},
@@ -339,7 +374,7 @@ func TestVoting(t *testing.T) {
 			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 			currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
 			if err != nil {
-				t.Errorf("test %d: failed to rlp encode to bytes: %v", currentHeaderExtra, err)
+				t.Errorf("test %d: failed to rlp encode to bytes: %v", i, err)
 				continue
 			}
 			// Create the genesis block with the initial set of signers
