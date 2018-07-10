@@ -328,6 +328,39 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},
+		{
+			/*	Case 6:
+			*	Two self vote address A B in  genesis
+			* 	C vote D , D vote E, E vote F to be signer in block 2
+			*   F vote G in block 3
+			*   Signers is still A B because 5 block not finish this loop, the order of this loop is already set
+			*/
+			addrNames:        []string{"A", "B", "C", "D","H","I"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true},{from: "H", to: "I", balance: 160, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{ "A","B", "D","I"},
+				Tally:   map[string]int{"A": 100, "B": 200 , "D":110, "I":160,},
+				Voters:  map[string]int{"A": 0, "B": 0, "C":2, "H":2},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 110},
+					"H": {"H", "I", 160},
+				},
+			},
+		},
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
@@ -523,10 +556,10 @@ func TestVoting(t *testing.T) {
 
 			}
 			if snapVote.Voter != accounts.address(vote.voter) {
-				t.Errorf("test %d: votes voter dismatch %v address: %v  , show in snap is %v", i, vote.voter, accounts.address(vote.voter), snapVote.Voter)
+				t.Errorf("test %d: votes voter dismatch %v address: %v  , show in snap is %v address: %v", i, vote.voter, accounts.address(vote.voter), accounts.name(snapVote.Voter), snapVote.Voter)
 			}
 			if snapVote.Candidate != accounts.address(vote.candidate) {
-				t.Errorf("test %d: votes candidate dismatch %v address: %v , show in snap is %v ", i, vote.candidate, accounts.address(vote.candidate), snapVote.Candidate)
+				t.Errorf("test %d: votes candidate dismatch %v address: %v , show in snap is %v address: %v ", i, vote.candidate, accounts.address(vote.candidate), accounts.name(snapVote.Candidate),snapVote.Candidate)
 			}
 			if snapVote.Stake.Cmp(big.NewInt(int64(vote.stake))) != 0 {
 				t.Errorf("test %d: votes stake dismatch %v ,show in snap is %v ", i, vote.stake, snapVote.Stake)
