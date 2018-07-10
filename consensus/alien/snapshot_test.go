@@ -42,7 +42,7 @@ type testerTransaction struct {
 }
 
 type testerSingleHeader struct {
-	txs    []testerTransaction
+	txs []testerTransaction
 }
 
 type testerSelfVoter struct {
@@ -96,14 +96,13 @@ func (ap *testerAccountPool) address(account string) common.Address {
 }
 
 func (ap *testerAccountPool) name(address common.Address) string {
-	for name, v := range ap.accounts{
-		if crypto.PubkeyToAddress(v.PublicKey) == address{
+	for name, v := range ap.accounts {
+		if crypto.PubkeyToAddress(v.PublicKey) == address {
 			return name
 		}
 	}
 	return ""
 }
-
 
 // testerChainReader implements consensus.ChainReader to access the genesis
 // block. All other methods and requests will panic.
@@ -141,7 +140,7 @@ func TestVoting(t *testing.T) {
 			/* 	Case 0:
 			*	Just two self vote address A B in genesis
 			*  	No votes or transactions through blocks
-			*/
+			 */
 			addrNames:        []string{"A", "B"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -158,7 +157,7 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A",  "B"},
+				Signers: []string{"A", "B"},
 				Tally:   map[string]int{"A": 100, "B": 200},
 				Voters:  map[string]int{"A": 0, "B": 0},
 				Votes: map[string]*testerVote{
@@ -166,16 +165,18 @@ func TestVoting(t *testing.T) {
 					"B": {"B", "B", 200},
 				},
 			},
-		},{
+		},
+		{
 			/*	Case 1:
 			*	Two self vote address A B in  genesis
 			* 	C vote D to be signer in block 3
-			* 	balance of C is higher than minVoterBalance
-			*/
+			* 	But current loop do not finish, so D is not signer,
+			* 	the vote info already in Tally, Voters and Votes
+			 */
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
-			maxSignerCount:   uint64(5),
+			maxSignerCount:   uint64(7),
 			minVoterBalance:  50,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
@@ -184,12 +185,9 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
 				{[]testerTransaction{}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{"A","B","D"},
+				Signers: []string{"A", "B"},
 				Tally:   map[string]int{"A": 100, "B": 200, "D": 200},
 				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
 				Votes: map[string]*testerVote{
@@ -203,8 +201,10 @@ func TestVoting(t *testing.T) {
 			/*	Case 2:
 			*	Two self vote address in  genesis
 			* 	C vote D to be signer in block 2
-			* 	balance of C is lower than minVoterBalance, so this vote not processed
-			*/
+			* 	But balance of C is lower than minVoterBalance,
+			*   so this vote not processed, D is not signer
+			* 	the vote info is dropped .
+			 */
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -221,7 +221,7 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A", "B"},
+				Signers: []string{"A", "B"},
 				Tally:   map[string]int{"A": 100, "B": 200},
 				Voters:  map[string]int{"A": 0, "B": 0},
 				Votes: map[string]*testerVote{
@@ -233,10 +233,47 @@ func TestVoting(t *testing.T) {
 		{
 			/*	Case 3:
 			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 3
+			* 	balance of C is higher than minVoterBalance
+			* 	D is signer in next loop
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B", "D"},
+				Tally:   map[string]int{"A": 100, "B": 200, "D": 200},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 200},
+				},
+			},
+		},
+
+		{
+			/*	Case 4:
+			*	Two self vote address A B in  genesis
 			* 	C vote D to be signer in block 2
 			*  	C vote B to be signer in block 3
 			* 	balance of C is higher minVoterBalance
-			*/
+			* 	the first vote from C is dropped
+			* 	the signers are still A and B
+			 */
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -253,24 +290,24 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A", "B"},
+				Signers: []string{"A", "B"},
 				Tally:   map[string]int{"A": 100, "B": 380},
 				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
 					"C": {"C", "B", 180},
-
 				},
 			},
 		},
 		{
-			/*	Case 4:
+			/*	Case 5:
 			*	Two self vote address A B in  genesis
 			* 	C vote D to be signer in block 2
 			*  	C transaction to E 20 in block 3
-			*
-			*/
+			*	In Voters, the vote block number of C is still 2, not 4
+			*	But the stake of this vote is 20, cause txs in block 4 the balance of C is 20 in block 4
+			 */
 			addrNames:        []string{"A", "B", "C", "D", "E"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -287,9 +324,9 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A", "B"},
-				Tally:   map[string]int{"A": 100, "B": 200 ,"D":20},
-				Voters:  map[string]int{"A": 0, "B": 0, "C":2},
+				Signers: []string{"A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 200, "D": 20},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 2},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
@@ -298,43 +335,14 @@ func TestVoting(t *testing.T) {
 			},
 		},
 		{
-			/*	Case 5:
-			*	Two self vote address A B in  genesis
-			* 	C vote D to be signer in block 2
-			*   Signers is still A B because 5 block not finish this loop, the order of this loop is already set
-			*/
-			addrNames:        []string{"A", "B", "C", "D"},
-			period:           uint64(3),
-			epoch:            uint64(31),
-			maxSignerCount:   uint64(15),
-			minVoterBalance:  50,
-			genesisTimestamp: uint64(0),
-			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
-			txHeaders: []testerSingleHeader{
-				{[]testerTransaction{}},
-				{[]testerTransaction{{from: "C", to: "D", balance: 100, isVote: true}}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
-			},
-			result: testerSnapshot{
-				Signers: []string{ "A", "B"},
-				Tally:   map[string]int{"A": 100, "B": 200 ,"D":100},
-				Voters:  map[string]int{"A": 0, "B": 0, "C":2},
-				Votes: map[string]*testerVote{
-					"A": {"A", "A", 100},
-					"B": {"B", "B", 200},
-					"C": {"C", "D", 100},
-				},
-			},
-		},
-		{
 			/*	Case 6:
 			*	Two self vote address A B in  genesis
-			* 	C vote D , H vote I  to be signer in block 2
+			* 	C vote D , J vote K, H vote I  to be signer in block 2
 			*   E vote F in block 3
-			*   Signers is still A B because 5 block not finish this loop, the order of this loop is already set
-			*/
-			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I"},
+			* 	The signers in the next loop is A,B,D,F,I but not K
+			*	K is not top 5(maxsigercount) in Tally
+			 */
+			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I", "J", "K"},
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -343,7 +351,7 @@ func TestVoting(t *testing.T) {
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
 				{[]testerTransaction{}},
-				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true},{from: "H", to: "I", balance: 160, isVote: true}}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true}, {from: "J", to: "K", balance: 80, isVote: true}, {from: "H", to: "I", balance: 160, isVote: true}}},
 				{[]testerTransaction{{from: "E", to: "F", balance: 130, isVote: true}}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
@@ -351,13 +359,14 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A","B", "D","F","I"},
-				Tally:   map[string]int{"A": 100, "B": 200 , "D":110, "I":160, "F":130},
-				Voters:  map[string]int{"A": 0, "B": 0, "C":2, "H":2, "E":3},
+				Signers: []string{"A", "B", "D", "F", "I"},
+				Tally:   map[string]int{"A": 100, "B": 200, "D": 110, "I": 160, "F": 130, "K": 80},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 2, "H": 2, "J": 2, "E": 3},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
 					"C": {"C", "D", 110},
+					"J": {"J", "K", 80},
 					"H": {"H", "I", 160},
 					"E": {"E", "F", 130},
 				},
@@ -418,7 +427,6 @@ func TestVoting(t *testing.T) {
 		headers := make([]*types.Header, len(tt.txHeaders))
 		for j, header := range tt.txHeaders {
 
-
 			var currentBlockVotes []Vote
 			var modifyPredecessorVotes []Vote
 			for _, trans := range header.txs {
@@ -448,14 +456,14 @@ func TestVoting(t *testing.T) {
 			if j == 0 {
 				for k := 0; k < int(tt.maxSignerCount); k++ {
 					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, selfVoteSigners[k%len(selfVoteSigners)])
-					}
+				}
 				currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
 				signer = selfVoteSigners[0]
 
 			} else {
 				// decode parent header.extra
 				rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
-				signer = currentHeaderExtra.SignerQueue[uint64(j) % tt.maxSignerCount]
+				signer = currentHeaderExtra.SignerQueue[uint64(j)%tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
 				if (j+1)%int(tt.maxSignerCount) == 0 {
 					snap, err := alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil)
@@ -464,7 +472,7 @@ func TestVoting(t *testing.T) {
 						continue
 					}
 					newSignerQueue := snap.getSignerQueue()
-					for k := 0; k < int(tt.maxSignerCount); k++{
+					for k := 0; k < int(tt.maxSignerCount); k++ {
 						currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[k%len(newSignerQueue)])
 					}
 					currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + tt.period*tt.maxSignerCount
@@ -482,7 +490,6 @@ func TestVoting(t *testing.T) {
 			// Create the genesis block with the initial set of signers
 			ExtraData := make([]byte, extraVanity+len(currentHeaderExtraEnc)+extraSeal)
 			copy(ExtraData[extraVanity:], currentHeaderExtraEnc)
-
 
 			headers[j] = &types.Header{
 				Number:   big.NewInt(int64(j) + 1),
@@ -527,8 +534,8 @@ func TestVoting(t *testing.T) {
 			}
 		}
 		// check tally
-		if len(tt.result.Tally) != len(snap.Tally){
-			t.Errorf("test %d: tally length result %d, snap %d dismatch", i, len(tt.result.Tally),len(snap.Tally))
+		if len(tt.result.Tally) != len(snap.Tally) {
+			t.Errorf("test %d: tally length result %d, snap %d dismatch", i, len(tt.result.Tally), len(snap.Tally))
 		}
 		for name, tally := range tt.result.Tally {
 			if big.NewInt(int64(tally)).Cmp(snap.Tally[accounts.address(name)]) != 0 {
@@ -537,8 +544,8 @@ func TestVoting(t *testing.T) {
 			}
 		}
 		// check voters
-		if len(tt.result.Voters) != len(snap.Voters){
-			t.Errorf("test %d: voter length result %d, snap %d dismatch", i, len(tt.result.Voters),len(snap.Voters))
+		if len(tt.result.Voters) != len(snap.Voters) {
+			t.Errorf("test %d: voter length result %d, snap %d dismatch", i, len(tt.result.Voters), len(snap.Voters))
 		}
 		for name, number := range tt.result.Voters {
 			if snap.Voters[accounts.address(name)].Cmp(big.NewInt(int64(number))) != 0 {
@@ -548,8 +555,8 @@ func TestVoting(t *testing.T) {
 		}
 		// check votes
 
-		if len(tt.result.Votes) != len(snap.Votes){
-			t.Errorf("test %d: votes length result %d, snap %d dismatch", i, len(tt.result.Votes),len(snap.Votes))
+		if len(tt.result.Votes) != len(snap.Votes) {
+			t.Errorf("test %d: votes length result %d, snap %d dismatch", i, len(tt.result.Votes), len(snap.Votes))
 		}
 		for name, vote := range tt.result.Votes {
 			snapVote, ok := snap.Votes[accounts.address(name)]
@@ -561,7 +568,7 @@ func TestVoting(t *testing.T) {
 				t.Errorf("test %d: votes voter dismatch %v address: %v  , show in snap is %v address: %v", i, vote.voter, accounts.address(vote.voter), accounts.name(snapVote.Voter), snapVote.Voter)
 			}
 			if snapVote.Candidate != accounts.address(vote.candidate) {
-				t.Errorf("test %d: votes candidate dismatch %v address: %v , show in snap is %v address: %v ", i, vote.candidate, accounts.address(vote.candidate), accounts.name(snapVote.Candidate),snapVote.Candidate)
+				t.Errorf("test %d: votes candidate dismatch %v address: %v , show in snap is %v address: %v ", i, vote.candidate, accounts.address(vote.candidate), accounts.name(snapVote.Candidate), snapVote.Candidate)
 			}
 			if snapVote.Stake.Cmp(big.NewInt(int64(vote.stake))) != 0 {
 				t.Errorf("test %d: votes stake dismatch %v ,show in snap is %v ", i, vote.stake, snapVote.Stake)

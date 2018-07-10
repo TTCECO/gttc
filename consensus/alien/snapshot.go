@@ -200,7 +200,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				snap.Tally[vote.Candidate] = vote.Stake
 			}
 
-			snap.Votes[vote.Voter] = &Vote{vote.Voter,vote.Candidate,vote.Stake}
+			snap.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
 			snap.Voters[vote.Voter] = header.Number
 		}
 		// deal the voter which balance modified
