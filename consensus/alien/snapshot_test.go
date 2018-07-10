@@ -42,7 +42,6 @@ type testerTransaction struct {
 }
 
 type testerSingleHeader struct {
-	signer string // signer of current block
 	txs    []testerTransaction
 }
 
@@ -96,6 +95,16 @@ func (ap *testerAccountPool) address(account string) common.Address {
 	return crypto.PubkeyToAddress(ap.accounts[account].PublicKey)
 }
 
+func (ap *testerAccountPool) name(address common.Address) string {
+	for name, v := range ap.accounts{
+		if crypto.PubkeyToAddress(v.PublicKey) == address{
+			return name
+		}
+	}
+	return ""
+}
+
+
 // testerChainReader implements consensus.ChainReader to access the genesis
 // block. All other methods and requests will panic.
 type testerChainReader struct {
@@ -137,7 +146,7 @@ func TestVoting(t *testing.T) {
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
-				{"A", []testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
 			},
 			result: testerSnapshot{
 				Signers: []string{0: "A", 1: "B"},
@@ -225,18 +234,20 @@ func TestVoting(t *testing.T) {
 				}
 			}
 			currentHeaderExtra := HeaderExtra{}
+			signer := common.Address{}
+
 			// (j==0) means (header.Number==1)
 			if j == 0 {
 				for k := 0; k < int(tt.maxSignerCount); k++ {
 					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, selfVoteSigners[k%len(selfVoteSigners)])
 				}
 				currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
-
+				signer = selfVoteSigners[0]
 			} else {
 				// decode parent header.extra
 				currentHeaderExtra := HeaderExtra{}
 				rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
-
+				signer = currentHeaderExtra.SignerQueue[uint64(j) % tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
 				if (j+1)%int(tt.maxSignerCount) == 0 {
 					snap, err := alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil)
@@ -261,16 +272,17 @@ func TestVoting(t *testing.T) {
 			ExtraData := make([]byte, extraVanity+len(currentHeaderExtraEnc)+extraSeal)
 			copy(ExtraData[extraVanity:], currentHeaderExtraEnc)
 
+
 			headers[j] = &types.Header{
 				Number:   big.NewInt(int64(j) + 1),
 				Time:     big.NewInt((int64(j)+1)*int64(defaultBlockPeriod) - 1),
-				Coinbase: accounts.address(header.signer),
+				Coinbase: signer,
 				Extra:    ExtraData,
 			}
 			if j > 0 {
 				headers[j].ParentHash = headers[j-1].Hash()
 			}
-			accounts.sign(headers[j], header.signer)
+			accounts.sign(headers[j], accounts.name(signer))
 
 			// Pass all the headers through alien and ensure tallying succeeds
 			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers, genesisVotes)
