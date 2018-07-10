@@ -315,7 +315,6 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{{from: "C", to: "D", balance: 100, isVote: true}}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
-				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
 				Signers: []string{ "A", "B"},
@@ -335,7 +334,7 @@ func TestVoting(t *testing.T) {
 			*   F vote G in block 3
 			*   Signers is still A B because 5 block not finish this loop, the order of this loop is already set
 			*/
-			addrNames:        []string{"A", "B", "C", "D","H","I"},
+			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I"},
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -345,19 +344,22 @@ func TestVoting(t *testing.T) {
 			txHeaders: []testerSingleHeader{
 				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true},{from: "H", to: "I", balance: 160, isVote: true}}},
+				{[]testerTransaction{{from: "E", to: "F", balance: 130, isVote: true}}},
+				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A","B", "D","I"},
-				Tally:   map[string]int{"A": 100, "B": 200 , "D":110, "I":160,},
-				Voters:  map[string]int{"A": 0, "B": 0, "C":2, "H":2},
+				Signers: []string{ "A","B", "D","F","I"},
+				Tally:   map[string]int{"A": 100, "B": 200 , "D":110, "I":160, "F":130},
+				Voters:  map[string]int{"A": 0, "B": 0, "C":2, "H":2, "E":3},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
 					"C": {"C", "D", 110},
 					"H": {"H", "I", 160},
+					"E": {"E", "F", 130},
 				},
 			},
 		},
@@ -516,11 +518,11 @@ func TestVoting(t *testing.T) {
 			signers[signer] = 1
 		}
 		for _, signer := range tt.result.Signers {
-			signers[accounts.address(signer)] += 1
+			signers[accounts.address(signer)] += 2
 		}
 		for address, cnt := range signers {
-			if cnt != 2 {
-				t.Errorf("test %d: signer address: %v not in result signers", i, address)
+			if cnt != 3 {
+				t.Errorf("test %d: signer %v address: %v not in result signers %d", i, accounts.name(address), address, cnt)
 				continue
 			}
 		}

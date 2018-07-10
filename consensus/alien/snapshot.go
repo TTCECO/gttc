@@ -259,7 +259,7 @@ type BigIntSlice []*big.Int
 
 func (s BigIntSlice) Len() int           { return len(s) }
 func (s BigIntSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
+func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) > 0 }
 
 // get signer queue when one loop finished
 func (s *Snapshot) getSignerQueue() []common.Address {
