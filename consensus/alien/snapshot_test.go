@@ -235,7 +235,7 @@ func TestVoting(t *testing.T) {
 			*	Two self vote address A B in  genesis
 			* 	C vote D to be signer in block 2
 			*  	C vote B to be signer in block 3
-			* 	balance of C is lower higher minVoterBalance
+			* 	balance of C is higher minVoterBalance
 			*/
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
@@ -246,20 +246,54 @@ func TestVoting(t *testing.T) {
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
 				{[]testerTransaction{}},
-				{[]testerTransaction{{from: "C", to: "D", balance: 20, isVote: true}}},
-				{[]testerTransaction{{from: "C", to: "B", balance: 20, isVote: true}}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{{from: "C", to: "B", balance: 180, isVote: true}}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
 				Signers: []string{ "A", "B"},
-				Tally:   map[string]int{"A": 100, "B": 220},
-				Voters:  map[string]int{"A": 0, "B": 0, "C":3},
+				Tally:   map[string]int{"A": 100, "B": 380},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
-					"C": {"C", "B", 20},
+					"C": {"C", "B", 180},
+
+				},
+			},
+		},
+		{
+			/*	Case 4:
+			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 2
+			*  	C transaction to E 20 in block 3
+			*
+			*/
+			addrNames:        []string{"A", "B", "C", "D", "E"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  10,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 100, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "E", balance: 20, isVote: false}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{ "A", "B", "D"},
+				Tally:   map[string]int{"A": 100, "B": 200 ,"D":20},
+				Voters:  map[string]int{"A": 0, "B": 0, "C":2},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 20},
 				},
 			},
 		},
@@ -323,12 +357,14 @@ func TestVoting(t *testing.T) {
 			var modifyPredecessorVotes []Vote
 			for _, trans := range header.txs {
 				if trans.isVote {
-					// vote event
-					currentBlockVotes = append(currentBlockVotes, Vote{
-						Voter:     accounts.address(trans.from),
-						Candidate: accounts.address(trans.to),
-						Stake:     big.NewInt(int64(trans.balance)),
-					})
+					if trans.balance >= tt.minVoterBalance {
+						// vote event
+						currentBlockVotes = append(currentBlockVotes, Vote{
+							Voter:     accounts.address(trans.from),
+							Candidate: accounts.address(trans.to),
+							Stake:     big.NewInt(int64(trans.balance)),
+						})
+					}
 				} else {
 					// modify balance
 					// modifyPredecessorVotes
@@ -425,6 +461,9 @@ func TestVoting(t *testing.T) {
 			}
 		}
 		// check tally
+		if len(tt.result.Tally) != len(snap.Tally){
+			t.Errorf("test %d: tally length result %d, snap %d dismatch", i, len(tt.result.Tally),len(snap.Tally))
+		}
 		for name, tally := range tt.result.Tally {
 			if big.NewInt(int64(tally)).Cmp(snap.Tally[accounts.address(name)]) != 0 {
 				t.Errorf("test %d: tally %v address: %v, tally:%v ,result: %v", i, name, accounts.address(name), snap.Tally[accounts.address(name)], big.NewInt(int64(tally)))
@@ -432,6 +471,9 @@ func TestVoting(t *testing.T) {
 			}
 		}
 		// check voters
+		if len(tt.result.Voters) != len(snap.Voters){
+			t.Errorf("test %d: voter length result %d, snap %d dismatch", i, len(tt.result.Voters),len(snap.Voters))
+		}
 		for name, number := range tt.result.Voters {
 			if snap.Voters[accounts.address(name)].Cmp(big.NewInt(int64(number))) != 0 {
 				t.Errorf("test %d: voter %v address: %v, number:%v ,result: %v", i, name, accounts.address(name), snap.Voters[accounts.address(name)], big.NewInt(int64(number)))
@@ -439,6 +481,10 @@ func TestVoting(t *testing.T) {
 			}
 		}
 		// check votes
+
+		if len(tt.result.Votes) != len(snap.Votes){
+			t.Errorf("test %d: votes length result %d, snap %d dismatch", i, len(tt.result.Votes),len(snap.Votes))
+		}
 		for name, vote := range tt.result.Votes {
 			snapVote, ok := snap.Votes[accounts.address(name)]
 			if !ok {
