@@ -275,19 +275,19 @@ func TestVoting(t *testing.T) {
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
-			minVoterBalance:  10,
+			minVoterBalance:  50,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
 				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 100, isVote: true}}},
 				{[]testerTransaction{}},
-				{[]testerTransaction{{from: "C", to: "E", balance: 20, isVote: false}}},
+				{[]testerTransaction{{from: "C", to: "E", balance: 20, isVote: false}}}, // when C transaction to E, the balance of C is 20
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{ "A", "B", "D"},
+				Signers: []string{ "A", "B"},
 				Tally:   map[string]int{"A": 100, "B": 200 ,"D":20},
 				Voters:  map[string]int{"A": 0, "B": 0, "C":2},
 				Votes: map[string]*testerVote{
