@@ -138,6 +138,31 @@ func TestVoting(t *testing.T) {
 		result           testerSnapshot       // the result of current snapshot
 	}{
 		{
+			addrNames:        []string{"A", "B"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(15),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{0: "A", 1: "B"},
+				Tally:   map[string]int{"A": 100, "B": 200},
+				Voters:  map[string]int{"A": 0, "B": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+				},
+			},
+		},{
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -146,12 +171,16 @@ func TestVoting(t *testing.T) {
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
 				Signers: []string{0: "A", 1: "B"},
 				Tally:   map[string]int{"A": 100, "B": 200, "D": 200},
-				Voters:  map[string]int{"A": 0, "B": 0, "C": 1},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
@@ -213,6 +242,8 @@ func TestVoting(t *testing.T) {
 		// Assemble a chain of headers from the cast votes
 		headers := make([]*types.Header, len(tt.txHeaders))
 		for j, header := range tt.txHeaders {
+
+
 			var currentBlockVotes []Vote
 			var modifyPredecessorVotes []Vote
 			for _, trans := range header.txs {
@@ -240,12 +271,12 @@ func TestVoting(t *testing.T) {
 			if j == 0 {
 				for k := 0; k < int(tt.maxSignerCount); k++ {
 					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, selfVoteSigners[k%len(selfVoteSigners)])
-				}
+					}
 				currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
 				signer = selfVoteSigners[0]
+
 			} else {
 				// decode parent header.extra
-				currentHeaderExtra := HeaderExtra{}
 				rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
 				signer = currentHeaderExtra.SignerQueue[uint64(j) % tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
@@ -255,7 +286,10 @@ func TestVoting(t *testing.T) {
 						t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 						continue
 					}
-					currentHeaderExtra.SignerQueue = snap.getSignerQueue()
+					newSignerQueue := snap.getSignerQueue()
+					for k := 0; k < int(tt.maxSignerCount); k++{
+						currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[k%len(newSignerQueue)])
+					}
 					currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + tt.period*tt.maxSignerCount
 				} else {
 				}
@@ -285,7 +319,7 @@ func TestVoting(t *testing.T) {
 			accounts.sign(headers[j], accounts.name(signer))
 
 			// Pass all the headers through alien and ensure tallying succeeds
-			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers, genesisVotes)
+			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes)
 			genesisVotes = []*Vote{}
 			if err != nil {
 				t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
