@@ -138,6 +138,10 @@ func TestVoting(t *testing.T) {
 		result           testerSnapshot       // the result of current snapshot
 	}{
 		{
+			/* 	Case 1:
+			*	Just two self vote address in genesis
+			*  	No votes or transactions through blocks
+			*/
 			addrNames:        []string{"A", "B"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -163,6 +167,11 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},{
+			/*	Case 2:
+			*	Two self vote address in  genesis
+			* 	C vote D to be signer in block 3
+			* 	balance of C is higher than minVoterBalance
+			*/
 			addrNames:        []string{"A", "B", "C", "D"},
 			period:           uint64(3),
 			epoch:            uint64(31),
@@ -185,6 +194,37 @@ func TestVoting(t *testing.T) {
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
 					"C": {"C", "D", 200},
+				},
+			},
+		},
+		{
+			/*	Case 3:
+			*	Two self vote address in  genesis
+			* 	C vote D to be signer in block 2
+			* 	balance of C is lower than minVoterBalance, so this vote not processed
+			*/
+			addrNames:        []string{"A", "B"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(15),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 20, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{0: "A", 1: "B"},
+				Tally:   map[string]int{"A": 100, "B": 200},
+				Voters:  map[string]int{"A": 0, "B": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
 				},
 			},
 		},
