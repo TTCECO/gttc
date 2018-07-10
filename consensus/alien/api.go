@@ -19,16 +19,16 @@
 package alien
 
 import (
-"github.com/TTCECO/gttc/common"
-"github.com/TTCECO/gttc/consensus"
-"github.com/TTCECO/gttc/core/types"
-"github.com/TTCECO/gttc/rpc"
+	"github.com/TTCECO/gttc/common"
+	"github.com/TTCECO/gttc/consensus"
+	"github.com/TTCECO/gttc/core/types"
+	"github.com/TTCECO/gttc/rpc"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
 // mechanisms of the delegated-proof-of-stake scheme.
 type API struct {
-	chain  consensus.ChainReader
+	chain consensus.ChainReader
 	alien *Alien
 }
 
@@ -55,7 +55,5 @@ func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil,nil)
+	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
 }
-
-

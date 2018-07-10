@@ -19,55 +19,52 @@
 package alien
 
 import (
-
-	"sort"
+	"encoding/json"
 	"math/big"
 	"math/rand"
-	"encoding/json"
+	"sort"
 
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
-	"github.com/hashicorp/golang-lru"
 	"github.com/TTCECO/gttc/rlp"
-
+	"github.com/hashicorp/golang-lru"
 )
-
 
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
-	sigcache *lru.ARCCache        // Cache of recent block signatures to speed up ecrecover
+	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 
-	Number  uint64                      `json:"number"`  // Block number where the snapshot was created
-	Hash    common.Hash                 `json:"hash"`    // Block hash where the snapshot was created
+	Number uint64      `json:"number"` // Block number where the snapshot was created
+	Hash   common.Hash `json:"hash"`   // Block hash where the snapshot was created
 
-	Signers map[int] common.Address 	`json:"signers"`	// Signers queue in current header
-															// The signer validate should judge by last snapshot
-	Votes map[common.Address] *Vote		`json:"votes"`		// All validate votes from genesis block
-	Tally map[common.Address] *big.Int	`json:"tally"`		// Stake for each candidate address
-	Voters map[common.Address] *big.Int  `json:"voters"`		// block number for each voter address
+	Signers map[int]common.Address `json:"signers"` // Signers queue in current header
+	// The signer validate should judge by last snapshot
+	Votes  map[common.Address]*Vote    `json:"votes"`  // All validate votes from genesis block
+	Tally  map[common.Address]*big.Int `json:"tally"`  // Stake for each candidate address
+	Voters map[common.Address]*big.Int `json:"voters"` // block number for each voter address
 
-	HeaderTime uint64		`json:"headerTime"`				// Time of the current header
-	LoopStartTime uint64  	`json:"loopStartTime"`			// Start Time of the current loop
+	HeaderTime    uint64 `json:"headerTime"`    // Time of the current header
+	LoopStartTime uint64 `json:"loopStartTime"` // Start Time of the current loop
 
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
 // the genesis block.
-func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash common.Hash, votes []*Vote) *Snapshot {
+func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common.Hash, votes []*Vote) *Snapshot {
 	snap := &Snapshot{
-		config:   config,
-		sigcache: sigcache,
-		Number:   0,
-		Hash:     hash,
-		Signers:make(map[int] common.Address),
-		Votes: make(map[common.Address] *Vote),
-		Tally: make(map[common.Address] *big.Int),
-		Voters:make(map[common.Address] *big.Int),
-		HeaderTime:config.GenesisTimestamp - 1, //
-		LoopStartTime:config.GenesisTimestamp,
+		config:        config,
+		sigcache:      sigcache,
+		Number:        0,
+		Hash:          hash,
+		Signers:       make(map[int]common.Address),
+		Votes:         make(map[common.Address]*Vote),
+		Tally:         make(map[common.Address]*big.Int),
+		Voters:        make(map[common.Address]*big.Int),
+		HeaderTime:    config.GenesisTimestamp - 1, //
+		LoopStartTime: config.GenesisTimestamp,
 	}
 
 	for _, vote := range votes {
@@ -76,7 +73,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 
 		// init Tally
 		_, ok := snap.Tally[vote.Candidate]
-		if !ok{
+		if !ok {
 			snap.Tally[vote.Candidate] = big.NewInt(0)
 		}
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
@@ -86,13 +83,12 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache,  hash commo
 
 	}
 
-	for i := 0; i < int(config.MaxSignerCount); i++{
-		snap.Signers[i] = config.SelfVoteSigners[i % len(config.SelfVoteSigners)]
+	for i := 0; i < int(config.MaxSignerCount); i++ {
+		snap.Signers[i] = config.SelfVoteSigners[i%len(config.SelfVoteSigners)]
 	}
 
 	return snap
 }
-
 
 // loadSnapshot loads an existing snapshot from the database.
 func loadSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, db ethdb.Database, hash common.Hash) (*Snapshot, error) {
@@ -127,14 +123,13 @@ func (s *Snapshot) copy() *Snapshot {
 		Number:   s.Number,
 		Hash:     s.Hash,
 
-		Signers:make(map[int] common.Address ),
-		Votes: make(map[common.Address] *Vote ),
-		Tally: make(map[common.Address] *big.Int),
-		Voters: make(map[common.Address] *big.Int),
+		Signers: make(map[int]common.Address),
+		Votes:   make(map[common.Address]*Vote),
+		Tally:   make(map[common.Address]*big.Int),
+		Voters:  make(map[common.Address]*big.Int),
 
-		HeaderTime:s.HeaderTime,
-		LoopStartTime:s.LoopStartTime,
-
+		HeaderTime:    s.HeaderTime,
+		LoopStartTime: s.LoopStartTime,
 	}
 
 	for index, address := range s.Signers {
@@ -142,9 +137,9 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 	for voter, vote := range s.Votes {
 		cpy.Votes[voter] = &Vote{
-			Voter: vote.Voter,
+			Voter:     vote.Voter,
 			Candidate: vote.Candidate,
-			Stake: new(big.Int).Set(vote.Stake),
+			Stake:     new(big.Int).Set(vote.Stake),
 		}
 	}
 	for candidate, tally := range s.Tally {
@@ -186,22 +181,22 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.HeaderTime = header.Time.Uint64()
 
 		headerExtra := HeaderExtra{}
-		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
+		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
 		snap.LoopStartTime = headerExtra.LoopStartTime
-		snap.Signers  = make(map[int] common.Address)
-		for i,sig := range headerExtra.SignerQueue{
+		snap.Signers = make(map[int]common.Address)
+		for i, sig := range headerExtra.SignerQueue {
 			snap.Signers[i] = sig
 		}
 		// deal the new vote from voter
-		for _, vote := range headerExtra.CurrentBlockVotes{
+		for _, vote := range headerExtra.CurrentBlockVotes {
 			// update Votes, Tally, Voters data
-			if lastVote, ok := snap.Votes[vote.Voter]; ok{
+			if lastVote, ok := snap.Votes[vote.Voter]; ok {
 				snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
 			}
-			if _,ok := snap.Tally[vote.Candidate]; ok{
+			if _, ok := snap.Tally[vote.Candidate]; ok {
 
 				snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
-			}else{
+			} else {
 				snap.Tally[vote.Candidate] = vote.Stake
 			}
 
@@ -209,12 +204,12 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			snap.Voters[vote.Voter] = header.Number
 		}
 		// deal the voter which balance modified
-		for _, txVote := range headerExtra.ModifyPredecessorVotes{
+		for _, txVote := range headerExtra.ModifyPredecessorVotes {
 
-			if lastVote, ok := snap.Votes[txVote.Voter]; ok{
+			if lastVote, ok := snap.Votes[txVote.Voter]; ok {
 				snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
-				snap.Tally[lastVote.Candidate].Add(snap.Tally[lastVote.Candidate], txVote.Stake )
-				snap.Votes[txVote.Voter] = &Vote{Voter:txVote.Voter,Candidate:lastVote.Candidate,Stake:txVote.Stake}
+				snap.Tally[lastVote.Candidate].Add(snap.Tally[lastVote.Candidate], txVote.Stake)
+				snap.Votes[txVote.Voter] = &Vote{Voter: txVote.Voter, Candidate: lastVote.Candidate, Stake: txVote.Stake}
 				// do not modify header number of snap.Voters
 			}
 		}
@@ -225,9 +220,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	// deal the expired vote,
 	if len(snap.Voters) > int(s.config.MaxSignerCount) {
 		for voterAddress, voteNumber := range snap.Voters {
-			if snap.Number - voteNumber.Uint64() > s.config.Epoch {
+			if snap.Number-voteNumber.Uint64() > s.config.Epoch {
 				// clear the vote
-				if expiredVote, ok := snap.Votes[voterAddress]; ok{
+				if expiredVote, ok := snap.Votes[voterAddress]; ok {
 					snap.Tally[expiredVote.Candidate].Sub(snap.Tally[expiredVote.Candidate], expiredVote.Stake)
 					delete(snap.Votes, expiredVote.Voter)
 					delete(snap.Voters, expiredVote.Voter)
@@ -236,7 +231,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 	}
 
-	for address,tally := range snap.Tally{
+	for address, tally := range snap.Tally {
 		if tally.Cmp(big.NewInt(0)) <= 0 {
 			delete(snap.Tally, address)
 		}
@@ -245,30 +240,26 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	return snap, nil
 }
 
-
 // inturn returns if a signer at a given block height is in-turn or not.
-func (s *Snapshot) inturn(signer common.Address,  headerTime uint64) bool {
+func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 
 	// if all node stop more than period of one loop
-	loopIndex := int((headerTime - s.LoopStartTime) / s.config.Period) % len(s.Signers)
+	loopIndex := int((headerTime-s.LoopStartTime)/s.config.Period) % len(s.Signers)
 	if currentSigner, ok := s.Signers[loopIndex]; !ok {
 		return false
-	}else{
-		if currentSigner != signer{
+	} else {
+		if currentSigner != signer {
 			return false
 		}
 	}
 	return true
 }
 
-
-
 type BigIntSlice []*big.Int
 
-func (s BigIntSlice) Len() int { return len(s) }
-func (s BigIntSlice) Swap(i, j int){ s[i], s[j] = s[j], s[i] }
+func (s BigIntSlice) Len() int           { return len(s) }
+func (s BigIntSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
-
 
 // get signer queue when one loop finished
 func (s *Snapshot) getSignerQueue() []common.Address {
@@ -284,9 +275,9 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 	minStakeForCandidate := s.config.MinVoterBalance
 
 	if len(stakeList) >= int(s.config.MaxSignerCount) {
-		minStakeForCandidate = stakeList[s.config.MaxSignerCount - 1]
+		minStakeForCandidate = stakeList[s.config.MaxSignerCount-1]
 	}
-	for address, stake := range s.Tally{
+	for address, stake := range s.Tally {
 		if len(topStakeAddress) == int(s.config.MaxSignerCount) {
 			break
 		}
@@ -295,9 +286,9 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 		}
 	}
 	// Set the top candidates in random order
-	for i:= 0;i< len(topStakeAddress);i ++{
+	for i := 0; i < len(topStakeAddress); i++ {
 		newPos := rand.Int() % len(topStakeAddress)
-		topStakeAddress[i],topStakeAddress[newPos] = topStakeAddress[newPos],topStakeAddress[i]
+		topStakeAddress[i], topStakeAddress[newPos] = topStakeAddress[newPos], topStakeAddress[i]
 	}
 
 	return topStakeAddress
@@ -305,8 +296,8 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 }
 
 // check if address belong to voter
-func (s *Snapshot) isVoter(address common.Address) bool{
-	if _, ok := s.Voters[address]; ok{
+func (s *Snapshot) isVoter(address common.Address) bool {
+	if _, ok := s.Voters[address]; ok {
 		return true
 	}
 	return false

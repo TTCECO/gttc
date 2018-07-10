@@ -41,27 +41,26 @@ import (
 )
 
 const (
-	inMemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inMemorySignatures = 4096 // Number of recent block signatures to keep in memory
-	secondsPerYear = 365 * 24 * 3600 // Number of seconds for one year
-	UFOEventVote = "ufo:1:event:vote" // ufo:version:category:action/data
-	checkpointInterval = 3600 // About N hours if config.period is N
+	inMemorySnapshots  = 128                // Number of recent vote snapshots to keep in memory
+	inMemorySignatures = 4096               // Number of recent block signatures to keep in memory
+	secondsPerYear     = 365 * 24 * 3600    // Number of seconds for one year
+	UFOEventVote       = "ufo:1:event:vote" // ufo:version:category:action/data
+	checkpointInterval = 3600               // About N hours if config.period is N
 
 )
 
-
 // Alien delegated-proof-of-stake protocol constants.
 var (
-	SignerBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
-	defaultEpochLength = uint64(3000000) // Default number of blocks after which vote's period of validity
-	defaultBlockPeriod = uint64(3)    // Default minimum difference between two consecutive block's timestamps
-	defaultMaxSignerCount = uint64(21) //
+	SignerBlockReward      = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
+	defaultEpochLength     = uint64(3000000)   // Default number of blocks after which vote's period of validity
+	defaultBlockPeriod     = uint64(3)         // Default minimum difference between two consecutive block's timestamps
+	defaultMaxSignerCount  = uint64(21)        //
 	defaultMinVoterBalance = new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000))
-	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
-	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
-	nonceCountDown = hexutil.MustDecode("0x0000000000000000") // nonce number to count down for create random signer queue
-	uncleHash = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	diffNoTurn = big.NewInt(1) // todo delete
+	extraVanity            = 32                                       // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraSeal              = 65                                       // Fixed number of extra-data suffix bytes reserved for signer seal
+	nonceCountDown         = hexutil.MustDecode("0x0000000000000000") // nonce number to count down for create random signer queue
+	uncleHash              = types.CalcUncleHash(nil)                 // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	diffNoTurn             = big.NewInt(1)                            // todo delete
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -117,24 +116,24 @@ var (
 
 // Vote
 type Vote struct {
-	Voter			common.Address
-	Candidate 		common.Address
-	Stake 			*big.Int
+	Voter     common.Address
+	Candidate common.Address
+	Stake     *big.Int
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
-	CurrentBlockVotes 	[]Vote
+	CurrentBlockVotes      []Vote
 	ModifyPredecessorVotes []Vote
-	LoopStartTime		uint64
-	SignerQueue			[]common.Address
+	LoopStartTime          uint64
+	SignerQueue            []common.Address
 }
 
 // Alien is the delegated-proof-of-stake consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
 type Alien struct {
 	config *params.AlienConfig // Consensus engine configuration parameters
-	db     ethdb.Database       // Database to store and retrieve snapshot checkpoints
+	db     ethdb.Database      // Database to store and retrieve snapshot checkpoints
 
 	recents    *lru.ARCCache // Snapshots for recent block to speed up reorgs
 	signatures *lru.ARCCache // Signatures of recent blocks to speed up mining
@@ -325,7 +324,7 @@ func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 		return ErrInvalidTimestamp
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	_ , err := a.snapshot(chain, number-1, header.ParentHash, parents, nil)
+	_, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil)
 	if err != nil {
 		return err
 	}
@@ -335,7 +334,7 @@ func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header,genesisVotes []*Vote) (*Snapshot, error) {
+func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, genesisVotes []*Vote) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -449,8 +448,8 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	headerExtra := HeaderExtra{}
-	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
-	if !snap.inturn(signer,  header.Time.Uint64()){
+	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
+	if !snap.inturn(signer, header.Time.Uint64()) {
 		return errUnauthorized
 	}
 
@@ -475,7 +474,7 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 			if delay <= time.Duration(0) {
 				log.Info("Ready for seal block", "time", time.Now())
 				break
-			} else if delay > time.Duration(a.config.Period) * time.Second {
+			} else if delay > time.Duration(a.config.Period)*time.Second {
 				delay = time.Duration(a.config.Period) * time.Second
 			}
 			log.Info("Waiting for seal block", "delay", common.PrettyDuration(time.Unix(int64(a.config.GenesisTimestamp-2), 0).Sub(time.Now())))
@@ -502,7 +501,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	// Ensure the timestamp has the correct delay
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
-		return nil,consensus.ErrUnknownAncestor
+		return nil, consensus.ErrUnknownAncestor
 	}
 	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(a.config.Period))
 	if header.Time.Int64() < time.Now().Unix() {
@@ -516,65 +515,62 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = header.Extra[:extraVanity]
 
 	// calculate votes write into header.extra
-	currentBlockVotes , modifyPredecessorVotes, err := a.calculateVotes(chain, header, state, txs)
-	if err != nil{
+	currentBlockVotes, modifyPredecessorVotes, err := a.calculateVotes(chain, header, state, txs)
+	if err != nil {
 		return nil, err
 	}
 
 	// genesisVotes write direct into snapshot, which number is 0
 	genesisVotes := []*Vote{}
-	if number == 1{
-		alreadyVote := make(map[common.Address] struct{})
+	if number == 1 {
+		alreadyVote := make(map[common.Address]struct{})
 		for _, voter := range a.config.SelfVoteSigners {
 
 			if _, ok := alreadyVote[voter]; !ok {
 				genesisVotes = append(genesisVotes, &Vote{
-					Voter: voter,
+					Voter:     voter,
 					Candidate: voter,
-					Stake: state.GetBalance(voter),
+					Stake:     state.GetBalance(voter),
 				})
 				alreadyVote[voter] = struct{}{}
 			}
 		}
 	}
 
-
 	currentHeaderExtra := HeaderExtra{}
-	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal],&currentHeaderExtra)
+	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
 	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 
-
 	// Assemble the voting snapshot to check which votes make sense
-	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes )
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
-
-	if number == 1{
+	if number == 1 {
 		currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
-		for i := 0; i < int(a.config.MaxSignerCount); i++{
-			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i % len(a.config.SelfVoteSigners)])
+		for i := 0; i < int(a.config.MaxSignerCount); i++ {
+			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
 
 		}
 
 	}
-	if number % a.config.MaxSignerCount == 0 {
+	if number%a.config.MaxSignerCount == 0 {
 		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
-		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period * a.config.MaxSignerCount
+		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
 		// create random signersQueue in currentHeaderExtra by snapshot.Tally
 		currentHeaderExtra.SignerQueue = []common.Address{}
 		newSignerQueue := snap.getSignerQueue()
 		for i := 0; i < int(a.config.MaxSignerCount); i++ {
-			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[i % len(newSignerQueue)])
+			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[i%len(newSignerQueue)])
 
 		}
 	}
 
-	currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
+	currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 
 	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
@@ -629,16 +625,15 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		return nil, err
 	}
 
-
 	headerExtra := HeaderExtra{}
-	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal],&headerExtra)
-	if !snap.inturn(signer, header.Time.Uint64()){
+	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
+	if !snap.inturn(signer, header.Time.Uint64()) {
 		<-stop
 		return nil, errUnauthorized
 	}
 
 	// correct the time
- 	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now())
+	delay := time.Unix(header.Time.Int64(), 0).Sub(time.Now())
 
 	select {
 	case <-stop:
@@ -681,13 +676,13 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
-	blockReward := new(big.Int).Rsh( SignerBlockReward , uint(yearCount))
+	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, blockReward)
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction)  ([]Vote,[]Vote, error){
+func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 
@@ -695,61 +690,58 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 		currentBlockVotes []Vote
 		// candidate is nil in modifyPredecessorVotes
 		modifyPredecessorVotes []Vote
-		snap *Snapshot
-		err error
-		number uint64
+		snap                   *Snapshot
+		err                    error
+		number                 uint64
 	)
 	number = header.Number.Uint64()
-	if number > 1{
-		snap, err = a.snapshot(chain, number -1, header.ParentHash, nil, nil)
+	if number > 1 {
+		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil)
 		if err != nil {
-			return nil,nil,err
+			return nil, nil, err
 		}
 	}
 
-	for _, tx := range txs{
+	for _, tx := range txs {
 
-		if len(string(tx.Data())) >= len(UFOEventVote){
-			if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote{
+		if len(string(tx.Data())) >= len(UFOEventVote) {
+			if string(tx.Data())[:len(UFOEventVote)] == UFOEventVote {
 				a.lock.RLock()
 				signer := types.NewEIP155Signer(tx.ChainId())
-				voter , _ := types.Sender(signer, tx)
-				if state.GetBalance(voter).Cmp( a.config.MinVoterBalance) > 0 {
-				currentBlockVotes = append(currentBlockVotes, Vote{
-					Voter:voter,
-					Candidate:*tx.To(),
-					Stake: state.GetBalance(voter),
-				})
+				voter, _ := types.Sender(signer, tx)
+				if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
+					currentBlockVotes = append(currentBlockVotes, Vote{
+						Voter:     voter,
+						Candidate: *tx.To(),
+						Stake:     state.GetBalance(voter),
+					})
 				}
 				a.lock.RUnlock()
 			}
 
-
-			
-		}else if number > 1 {
+		} else if number > 1 {
 			if tx.Value().Cmp(big.NewInt(0)) > 0 {
 				a.lock.RLock()
 				signer := types.NewEIP155Signer(tx.ChainId())
-				voter , _ := types.Sender(signer, tx)
+				voter, _ := types.Sender(signer, tx)
 				if snap.isVoter(voter) {
 					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
-						Voter:voter,
+						Voter:     voter,
 						Candidate: common.Address{},
-						Stake: state.GetBalance(voter),
+						Stake:     state.GetBalance(voter),
 					})
 				}
-				if snap.isVoter(*tx.To()){
+				if snap.isVoter(*tx.To()) {
 					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
-						Voter:*tx.To(),
+						Voter:     *tx.To(),
 						Candidate: common.Address{},
-						Stake: state.GetBalance(*tx.To()),
+						Stake:     state.GetBalance(*tx.To()),
 					})
 
 				}
 				a.lock.RUnlock()
 			}
 		}
-
 
 	}
 
