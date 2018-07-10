@@ -59,7 +59,7 @@ type testerVote struct {
 }
 
 type testerSnapshot struct {
-	Signers map[int] string
+	Signers []string
 	Votes map[string] *testerVote
 	Tally map[string] int
 	Voters map[string] int
@@ -141,7 +141,7 @@ func TestVoting(t *testing.T) {
 								{"A",[]testerTransaction{{from: "C", to: "D", balance: 200, isVote:true},},},
 								},
 			result: 	testerSnapshot{
-								Signers:map[int]string{0:"A",1:"B"},
+								Signers:[]string{0:"A",1:"B"},
 								Tally:map[string]int {"A":100,"B":200,"D":200},
 								Voters:map[string]int {"A":0,"B":0,"C":1},
 								Votes:map[string]*testerVote{
@@ -281,9 +281,6 @@ func TestVoting(t *testing.T) {
 				t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 				continue
 			}
-
-
-
 		}
 
 		// verify the result in test case
@@ -295,9 +292,16 @@ func TestVoting(t *testing.T) {
 			continue
 		}
 		// check signers
-		for j,signer := range tt.result.Signers{
-			if snap.Signers[j] != accounts.address(signer){
-				t.Errorf("test %d: signer %d dismatch: %v, %v, %v", i, j, signer, accounts.address(signer), snap.Signers[j])
+		signers := map[common.Address]int{}
+		for _,signer := range snap.Signers{
+			signers[signer] = 1
+		}
+		for _,signer := range tt.result.Signers{
+			signers[accounts.address(signer)] += 1
+		}
+		for address ,cnt := range signers{
+			if cnt != 2{
+				t.Errorf("test %d: signer address: %v not in result signers", i, address)
 				continue
 			}
 		}
