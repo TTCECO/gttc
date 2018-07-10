@@ -33,19 +33,14 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 
-
-
 )
 
 type testerTransaction struct {
 	from string 		// name of from address
 	to 	 string 		// name of to address
-	value int 			// value
 	balance int    		// balance address in snap.voter
 	isVote bool			// is msg in data is "ufo:1:event:vote"
 }
-
-
 
 type testerSingleHeader struct {
 	signer string		// signer of current block
@@ -141,27 +136,25 @@ func TestVoting(t *testing.T) {
 			maxSignerCount: uint64(15),
 			minVoterBalance: 50,
 			genesisTimestamp: uint64(0),
-			selfVoters : []testerSelfVoter{{voter:"A",balance:100},{voter:"B",balance:200}},
+			selfVoters : []testerSelfVoter{{"A",100},{"B",200}},
 			txHeaders: 	[]testerSingleHeader{
-								{"A",[]testerTransaction{{from: "C", to: "D", balance: 200, value:0, isVote:true},},},
+								{"A",[]testerTransaction{{from: "C", to: "D", balance: 200, isVote:true},},},
 								},
 			result: 	testerSnapshot{
 								Signers:map[int]string{0:"A",1:"B"},
 								Tally:map[string]int {"A":100,"B":200,"D":200},
-								Voters:map[string]int {"A":0,"B":0,"D":3},
+								Voters:map[string]int {"A":0,"B":0,"C":1},
 								Votes:map[string]*testerVote{
 											"A":{"A","A",100},
 											"B":{"B","B",200},
 											"C":{"C","D",200},
-
 											},
 										},
-
 		},
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
-		// Create the account pool and generate the initial set of signers
+		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
 		for j, signer := range tt.addrNames {
@@ -176,42 +169,45 @@ func TestVoting(t *testing.T) {
 		}
 
 		// Prepare data for the genesis block
-		genesisVotes := []*Vote{}
-		selfVoteSigners := []common.Address{}
+		var genesisVotes  []*Vote				// for create the new snapshot of genesis block
+		var selfVoteSigners []common.Address	// for header extra
 		alreadyVote := make(map[common.Address] struct{})
 		for _, voter := range tt.selfVoters {
-
 			if _, ok := alreadyVote[accounts.address(voter.voter)]; !ok {
 				genesisVotes = append(genesisVotes, &Vote{
 					Voter: accounts.address(voter.voter),
 					Candidate: accounts.address(voter.voter),
 					Stake: big.NewInt(int64(voter.balance)),
 				})
-
 				selfVoteSigners = append(selfVoteSigners, accounts.address(voter.voter))
 				alreadyVote[accounts.address(voter.voter)] = struct{}{}
 			}
 		}
 
-		currentHeaderExtra := HeaderExtra{}
-		currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
-		if err != nil {
-			t.Errorf("test %d: failed to rlp encode to bytes: %v", currentHeaderExtra, err)
-			continue
-		}
+		// extend length of extra, so address of CoinBase can keep signature .
 		genesis := &core.Genesis{
-			ExtraData: make([]byte, extraVanity+len(currentHeaderExtraEnc)+extraSeal),
+			ExtraData: make([]byte, extraVanity+extraSeal),
 		}
 
 		// Create a pristine blockchain with the genesis injected
 		db := ethdb.NewMemDatabase()
 		genesis.Commit(db)
 
+		// Create new alien
+		alien := New(&params.AlienConfig{
+								Period: tt.period,
+								Epoch: tt.epoch ,
+								MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
+								MaxSignerCount: tt.maxSignerCount ,
+								SelfVoteSigners: selfVoteSigners,
+								}, db)
+
+
 		// Assemble a chain of headers from the cast votes
 		headers := make([]*types.Header, len(tt.txHeaders))
 		for j, header := range tt.txHeaders {
-			currentBlockVotes := []Vote{}
-			modifyPredecessorVotes := []Vote{}
+			var currentBlockVotes []Vote
+			var modifyPredecessorVotes []Vote
 			for _,trans := range header.txs {
 				if trans.isVote{
 					// vote event
@@ -223,43 +219,52 @@ func TestVoting(t *testing.T) {
 				}else {
 					// modify balance
 					// modifyPredecessorVotes
+					// only consider the voter
+					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
+						Voter: accounts.address(trans.from),
+						Stake: big.NewInt(int64(trans.balance)),
+					})
 				}
 			}
-
 			currentHeaderExtra := HeaderExtra{}
-			currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
-			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
-
-			currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
-
+			// (j==0) means (header.Number==1)
 			if j == 0 {
 				for k := 0; k < int(tt.maxSignerCount); k++{
 					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, selfVoteSigners[k % len(selfVoteSigners)])
 				}
+				currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
 
 			}else {
-				if j% int(tt.maxSignerCount) == 0{
-					//snap.getSignerQueue
+				// decode parent header.extra
+				currentHeaderExtra := HeaderExtra{}
+				rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal],&currentHeaderExtra)
 
-				}else{
-					//signeQueue is same as signerQueue of parent header
-				}
-
+				// means header.Number % tt.maxSignerCount == 0
+				if (j + 1 )% int(tt.maxSignerCount) == 0{
+					snap, err :=alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil)
+					if err != nil {
+						t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
+						continue
+					}
+					currentHeaderExtra.SignerQueue = snap.getSignerQueue()
+					currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + tt.period * tt.maxSignerCount
+				}else{}
 			}
-			
+
+			currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
+			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 			currentHeaderExtraEnc,err := rlp.EncodeToBytes(currentHeaderExtra)
 			if err != nil {
 				t.Errorf("test %d: failed to rlp encode to bytes: %v", currentHeaderExtra, err)
 				continue
 			}
 			// Create the genesis block with the initial set of signers
-
 			ExtraData := make([]byte, extraVanity+len(currentHeaderExtraEnc)+extraSeal)
 			copy(ExtraData[extraVanity:], currentHeaderExtraEnc)
 
 			headers[j] = &types.Header{
 				Number:   big.NewInt(int64(j) + 1),
-				Time:     big.NewInt(int64(j) * int64(defaultBlockPeriod)  + int64(defaultBlockPeriod) - 1) ,
+				Time:     big.NewInt((int64(j) + 1) * int64(defaultBlockPeriod) - 1) ,
 				Coinbase: accounts.address(header.signer),
 				Extra:    ExtraData,
 			}
@@ -267,31 +272,65 @@ func TestVoting(t *testing.T) {
 				headers[j].ParentHash = headers[j-1].Hash()
 			}
 			accounts.sign(headers[j], header.signer)
+
+
+			// Pass all the headers through alien and ensure tallying succeeds
+			_, err =alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64() , headers[j].Hash(), headers, genesisVotes)
+			genesisVotes = []*Vote{}
+			if err != nil {
+				t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
+				continue
+			}
+
+
+
 		}
-		// Pass all the headers through alien and ensure tallying succeeds
-		head := headers[len(headers)-1]
 
-		alien := New(&params.AlienConfig{
-							Period: tt.period,
-							Epoch: tt.epoch ,
-							MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
-							MaxSignerCount: tt.maxSignerCount ,
-							SelfVoteSigners: selfVoteSigners,
-							},
-					db)
-		snap, err :=alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, genesisVotes)
-
+		// verify the result in test case
+		head := headers[len(headers) - 1]
+		snap, err :=alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil)
+		//
 		if err != nil {
 			t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 			continue
 		}
-
+		// check signers
 		for j,signer := range tt.result.Signers{
 			if snap.Signers[j] != accounts.address(signer){
 				t.Errorf("test %d: signer %d dismatch: %v, %v, %v", i, j, signer, accounts.address(signer), snap.Signers[j])
 				continue
 			}
+		}
+		// check tally
+		for name,tally := range tt.result.Tally{
+			if big.NewInt(int64(tally)).Cmp(snap.Tally[accounts.address(name)]) != 0 {
+				t.Errorf("test %d: tally %v address: %v, tally:%v ,result: %v", i, name, accounts.address(name), snap.Tally[accounts.address(name)],big.NewInt(int64(tally)))
+				continue
+			}
+		}
+		// check voters
+		for name,number := range tt.result.Voters{
+			if snap.Voters[accounts.address(name)].Cmp( big.NewInt(int64(number))) != 0{
+				t.Errorf("test %d: voter %v address: %v, number:%v ,result: %v", i, name, accounts.address(name), snap.Voters[accounts.address(name)],big.NewInt(int64(number)))
+				continue
+			}
+		}
+		// check votes
+		for name,vote := range tt.result.Votes{
+			snapVote,ok := snap.Votes[accounts.address(name)]
+			if !ok {
+				t.Errorf("test %d: votes %v address: %v can not found", i, name, accounts.address(name))
 
+			}
+			if snapVote.Voter != accounts.address(vote.voter){
+				t.Errorf("test %d: votes voter dismatch %v address: %v  , show in snap is %v", i, vote.voter, accounts.address(vote.voter), snapVote.Voter)
+			}
+			if snapVote.Candidate != accounts.address(vote.candidate){
+				t.Errorf("test %d: votes candidate dismatch %v address: %v , show in snap is %v ", i, vote.candidate, accounts.address(vote.candidate), snapVote.Candidate)
+			}
+			if snapVote.Stake.Cmp(big.NewInt(int64(vote.stake))) != 0 {
+				t.Errorf("test %d: votes stake dismatch %v ,show in snap is %v ", i, vote.stake, snapVote.Stake)
+			}
 		}
 
 
