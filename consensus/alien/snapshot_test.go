@@ -330,8 +330,8 @@ func TestVoting(t *testing.T) {
 		{
 			/*	Case 6:
 			*	Two self vote address A B in  genesis
-			* 	C vote D , D vote E, E vote F to be signer in block 2
-			*   F vote G in block 3
+			* 	C vote D , H vote I  to be signer in block 2
+			*   E vote F in block 3
 			*   Signers is still A B because 5 block not finish this loop, the order of this loop is already set
 			*/
 			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I"},
