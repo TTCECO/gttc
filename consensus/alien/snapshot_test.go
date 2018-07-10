@@ -297,6 +297,37 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},
+		{
+			/*	Case 5:
+			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 2
+			*   Signers is still A B because 5 block not finish this loop, the order of this loop is already set
+			*/
+			addrNames:        []string{"A", "B", "C", "D"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(15),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 100, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{ "A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 200 ,"D":100},
+				Voters:  map[string]int{"A": 0, "B": 0, "C":2},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 100},
+				},
+			},
+		},
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
