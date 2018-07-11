@@ -377,8 +377,8 @@ func TestVoting(t *testing.T) {
 			*	Two self vote address A B in  genesis
 			* 	C vote D , J vote K, H vote I  to be signer in block 2
 			*   E vote F in block 3
-			* 	The signers in the next loop is A,B,D,F,I but not K
-			*	K is not top 5(maxsigercount) in Tally
+			* 	The signers in the next loop is D,F,I,K
+			*	current number - The block number of vote for A, B > epoch AND votes > maxSignerCount
 			 */
 			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I", "J", "K"},
 			period:           uint64(3),
