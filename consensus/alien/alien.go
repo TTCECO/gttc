@@ -484,27 +484,7 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 				continue
 			}
 		}
-	}/*else if header.Number.Uint64() > 1{
-		// unfinished ,try to wait for the right time
-		parent := chain.GetHeader(header.ParentHash, header.Number.Uint64() - 1)
-		lastHeaderExtra := HeaderExtra{}
-		rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &lastHeaderExtra)
-		loopIndex := int((uint64(time.Now().Unix())-lastHeaderExtra.LoopStartTime)/a.config.Period) % len(lastHeaderExtra.SignerQueue)
-		if lastHeaderExtra.SignerQueue[loopIndex] != a.signer{
-			delay := time.Duration( uint64(len(lastHeaderExtra.SignerQueue) + 1 - loopIndex) * a.config.Period) * time.Second
-			for i,signer := range lastHeaderExtra.SignerQueue[loopIndex+1:]{
-				index := i + loopIndex + 1
-				if signer == a.signer{
-					delay = time.Duration( uint64(index-loopIndex) * a.config.Period) * time.Second
-					break
-				}
-			}
-			select {
-			case <- time.After(delay):
-				return nil
-			}
-		}
-	}*/
+	}
 
 	return nil
 }
