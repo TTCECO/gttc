@@ -372,6 +372,47 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},
+		{
+			/*	Case 7:
+			*	Two self vote address A B in  genesis
+			* 	C vote D , J vote K, H vote I  to be signer in block 2
+			*   E vote F in block 3
+			* 	The signers in the next loop is A,B,D,F,I but not K
+			*	K is not top 5(maxsigercount) in Tally
+			 */
+			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I", "J", "K"},
+			period:           uint64(3),
+			epoch:            uint64(8),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true}, {from: "J", to: "K", balance: 80, isVote: true}, {from: "H", to: "I", balance: 160, isVote: true}}},
+				{[]testerTransaction{{from: "E", to: "F", balance: 130, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"D", "F", "I", "K"},
+				Tally:   map[string]int{"D": 110, "I": 160, "F": 130, "K": 80},
+				Voters:  map[string]int{"C": 2, "H": 2, "J": 2, "E": 3},
+				Votes: map[string]*testerVote{
+					"C": {"C", "D", 110},
+					"J": {"J", "K", 80},
+					"H": {"H", "I", 160},
+					"E": {"E", "F", 130},
+				},
+			},
+		},
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
@@ -471,6 +512,7 @@ func TestVoting(t *testing.T) {
 						t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 						continue
 					}
+					currentHeaderExtra.SignerQueue = []common.Address{}
 					newSignerQueue := snap.getSignerQueue()
 					for k := 0; k < int(tt.maxSignerCount); k++ {
 						currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[k%len(newSignerQueue)])

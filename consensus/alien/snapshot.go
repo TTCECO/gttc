@@ -217,7 +217,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
 
-	// deal the expired vote,
+	// deal the expired vote , not sure how much signers left but good enough for now
 	if len(snap.Voters) > int(s.config.MaxSignerCount) {
 		for voterAddress, voteNumber := range snap.Voters {
 			if snap.Number-voteNumber.Uint64() > s.config.Epoch {
