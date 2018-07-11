@@ -40,7 +40,7 @@ type Snapshot struct {
 	Number uint64      `json:"number"` // Block number where the snapshot was created
 	Hash   common.Hash `json:"hash"`   // Block hash where the snapshot was created
 
-	Signers map[int]common.Address `json:"signers"` // Signers queue in current header
+	Signers []*common.Address `json:"signers"` // Signers queue in current header
 	// The signer validate should judge by last snapshot
 	Votes  map[common.Address]*Vote    `json:"votes"`  // All validate votes from genesis block
 	Tally  map[common.Address]*big.Int `json:"tally"`  // Stake for each candidate address
@@ -59,7 +59,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		sigcache:      sigcache,
 		Number:        0,
 		Hash:          hash,
-		Signers:       make(map[int]common.Address),
+		Signers:       []*common.Address{},
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
@@ -84,7 +84,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
-		snap.Signers[i] = config.SelfVoteSigners[i%len(config.SelfVoteSigners)]
+		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
 	}
 
 	return snap
@@ -123,7 +123,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Number:   s.Number,
 		Hash:     s.Hash,
 
-		Signers: make(map[int]common.Address),
+		Signers: make([]*common.Address, len(s.Signers)),
 		Votes:   make(map[common.Address]*Vote),
 		Tally:   make(map[common.Address]*big.Int),
 		Voters:  make(map[common.Address]*big.Int),
@@ -131,10 +131,7 @@ func (s *Snapshot) copy() *Snapshot {
 		HeaderTime:    s.HeaderTime,
 		LoopStartTime: s.LoopStartTime,
 	}
-
-	for index, address := range s.Signers {
-		cpy.Signers[index] = address
-	}
+	copy(cpy.Signers, s.Signers)
 	for voter, vote := range s.Votes {
 		cpy.Votes[voter] = &Vote{
 			Voter:     vote.Voter,
@@ -171,21 +168,19 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	snap := s.copy()
 
 	for _, header := range headers {
-
 		// Resolve the authorization key and check against signers
 		_, err := ecrecover(header, s.sigcache)
 		if err != nil {
 			return nil, err
 		}
 
-		snap.HeaderTime = header.Time.Uint64()
-
 		headerExtra := HeaderExtra{}
 		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
+		snap.HeaderTime = header.Time.Uint64()
 		snap.LoopStartTime = headerExtra.LoopStartTime
-		snap.Signers = make(map[int]common.Address)
-		for i, sig := range headerExtra.SignerQueue {
-			snap.Signers[i] = sig
+		snap.Signers = nil
+		for i := range headerExtra.SignerQueue {
+			snap.Signers = append(snap.Signers, &headerExtra.SignerQueue[i])
 		}
 		// deal the new vote from voter
 		for _, vote := range headerExtra.CurrentBlockVotes {
@@ -217,7 +212,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
 
-	// deal the expired vote 
+	// deal the expired vote
 	for voterAddress, voteNumber := range snap.Voters {
 		if len(snap.Voters) <= int(s.config.MaxSignerCount) || len(snap.Tally) <= int(s.config.MaxSignerCount) {
 			break
@@ -249,12 +244,11 @@ func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 
 	// if all node stop more than period of one loop
 	loopIndex := int((headerTime-s.LoopStartTime)/s.config.Period) % len(s.Signers)
-	if currentSigner, ok := s.Signers[loopIndex]; !ok {
+	if loopIndex >= len(s.Signers) {
 		return false
-	} else {
-		if currentSigner != signer {
-			return false
-		}
+	} else if *s.Signers[loopIndex] != signer {
+		return false
+
 	}
 	return true
 }

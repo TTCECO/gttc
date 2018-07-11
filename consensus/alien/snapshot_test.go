@@ -566,12 +566,13 @@ func TestVoting(t *testing.T) {
 		// check signers
 		signers := map[common.Address]int{}
 		for _, signer := range snap.Signers {
-			signers[signer] = 1
+			signers[*signer] = 1
 
 		}
 		for _, signer := range tt.result.Signers {
 			signers[accounts.address(signer)] += 2
 		}
+
 		for address, cnt := range signers {
 			if cnt != 3 {
 				t.Errorf("test %d: signer %v address: %v not in result signers %d", i, accounts.name(address), address, cnt)
