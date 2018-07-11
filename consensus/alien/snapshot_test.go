@@ -374,11 +374,12 @@ func TestVoting(t *testing.T) {
 		},
 		{
 			/*	Case 7:
-			*	Two self vote address A B in  genesis
-			* 	C vote D , J vote K, H vote I  to be signer in block 2
-			*   E vote F in block 3
-			* 	The signers in the next loop is D,F,I,K
-			*	current number - The block number of vote for A, B > epoch AND votes > maxSignerCount
+			*	Two self vote address A in  genesis
+			* 	C vote D , J vote K, H vote I  to be signer in block 3
+			*   E vote F in block 4
+			* 	B vote B in block 5
+			* 	The signers in the next loop is B, D,F,I,K
+			*	current number - The block number of vote for A > epoch AND tally > maxSignerCount
 			 */
 			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I", "J", "K"},
 			period:           uint64(3),
@@ -386,13 +387,13 @@ func TestVoting(t *testing.T) {
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
 			genesisTimestamp: uint64(0),
-			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			selfVoters:       []testerSelfVoter{{"A", 100}},
 			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true}, {from: "J", to: "K", balance: 80, isVote: true}, {from: "H", to: "I", balance: 160, isVote: true}}},
 				{[]testerTransaction{{from: "E", to: "F", balance: 130, isVote: true}}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "B", to: "B", balance: 200, isVote: true}}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
@@ -402,10 +403,11 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{"D", "F", "I", "K"},
-				Tally:   map[string]int{"D": 110, "I": 160, "F": 130, "K": 80},
-				Voters:  map[string]int{"C": 2, "H": 2, "J": 2, "E": 3},
+				Signers: []string{"B", "D", "F", "I", "K"},
+				Tally:   map[string]int{"B": 200, "D": 110, "I": 160, "F": 130, "K": 80},
+				Voters:  map[string]int{"B": 5, "C": 3, "H": 3, "J": 3, "E": 4},
 				Votes: map[string]*testerVote{
+					"B": {"B", "B", 200},
 					"C": {"C", "D", 110},
 					"J": {"J", "K", 80},
 					"H": {"H", "I", 160},
@@ -565,6 +567,7 @@ func TestVoting(t *testing.T) {
 		signers := map[common.Address]int{}
 		for _, signer := range snap.Signers {
 			signers[signer] = 1
+
 		}
 		for _, signer := range tt.result.Signers {
 			signers[accounts.address(signer)] += 2

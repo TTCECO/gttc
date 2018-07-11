@@ -217,16 +217,20 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
 
-	// deal the expired vote , not sure how much signers left but good enough for now
-	if len(snap.Voters) > int(s.config.MaxSignerCount) {
-		for voterAddress, voteNumber := range snap.Voters {
-			if snap.Number-voteNumber.Uint64() > s.config.Epoch {
-				// clear the vote
-				if expiredVote, ok := snap.Votes[voterAddress]; ok {
-					snap.Tally[expiredVote.Candidate].Sub(snap.Tally[expiredVote.Candidate], expiredVote.Stake)
-					delete(snap.Votes, expiredVote.Voter)
-					delete(snap.Voters, expiredVote.Voter)
+	// deal the expired vote 
+	for voterAddress, voteNumber := range snap.Voters {
+		if len(snap.Voters) <= int(s.config.MaxSignerCount) || len(snap.Tally) <= int(s.config.MaxSignerCount) {
+			break
+		}
+		if snap.Number-voteNumber.Uint64() > s.config.Epoch {
+			// clear the vote
+			if expiredVote, ok := snap.Votes[voterAddress]; ok {
+				snap.Tally[expiredVote.Candidate].Sub(snap.Tally[expiredVote.Candidate], expiredVote.Stake)
+				if snap.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
+					delete(snap.Tally, expiredVote.Candidate)
 				}
+				delete(snap.Votes, expiredVote.Voter)
+				delete(snap.Voters, expiredVote.Voter)
 			}
 		}
 	}
