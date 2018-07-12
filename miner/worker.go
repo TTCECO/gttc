@@ -244,6 +244,11 @@ func (self *worker) update() {
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
 
+	alienDelay := time.Duration(300) * time.Second
+	if self.config.Alien != nil && self.config.Alien.Period > 0{
+		alienDelay = time.Duration(self.config.Alien.Period) * time.Second
+	}
+
 	for {
 		// A real event arrived, process interesting content
 		select {
@@ -281,6 +286,11 @@ func (self *worker) update() {
 					self.commitNewWork()
 				}
 			}
+		case <-time.After(alienDelay):
+			if self.config.Alien != nil && self.config.Alien.Period > 0{
+				self.commitNewWork()
+			}
+
 
 		// System stopped
 		case <-self.txsSub.Err():
