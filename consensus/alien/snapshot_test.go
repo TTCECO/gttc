@@ -374,7 +374,7 @@ func TestVoting(t *testing.T) {
 		},
 		{
 			/*	Case 7:
-			*	Two self vote address A in  genesis
+			*	one self vote address A in  genesis
 			* 	C vote D , J vote K, H vote I  to be signer in block 3
 			*   E vote F in block 4
 			* 	B vote B in block 5
@@ -412,6 +412,38 @@ func TestVoting(t *testing.T) {
 					"J": {"J", "K", 80},
 					"H": {"H", "I", 160},
 					"E": {"E", "F", 130},
+				},
+			},
+		},
+		{
+			/*	Case 8:
+			*	Two self vote address A,B in  genesis
+			* 	C vote D , D vote C to be signer in block 3
+			 */
+			addrNames:        []string{"A", "B", "C", "D", "E"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true}, {from: "D", to: "C", balance: 80, isVote: true}, {from: "C", to: "E", balance: 110, isVote: false}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"B", "A", "C", "D"},
+				Tally:   map[string]int{"B": 200, "D": 110, "A": 100, "C": 80},
+				Voters:  map[string]int{"B": 0, "C": 3, "D": 3, "A": 0},
+				Votes: map[string]*testerVote{
+					"B": {"B", "B", 200},
+					"A": {"A", "A", 100},
+					"C": {"C", "D", 110},
+					"D": {"D", "C", 80},
 				},
 			},
 		},
