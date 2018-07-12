@@ -30,6 +30,7 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
+	"time"
 )
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -63,7 +64,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
-		HeaderTime:    config.GenesisTimestamp - 1, //
+		HeaderTime:    uint64(time.Now().Unix()) - 1,//config.GenesisTimestamp - 1, //
 		LoopStartTime: config.GenesisTimestamp,
 	}
 

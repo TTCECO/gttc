@@ -555,7 +555,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 	// one loop is finished, recreate random signerQueue
-	if number%a.config.MaxSignerCount == 0 {
+	if (header.Time.Uint64() - currentHeaderExtra.LoopStartTime) % (a.config.Period * a.config.MaxSignerCount) > a.config.Period * (a.config.MaxSignerCount - 1){
 		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
 		// create random signersQueue in currentHeaderExtra by snapshot.Tally

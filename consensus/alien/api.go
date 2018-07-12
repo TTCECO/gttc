@@ -57,3 +57,13 @@ func (api *API) GetSnapshotAtHash(hash common.Hash) (*Snapshot, error) {
 	}
 	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
 }
+
+
+// GetSnapshotAtNumber retrieves the state snapshot at a given block.
+func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
+	header := api.chain.GetHeaderByNumber(number)
+	if header == nil {
+		return nil, errUnknownBlock
+	}
+	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil)
+}

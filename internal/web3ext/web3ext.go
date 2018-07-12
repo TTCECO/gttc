@@ -127,6 +127,11 @@ web3._extend({
 			call: 'alien_getSnapshotAtHash',
 			params: 1
 		}),
+		new web3._extend.Method({
+			name: 'getSnapshotAtNumber',
+			call: 'alien_getSnapshotAtNumber',
+			params: 1
+		}),
 	]
 });
 `
