@@ -450,9 +450,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	if number > 1{
+	if number > a.config.MaxSignerCount{
 		parent := chain.GetHeader(header.ParentHash, number-1)
 		parentHeaderExtra := HeaderExtra{}
+
 		rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
 
@@ -576,8 +577,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	}
 
-	// one loop is finished, recreate random signerQueue
-	if (header.Time.Uint64() - currentHeaderExtra.LoopStartTime) % (a.config.Period * a.config.MaxSignerCount) > a.config.Period * (a.config.MaxSignerCount - 1){
+	if number % a.config.MaxSignerCount == 0 {
 		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
 		// create random signersQueue in currentHeaderExtra by snapshot.Tally

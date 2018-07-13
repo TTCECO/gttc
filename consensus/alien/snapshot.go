@@ -53,7 +53,7 @@ type Snapshot struct {
 	Votes  map[common.Address]*Vote    `json:"votes"`  // All validate votes from genesis block
 	Tally  map[common.Address]*big.Int `json:"tally"`  // Stake for each candidate address
 	Voters map[common.Address]*big.Int `json:"voters"` // block number for each voter address
-	Punished map[common.Address] uint64 `json:"punished"` // The signer be punished count cause of missing seal
+	Punished map[common.Address]uint64 `json:"punished"` // The signer be punished count cause of missing seal
 
 	HeaderTime    uint64 `json:"headerTime"`    // Time of the current header
 	LoopStartTime uint64 `json:"loopStartTime"` // Start Time of the current loop
@@ -242,8 +242,10 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 		// reduce the punish of sign signer
 		if _, ok := snap.Punished[header.Coinbase]; ok {
-			snap.Punished[header.Coinbase] -= signRewardCredit
-			if snap.Punished[header.Coinbase] <= 0 {
+
+			if snap.Punished[header.Coinbase] > signRewardCredit{
+				snap.Punished[header.Coinbase] -= signRewardCredit
+			}else {
 				delete(snap.Punished, header.Coinbase)
 			}
 		}
@@ -310,8 +312,12 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 
 	for address, stake := range s.Tally {
 		if _,ok := s.Punished[address]; ok{
-			creditWeight := defaultFullCredit - s.Punished[address]
-			if creditWeight < minCalSignerQueueCredit { creditWeight = minCalSignerQueueCredit }
+			var creditWeight uint64
+			if s.Punished[address] > defaultFullCredit - minCalSignerQueueCredit {
+				creditWeight = minCalSignerQueueCredit
+			}else{
+				creditWeight = defaultFullCredit - s.Punished[address]
+			}
 			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
 		}else{
 			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
@@ -323,7 +329,6 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 	if queueLength > len(tallySlice){
 		queueLength = len(tallySlice)
 	}
-
 	for _, tallyItem := range tallySlice[:queueLength] {
 			topStakeAddress = append(topStakeAddress, tallyItem.addr)
 	}
