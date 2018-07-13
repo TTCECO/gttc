@@ -306,7 +306,6 @@ func TestVoting(t *testing.T) {
 			* 	C vote D to be signer in block 2
 			*  	C transaction to E 20 in block 3
 			*	In Voters, the vote block number of C is still 2, not 4
-			*	But the stake of this vote is 20, cause txs in block 4 the balance of C is 20 in block 4
 			 */
 			addrNames:        []string{"A", "B", "C", "D", "E"},
 			period:           uint64(3),
@@ -324,7 +323,7 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
-				Signers: []string{"A", "B"},
+				Signers: []string{"A", "B", "D"},
 				Tally:   map[string]int{"A": 100, "B": 200, "D": 20},
 				Voters:  map[string]int{"A": 0, "B": 0, "C": 2},
 				Votes: map[string]*testerVote{

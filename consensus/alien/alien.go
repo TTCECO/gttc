@@ -107,6 +107,9 @@ var (
 	// errUnauthorized is returned if a header is signed by a non-authorized entity.
 	errUnauthorized = errors.New("unauthorized")
 
+	// errPunishedMissing is returned if a header calculate punished signer is wrong.
+	errPunishedMissing = errors.New("punished signer missing")
+
 	// errWaitTransactions is returned if an empty block is attempted to be sealed
 	// on an instant chain (0 second period). It's important to refuse these as the
 	// block reward is zero, so an empty block just bloats the chain... fast.
@@ -129,6 +132,7 @@ type HeaderExtra struct {
 	ModifyPredecessorVotes []Vote
 	LoopStartTime          uint64
 	SignerQueue            []common.Address
+	SignerMissing		[]common.Address
 }
 
 // Alien is the delegated-proof-of-stake consensus engine proposed to support the
@@ -446,8 +450,24 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	headerExtra := HeaderExtra{}
-	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
+	if number > 1{
+		parent := chain.GetHeader(header.ParentHash, number-1)
+		parentHeaderExtra := HeaderExtra{}
+		rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
+
+		currentHeaderExtra := HeaderExtra{}
+		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing){
+			return errPunishedMissing
+		}
+		for i,signerMissing := range currentHeaderExtra.SignerMissing{
+			if parentSignerMissing[i] != signerMissing{
+				return errPunishedMissing
+			}
+		}
+	}
+
 	if !snap.inturn(signer, header.Time.Uint64()) {
 		return errUnauthorized
 	}
@@ -537,6 +557,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	// decode extra from last header.extra
 	currentHeaderExtra := HeaderExtra{}
 	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+	// notice : the currentHeaderExtra contain the info of parent HeaderExtra
+	currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
 	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 
@@ -623,8 +645,6 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		return nil, err
 	}
 
-	headerExtra := HeaderExtra{}
-	rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
 	if !snap.inturn(signer, header.Time.Uint64()) {
 		<-stop
 		return nil, errUnauthorized
@@ -678,6 +698,27 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, blockReward)
 }
+
+// Get the signer missing from last signer till header.Coinbase
+func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra) []common.Address{
+
+	var signerMissing []common.Address
+	recordMissing := false
+	for _, signer := range extra.SignerQueue{
+		if signer == lastSigner{
+			recordMissing = true
+			continue
+		}
+		if signer == currentSigner{
+			break
+		}
+		if recordMissing {
+			signerMissing = append(signerMissing, signer)
+		}
+	}
+	return signerMissing
+}
+
 
 // Calculate Votes from transaction in this block, write into header.Extra
 func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, error) {

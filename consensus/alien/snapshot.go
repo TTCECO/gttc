@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"math/rand"
 	"sort"
+	"time"
 
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
@@ -30,9 +31,15 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
-	"time"
 )
 
+const (
+	defaultFullCredit 	= 1000				// no punished
+	missingPublishCredit = 100				// punished for missing one block seal
+	signRewardCredit	= 10				// seal one block
+	minCalSignerQueueCredit = 300			// when calculate the signerQueue,
+											// the credit of one signer is at least minCalSignerQueueCredit
+)
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
@@ -46,6 +53,7 @@ type Snapshot struct {
 	Votes  map[common.Address]*Vote    `json:"votes"`  // All validate votes from genesis block
 	Tally  map[common.Address]*big.Int `json:"tally"`  // Stake for each candidate address
 	Voters map[common.Address]*big.Int `json:"voters"` // block number for each voter address
+	Punished map[common.Address] uint64 `json:"punished"` // The signer be punished count cause of missing seal
 
 	HeaderTime    uint64 `json:"headerTime"`    // Time of the current header
 	LoopStartTime uint64 `json:"loopStartTime"` // Start Time of the current loop
@@ -64,6 +72,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
+		Punished:		make(map[common.Address]uint64),
 		HeaderTime:    uint64(time.Now().Unix()) - 1,//config.GenesisTimestamp - 1, //
 		LoopStartTime: config.GenesisTimestamp,
 	}
@@ -85,7 +94,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
-		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
+		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i % len(config.SelfVoteSigners)])
 	}
 
 	return snap
@@ -128,6 +137,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Votes:   make(map[common.Address]*Vote),
 		Tally:   make(map[common.Address]*big.Int),
 		Voters:  make(map[common.Address]*big.Int),
+		Punished:make(map[common.Address]uint64),
 
 		HeaderTime:    s.HeaderTime,
 		LoopStartTime: s.LoopStartTime,
@@ -145,6 +155,9 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 	for voter, number := range s.Voters {
 		cpy.Voters[voter] = number
+	}
+	for signer, cnt := range s.Punished{
+		cpy.Punished[signer] = cnt
 	}
 	return cpy
 }
@@ -209,6 +222,31 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				// do not modify header number of snap.Voters
 			}
 		}
+		// set punished count to half of origin in Epoch
+		if header.Number.Uint64() % snap.config.Epoch == 0 {
+			for bePublished := range snap.Punished{
+				if count := snap.Punished[bePublished] / 2; count > 0{
+					snap.Punished[bePublished] = count
+				}else {
+					delete(snap.Punished, bePublished)
+				}
+			}
+		}
+		// punish the missing signer
+		for _, signerMissing := range headerExtra.SignerMissing {
+			if _, ok := snap.Punished[signerMissing]; ok {
+				snap.Punished[signerMissing] += missingPublishCredit
+			}else{
+				snap.Punished[signerMissing] = missingPublishCredit
+			}
+		}
+		// reduce the punish of sign signer
+		if _, ok := snap.Punished[header.Coinbase]; ok {
+			snap.Punished[header.Coinbase] -= signRewardCredit
+			if snap.Punished[header.Coinbase] <= 0 {
+				delete(snap.Punished, header.Coinbase)
+			}
+		}
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
@@ -230,7 +268,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 		}
 	}
-
+	// remove 0 stake tally
 	for address, tally := range snap.Tally {
 		if tally.Cmp(big.NewInt(0)) <= 0 {
 			delete(snap.Tally, address)
@@ -254,44 +292,47 @@ func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 	return true
 }
 
-type BigIntSlice []*big.Int
+type TallyItem struct{
+	addr common.Address
+	stake *big.Int
+}
+type TallySlice []TallyItem
 
-func (s BigIntSlice) Len() int           { return len(s) }
-func (s BigIntSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) > 0 }
+func (s TallySlice) Len() int           { return len(s) }
+func (s TallySlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s TallySlice) Less(i, j int) bool { return s[i].stake.Cmp(s[j].stake) > 0 }
 
 // get signer queue when one loop finished
 func (s *Snapshot) getSignerQueue() []common.Address {
 
-	var stakeList []*big.Int
+	var tallySlice TallySlice
 	var topStakeAddress []common.Address
 
-	for _, stake := range s.Tally {
-		stakeList = append(stakeList, stake)
-	}
-
-	sort.Sort(BigIntSlice(stakeList))
-	minStakeForCandidate := s.config.MinVoterBalance
-
-	if len(stakeList) >= int(s.config.MaxSignerCount) {
-		minStakeForCandidate = stakeList[s.config.MaxSignerCount-1]
-	}
 	for address, stake := range s.Tally {
-		if len(topStakeAddress) == int(s.config.MaxSignerCount) {
-			break
+		if _,ok := s.Punished[address]; ok{
+			creditWeight := defaultFullCredit - s.Punished[address]
+			if creditWeight < minCalSignerQueueCredit { creditWeight = minCalSignerQueueCredit }
+			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
+		}else{
+			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 		}
-		if stake.Cmp(minStakeForCandidate) >= 0 {
-			topStakeAddress = append(topStakeAddress, address)
-		}
+	}
+
+	sort.Sort(TallySlice(tallySlice))
+	queueLength := int(s.config.MaxSignerCount)
+	if queueLength > len(tallySlice){
+		queueLength = len(tallySlice)
+	}
+
+	for _, tallyItem := range tallySlice[:queueLength] {
+			topStakeAddress = append(topStakeAddress, tallyItem.addr)
 	}
 	// Set the top candidates in random order
 	for i := 0; i < len(topStakeAddress); i++ {
 		newPos := rand.Int() % len(topStakeAddress)
 		topStakeAddress[i], topStakeAddress[newPos] = topStakeAddress[newPos], topStakeAddress[i]
 	}
-
 	return topStakeAddress
-
 }
 
 // check if address belong to voter
