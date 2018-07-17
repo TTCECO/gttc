@@ -451,7 +451,12 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	if number > a.config.MaxSignerCount{
-		parent := chain.GetHeader(header.ParentHash, number-1)
+		var parent *types.Header
+		if len(parents) > 0 {
+			parent = parents[len(parents)-1]
+		} else {
+			parent = chain.GetHeader(header.ParentHash, number-1)
+		}
 		parentHeaderExtra := HeaderExtra{}
 
 		rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
