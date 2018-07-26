@@ -21,10 +21,10 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
-	"strconv"
 
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
@@ -50,18 +50,18 @@ const (
 	/*
 	 *  ufo:version:category:action/data
 	 */
-	ufoPrefix        = "ufo"
-	ufoVersion       = "1"
-	ufoCategoryEvent = "event"
-	ufoCategoryLog   = "oplog"
-	ufoEventVote     = "vote"
-	ufoEventConfirm  = "confirm"
-	ufoMinSplitLen   = 3
-	posPrefix        = 0
-	posVersion       = 1
-	posCategory      = 2
-	posEventVote	 = 3
-	posEventConfirm  = 3
+	ufoPrefix             = "ufo"
+	ufoVersion            = "1"
+	ufoCategoryEvent      = "event"
+	ufoCategoryLog        = "oplog"
+	ufoEventVote          = "vote"
+	ufoEventConfirm       = "confirm"
+	ufoMinSplitLen        = 3
+	posPrefix             = 0
+	posVersion            = 1
+	posCategory           = 2
+	posEventVote          = 3
+	posEventConfirm       = 3
 	posEventConfirmNumber = 4
 )
 
@@ -75,7 +75,7 @@ var (
 	extraVanity            = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal              = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
 	uncleHash              = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	defaultDifficulty      = big.NewInt(1)        // Default difficulty
+	defaultDifficulty      = big.NewInt(1)            // Default difficulty
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -133,19 +133,19 @@ type Vote struct {
 
 //
 type Confirmation struct {
-	Signer	 common.Address
+	Signer      common.Address
 	BlockNumber *big.Int
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
-	CurrentBlockConfirmations   []Confirmation
-	CurrentBlockVotes      []Vote
-	ModifyPredecessorVotes []Vote
-	LoopStartTime          uint64
-	SignerQueue            []common.Address
-	SignerMissing			[]common.Address
-	ConfirmedBlockNumber   uint64
+	CurrentBlockConfirmations []Confirmation
+	CurrentBlockVotes         []Vote
+	ModifyPredecessorVotes    []Vote
+	LoopStartTime             uint64
+	SignerQueue               []common.Address
+	SignerMissing             []common.Address
+	ConfirmedBlockNumber      uint64
 }
 
 // Alien is the delegated-proof-of-stake consensus engine proposed to support the
@@ -463,7 +463,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	if number > a.config.MaxSignerCount{
+	if number > a.config.MaxSignerCount {
 		var parent *types.Header
 		if len(parents) > 0 {
 			parent = parents[len(parents)-1]
@@ -477,11 +477,11 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 
 		currentHeaderExtra := HeaderExtra{}
 		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
-		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing){
+		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 			return errPunishedMissing
 		}
-		for i,signerMissing := range currentHeaderExtra.SignerMissing{
-			if parentSignerMissing[i] != signerMissing{
+		for i, signerMissing := range currentHeaderExtra.SignerMissing {
+			if parentSignerMissing[i] != signerMissing {
 				return errPunishedMissing
 			}
 		}
@@ -598,7 +598,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	}
 
-	if number % a.config.MaxSignerCount == 0 {
+	if number%a.config.MaxSignerCount == 0 {
 		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
 		// create random signersQueue in currentHeaderExtra by snapshot.Tally
@@ -618,8 +618,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
-	// Set the correct difficulty as count down to the confirmed block number
-	header.Difficulty = defaultDifficulty
+	// Set the correct difficulty
+	header.Difficulty = new(big.Int).Set(defaultDifficulty)
 
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)
@@ -721,16 +721,16 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Get the signer missing from last signer till header.Coinbase
-func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra) []common.Address{
+func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra) []common.Address {
 
 	var signerMissing []common.Address
 	recordMissing := false
-	for _, signer := range extra.SignerQueue{
-		if signer == lastSigner{
+	for _, signer := range extra.SignerQueue {
+		if signer == lastSigner {
 			recordMissing = true
 			continue
 		}
-		if signer == currentSigner{
+		if signer == currentSigner {
 			break
 		}
 		if recordMissing {
@@ -740,24 +740,23 @@ func getSignerMissing(lastSigner common.Address, currentSigner common.Address, e
 	return signerMissing
 }
 
-
 // Calculate Votes from transaction in this block, write into header.Extra
 func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, []Confirmation, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 	var (
 		currentBlockConfirmations []Confirmation
-		currentBlockVotes      []Vote
-		modifyPredecessorVotes []Vote
-		snap                   *Snapshot
-		err                    error
-		number                 uint64
+		currentBlockVotes         []Vote
+		modifyPredecessorVotes    []Vote
+		snap                      *Snapshot
+		err                       error
+		number                    uint64
 	)
 	number = header.Number.Uint64()
 	if number > 1 {
 		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil)
 		if err != nil {
-			return nil, nil,nil, err
+			return nil, nil, nil, err
 		}
 	}
 
@@ -788,10 +787,10 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
 									}
-								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm{
-									if len(txDataInfo) >= posEventConfirmNumber{
+								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
+									if len(txDataInfo) >= posEventConfirmNumber {
 										confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
-										if err != nil || number - uint64(confirmedBlockNumber) > a.config.MaxSignerCount ||  number - uint64(confirmedBlockNumber) < 0{
+										if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
 											continue
 										}
 										signer := types.NewEIP155Signer(tx.ChainId())
@@ -800,10 +799,10 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 										confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
 										confirmedHeaderExtra := HeaderExtra{}
 										rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
-										for _, s := range confirmedHeaderExtra.SignerQueue{
+										for _, s := range confirmedHeaderExtra.SignerQueue {
 											if s == confirmer {
 												currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
-													Signer:	confirmer ,
+													Signer:      confirmer,
 													BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
 												})
 												break

@@ -34,12 +34,13 @@ import (
 )
 
 const (
-	defaultFullCredit 	= 1000				// no punished
-	missingPublishCredit = 100				// punished for missing one block seal
-	signRewardCredit	= 10				// seal one block
-	minCalSignerQueueCredit = 300			// when calculate the signerQueue,
-											// the credit of one signer is at least minCalSignerQueueCredit
+	defaultFullCredit       = 1000 // no punished
+	missingPublishCredit    = 100  // punished for missing one block seal
+	signRewardCredit        = 10   // seal one block
+	minCalSignerQueueCredit = 300  // when calculate the signerQueue,
+	// the credit of one signer is at least minCalSignerQueueCredit
 )
+
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
@@ -50,10 +51,10 @@ type Snapshot struct {
 
 	Signers []*common.Address `json:"signers"` // Signers queue in current header
 	// The signer validate should judge by last snapshot
-	Votes  map[common.Address]*Vote    `json:"votes"`  // All validate votes from genesis block
-	Tally  map[common.Address]*big.Int `json:"tally"`  // Stake for each candidate address
-	Voters map[common.Address]*big.Int `json:"voters"` // block number for each voter address
-	Punished map[common.Address]uint64 `json:"punished"` // The signer be punished count cause of missing seal
+	Votes         map[common.Address]*Vote     `json:"votes"`    // All validate votes from genesis block
+	Tally         map[common.Address]*big.Int  `json:"tally"`    // Stake for each candidate address
+	Voters        map[common.Address]*big.Int  `json:"voters"`   // block number for each voter address
+	Punished      map[common.Address]uint64    `json:"punished"` // The signer be punished count cause of missing seal
 	Confirmations map[uint64][]*common.Address `json:"confirms"` // The signer confirm given block number
 
 	HeaderTime    uint64 `json:"headerTime"`    // Time of the current header
@@ -73,9 +74,9 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
-		Punished:	   make(map[common.Address]uint64),
+		Punished:      make(map[common.Address]uint64),
 		Confirmations: make(map[uint64][]*common.Address),
-		HeaderTime:    uint64(time.Now().Unix()) - 1,//config.GenesisTimestamp - 1, //
+		HeaderTime:    uint64(time.Now().Unix()) - 1, //config.GenesisTimestamp - 1, //
 		LoopStartTime: config.GenesisTimestamp,
 	}
 
@@ -96,7 +97,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
-		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i % len(config.SelfVoteSigners)])
+		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
 	}
 
 	return snap
@@ -135,12 +136,12 @@ func (s *Snapshot) copy() *Snapshot {
 		Number:   s.Number,
 		Hash:     s.Hash,
 
-		Signers: make([]*common.Address, len(s.Signers)),
-		Votes:   make(map[common.Address]*Vote),
-		Tally:   make(map[common.Address]*big.Int),
-		Voters:  make(map[common.Address]*big.Int),
-		Punished:make(map[common.Address]uint64),
-		Confirmations:make(map[uint64][]*common.Address),
+		Signers:       make([]*common.Address, len(s.Signers)),
+		Votes:         make(map[common.Address]*Vote),
+		Tally:         make(map[common.Address]*big.Int),
+		Voters:        make(map[common.Address]*big.Int),
+		Punished:      make(map[common.Address]uint64),
+		Confirmations: make(map[uint64][]*common.Address),
 
 		HeaderTime:    s.HeaderTime,
 		LoopStartTime: s.LoopStartTime,
@@ -159,10 +160,10 @@ func (s *Snapshot) copy() *Snapshot {
 	for voter, number := range s.Voters {
 		cpy.Voters[voter] = number
 	}
-	for signer, cnt := range s.Punished{
+	for signer, cnt := range s.Punished {
 		cpy.Punished[signer] = cnt
 	}
-	for blockNumber, confirmers := range s.Confirmations{
+	for blockNumber, confirmers := range s.Confirmations {
 		cpy.Confirmations[blockNumber] = make([]*common.Address, len(confirmers))
 		copy(cpy.Confirmations[blockNumber], confirmers)
 	}
@@ -205,6 +206,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			snap.Signers = append(snap.Signers, &headerExtra.SignerQueue[i])
 		}
 		// deal the new confirmation in this block
+
 		for _, confirmation := range headerExtra.CurrentBlockConfirmations {
 			_, ok := snap.Confirmations[confirmation.BlockNumber.Uint64()]
 			if !ok {
@@ -218,7 +220,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				}
 			}
 			if addConfirmation == true {
-				snap.Confirmations[confirmation.BlockNumber.Uint64()] = append(snap.Confirmations[confirmation.BlockNumber.Uint64()] , &confirmation.Signer)
+				snap.Confirmations[confirmation.BlockNumber.Uint64()] = append(snap.Confirmations[confirmation.BlockNumber.Uint64()], &confirmation.Signer)
 			}
 		}
 
@@ -249,11 +251,11 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 		}
 		// set punished count to half of origin in Epoch
-		if header.Number.Uint64() % snap.config.Epoch == 0 {
-			for bePublished := range snap.Punished{
-				if count := snap.Punished[bePublished] / 2; count > 0{
+		if header.Number.Uint64()%snap.config.Epoch == 0 {
+			for bePublished := range snap.Punished {
+				if count := snap.Punished[bePublished] / 2; count > 0 {
 					snap.Punished[bePublished] = count
-				}else {
+				} else {
 					delete(snap.Punished, bePublished)
 				}
 			}
@@ -262,16 +264,16 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		for _, signerMissing := range headerExtra.SignerMissing {
 			if _, ok := snap.Punished[signerMissing]; ok {
 				snap.Punished[signerMissing] += missingPublishCredit
-			}else{
+			} else {
 				snap.Punished[signerMissing] = missingPublishCredit
 			}
 		}
 		// reduce the punish of sign signer
 		if _, ok := snap.Punished[header.Coinbase]; ok {
 
-			if snap.Punished[header.Coinbase] > signRewardCredit{
+			if snap.Punished[header.Coinbase] > signRewardCredit {
 				snap.Punished[header.Coinbase] -= signRewardCredit
-			}else {
+			} else {
 				delete(snap.Punished, header.Coinbase)
 			}
 		}
@@ -298,7 +300,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 	}
 	// deal the expired confirmation
 	for blockNumber, _ := range snap.Confirmations {
-		if snap.Number - blockNumber > snap.config.MaxSignerCount{
+		if snap.Number-blockNumber > snap.config.MaxSignerCount {
 			delete(snap.Confirmations, blockNumber)
 		}
 	}
@@ -317,11 +319,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 
 	// if all node stop more than period of one loop
-	if len(s.Signers) == 0 {
-		return false
-	}
-
-	loopIndex := int((headerTime-s.LoopStartTime) / s.config.Period) % len(s.Signers)
+	loopIndex := int((headerTime-s.LoopStartTime)/s.config.Period) % len(s.Signers)
 	if loopIndex >= len(s.Signers) {
 		return false
 	} else if *s.Signers[loopIndex] != signer {
@@ -331,8 +329,8 @@ func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 	return true
 }
 
-type TallyItem struct{
-	addr common.Address
+type TallyItem struct {
+	addr  common.Address
 	stake *big.Int
 }
 type TallySlice []TallyItem
@@ -348,26 +346,26 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 	var topStakeAddress []common.Address
 
 	for address, stake := range s.Tally {
-		if _,ok := s.Punished[address]; ok{
+		if _, ok := s.Punished[address]; ok {
 			var creditWeight uint64
-			if s.Punished[address] > defaultFullCredit - minCalSignerQueueCredit {
+			if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
 				creditWeight = minCalSignerQueueCredit
-			}else{
+			} else {
 				creditWeight = defaultFullCredit - s.Punished[address]
 			}
 			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
-		}else{
+		} else {
 			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 		}
 	}
 
 	sort.Sort(TallySlice(tallySlice))
 	queueLength := int(s.config.MaxSignerCount)
-	if queueLength > len(tallySlice){
+	if queueLength > len(tallySlice) {
 		queueLength = len(tallySlice)
 	}
 	for _, tallyItem := range tallySlice[:queueLength] {
-			topStakeAddress = append(topStakeAddress, tallyItem.addr)
+		topStakeAddress = append(topStakeAddress, tallyItem.addr)
 	}
 	// Set the top candidates in random order
 	for i := 0; i < len(topStakeAddress); i++ {
@@ -387,10 +385,10 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // get last block number meet the confirm condition
 func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *big.Int {
-	i:= s.Number
-	for ;i > s.Number-s.config.MaxSignerCount; i-- {
+	i := s.Number
+	for ; i > s.Number-s.config.MaxSignerCount; i-- {
 		if confirmers, ok := s.Confirmations[i]; ok {
-			if len(confirmers) > int(s.config.MaxSignerCount * 2 / 3){
+			if len(confirmers) > int(s.config.MaxSignerCount*2/3) {
 				return big.NewInt(int64(i))
 			}
 		}
