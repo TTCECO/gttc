@@ -47,6 +47,8 @@ type Snapshot struct {
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 
 	Number uint64      `json:"number"` // Block number where the snapshot was created
+	ConfirmedNumber uint64      `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
+
 	Hash   common.Hash `json:"hash"`   // Block hash where the snapshot was created
 
 	Signers []*common.Address `json:"signers"` // Signers queue in current header
@@ -69,6 +71,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		config:        config,
 		sigcache:      sigcache,
 		Number:        0,
+		ConfirmedNumber: 0,
 		Hash:          hash,
 		Signers:       []*common.Address{},
 		Votes:         make(map[common.Address]*Vote),
@@ -134,6 +137,7 @@ func (s *Snapshot) copy() *Snapshot {
 		config:   s.config,
 		sigcache: s.sigcache,
 		Number:   s.Number,
+		ConfirmedNumber: s.ConfirmedNumber,
 		Hash:     s.Hash,
 
 		Signers:       make([]*common.Address, len(s.Signers)),
@@ -205,8 +209,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		for i := range headerExtra.SignerQueue {
 			snap.Signers = append(snap.Signers, &headerExtra.SignerQueue[i])
 		}
-		// deal the new confirmation in this block
 
+		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
+		// deal the new confirmation in this block
 		for _, confirmation := range headerExtra.CurrentBlockConfirmations {
 			_, ok := snap.Confirmations[confirmation.BlockNumber.Uint64()]
 			if !ok {
