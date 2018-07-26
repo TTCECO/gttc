@@ -23,6 +23,8 @@ import (
 	"math/big"
 	"sync"
 	"time"
+	"strings"
+	"strconv"
 
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
@@ -37,8 +39,6 @@ import (
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/hashicorp/golang-lru"
-	"strings"
-	"strconv"
 )
 
 const (
@@ -75,8 +75,7 @@ var (
 	extraVanity            = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal              = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
 	uncleHash              = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	defaultDifficulty      = big.NewInt(int64(defaultMaxSignerCount * 2 / 3) + 1)        // Difficulty as the count, which last confirmed block before current block number.
-													  // confirmed means confirmed signer number >= 2/3 singers + 1
+	defaultDifficulty      = big.NewInt(1)        // Default difficulty
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -145,7 +144,8 @@ type HeaderExtra struct {
 	ModifyPredecessorVotes []Vote
 	LoopStartTime          uint64
 	SignerQueue            []common.Address
-	SignerMissing		[]common.Address
+	SignerMissing			[]common.Address
+	ConfirmedBlockNumber   uint64
 }
 
 // Alien is the delegated-proof-of-stake consensus engine proposed to support the
@@ -588,6 +588,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		return nil, err
 	}
 
+	currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentBlockConfirmations).Uint64()
+
 	// write signerQueue in first header, from self vote signers in genesis block
 	if number == 1 {
 		currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
@@ -616,8 +618,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = append(header.Extra, currentHeaderExtraEnc...)
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
-	// Set the correct difficulty
-	header.Difficulty = new(big.Int).Set(defaultDifficulty)
+	// Set the correct difficulty as count down to the confirmed block number
+	header.Difficulty = defaultDifficulty
 
 	// Accumulate any block rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header)

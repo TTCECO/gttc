@@ -54,6 +54,7 @@ type Snapshot struct {
 	Tally  map[common.Address]*big.Int `json:"tally"`  // Stake for each candidate address
 	Voters map[common.Address]*big.Int `json:"voters"` // block number for each voter address
 	Punished map[common.Address]uint64 `json:"punished"` // The signer be punished count cause of missing seal
+	Confirmations map[uint64][]*common.Address `json:"confirms"` // The signer confirm given block number
 
 	HeaderTime    uint64 `json:"headerTime"`    // Time of the current header
 	LoopStartTime uint64 `json:"loopStartTime"` // Start Time of the current loop
@@ -72,7 +73,8 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
-		Punished:		make(map[common.Address]uint64),
+		Punished:	   make(map[common.Address]uint64),
+		Confirmations: make(map[uint64][]*common.Address),
 		HeaderTime:    uint64(time.Now().Unix()) - 1,//config.GenesisTimestamp - 1, //
 		LoopStartTime: config.GenesisTimestamp,
 	}
@@ -138,6 +140,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Tally:   make(map[common.Address]*big.Int),
 		Voters:  make(map[common.Address]*big.Int),
 		Punished:make(map[common.Address]uint64),
+		Confirmations:make(map[uint64][]*common.Address),
 
 		HeaderTime:    s.HeaderTime,
 		LoopStartTime: s.LoopStartTime,
@@ -159,6 +162,11 @@ func (s *Snapshot) copy() *Snapshot {
 	for signer, cnt := range s.Punished{
 		cpy.Punished[signer] = cnt
 	}
+	for blockNumber, confirmers := range s.Confirmations{
+		cpy.Confirmations[blockNumber] = make([]*common.Address, len(confirmers))
+		copy(cpy.Confirmations[blockNumber], confirmers)
+	}
+
 	return cpy
 }
 
@@ -196,6 +204,24 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		for i := range headerExtra.SignerQueue {
 			snap.Signers = append(snap.Signers, &headerExtra.SignerQueue[i])
 		}
+		// deal the new confirmation in this block
+		for _, confirmation := range headerExtra.CurrentBlockConfirmations {
+			_, ok := snap.Confirmations[confirmation.BlockNumber.Uint64()]
+			if !ok {
+				snap.Confirmations[confirmation.BlockNumber.Uint64()] = []*common.Address{}
+			}
+			addConfirmation := true
+			for _, address := range snap.Confirmations[confirmation.BlockNumber.Uint64()] {
+				if confirmation.Signer == *address {
+					addConfirmation = false
+					break
+				}
+			}
+			if addConfirmation == true {
+				snap.Confirmations[confirmation.BlockNumber.Uint64()] = append(snap.Confirmations[confirmation.BlockNumber.Uint64()] , &confirmation.Signer)
+			}
+		}
+
 		// deal the new vote from voter
 		for _, vote := range headerExtra.CurrentBlockVotes {
 			// update Votes, Tally, Voters data
@@ -270,6 +296,13 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 		}
 	}
+	// deal the expired confirmation
+	for blockNumber, _ := range snap.Confirmations {
+		if snap.Number - blockNumber > snap.config.MaxSignerCount{
+			delete(snap.Confirmations, blockNumber)
+		}
+	}
+
 	// remove 0 stake tally
 	for address, tally := range snap.Tally {
 		if tally.Cmp(big.NewInt(0)) <= 0 {
@@ -284,7 +317,11 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 
 	// if all node stop more than period of one loop
-	loopIndex := int((headerTime-s.LoopStartTime)/s.config.Period) % len(s.Signers)
+	if len(s.Signers) == 0 {
+		return false
+	}
+
+	loopIndex := int((headerTime-s.LoopStartTime) / s.config.Period) % len(s.Signers)
 	if loopIndex >= len(s.Signers) {
 		return false
 	} else if *s.Signers[loopIndex] != signer {
@@ -346,4 +383,17 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 		return true
 	}
 	return false
+}
+
+// get last block number meet the confirm condition
+func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *big.Int {
+	i:= s.Number
+	for ;i > s.Number-s.config.MaxSignerCount; i-- {
+		if confirmers, ok := s.Confirmations[i]; ok {
+			if len(confirmers) > int(s.config.MaxSignerCount * 2 / 3){
+				return big.NewInt(int64(i))
+			}
+		}
+	}
+	return big.NewInt(int64(i))
 }
