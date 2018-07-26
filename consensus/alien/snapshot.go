@@ -390,6 +390,24 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // get last block number meet the confirm condition
 func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *big.Int {
+	// update confirmation into snapshot
+	for _, confirmation := range confirmations {
+		_, ok := s.Confirmations[confirmation.BlockNumber.Uint64()]
+		if !ok {
+			s.Confirmations[confirmation.BlockNumber.Uint64()] = []*common.Address{}
+		}
+		addConfirmation := true
+		for _, address := range s.Confirmations[confirmation.BlockNumber.Uint64()] {
+			if confirmation.Signer == *address {
+				addConfirmation = false
+				break
+			}
+		}
+		if addConfirmation == true {
+			s.Confirmations[confirmation.BlockNumber.Uint64()] = append(s.Confirmations[confirmation.BlockNumber.Uint64()], &confirmation.Signer)
+		}
+	}
+
 	i := s.Number
 	for ; i > s.Number-s.config.MaxSignerCount; i-- {
 		if confirmers, ok := s.Confirmations[i]; ok {
