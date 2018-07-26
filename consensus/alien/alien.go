@@ -38,6 +38,7 @@ import (
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/hashicorp/golang-lru"
 	"strings"
+	"strconv"
 )
 
 const (
@@ -54,10 +55,14 @@ const (
 	ufoCategoryEvent = "event"
 	ufoCategoryLog   = "oplog"
 	ufoEventVote     = "vote"
+	ufoEventConfirm  = "confirm"
 	ufoMinSplitLen   = 3
 	posPrefix        = 0
 	posVersion       = 1
 	posCategory      = 2
+	posEventVote	 = 3
+	posEventConfirm  = 3
+	posEventConfirmNumber = 4
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -70,7 +75,8 @@ var (
 	extraVanity            = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal              = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
 	uncleHash              = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	defaultDifficulty      = big.NewInt(1)            // Default value of difficulty
+	defaultDifficulty      = big.NewInt(int64(defaultMaxSignerCount * 2 / 3) + 1)        // Difficulty as the count, which last confirmed block before current block number.
+													  // confirmed means confirmed signer number >= 2/3 singers + 1
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -126,8 +132,15 @@ type Vote struct {
 	Stake     *big.Int
 }
 
+//
+type Confirmation struct {
+	Signer	 common.Address
+	BlockNumber *big.Int
+}
+
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
+	CurrentBlockConfirmations   []Confirmation
 	CurrentBlockVotes      []Vote
 	ModifyPredecessorVotes []Vote
 	LoopStartTime          uint64
@@ -538,7 +551,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = header.Extra[:extraVanity]
 
 	// calculate votes write into header.extra
-	currentBlockVotes, modifyPredecessorVotes, err := a.calculateVotes(chain, header, state, txs)
+	currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, err := a.processCustomTx(chain, header, state, txs)
 	if err != nil {
 		return nil, err
 	}
@@ -566,6 +579,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	// notice : the currentHeaderExtra contain the info of parent HeaderExtra
 	currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
+	currentHeaderExtra.CurrentBlockConfirmations = currentBlockConfirmations
 	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 
 	// Assemble the voting snapshot to check which votes make sense
@@ -726,10 +740,11 @@ func getSignerMissing(lastSigner common.Address, currentSigner common.Address, e
 
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, error) {
+func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, []Confirmation, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 	var (
+		currentBlockConfirmations []Confirmation
 		currentBlockVotes      []Vote
 		modifyPredecessorVotes []Vote
 		snap                   *Snapshot
@@ -740,7 +755,7 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 	if number > 1 {
 		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil,nil, err
 		}
 	}
 
@@ -755,7 +770,7 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 						if txDataInfo[posCategory] == ufoCategoryEvent {
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
-								if txDataInfo[ufoMinSplitLen] == ufoEventVote {
+								if posEventVote >= ufoMinSplitLen && txDataInfo[posEventVote] == ufoEventVote {
 									a.lock.RLock()
 									signer := types.NewEIP155Signer(tx.ChainId())
 									voter, _ := types.Sender(signer, tx)
@@ -771,6 +786,29 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
 									}
+								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm{
+									if len(txDataInfo) >= posEventConfirmNumber{
+										confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
+										if err != nil || number - uint64(confirmedBlockNumber) > a.config.MaxSignerCount ||  number - uint64(confirmedBlockNumber) < 0{
+											continue
+										}
+										signer := types.NewEIP155Signer(tx.ChainId())
+										confirmer, _ := types.Sender(signer, tx)
+										// check if the voter is in block
+										confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
+										confirmedHeaderExtra := HeaderExtra{}
+										rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+										for _, s := range confirmedHeaderExtra.SignerQueue{
+											if s == confirmer {
+												currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
+													Signer:	confirmer ,
+													BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
+												})
+												break
+											}
+										}
+									}
+
 								} else {
 									//todo : other event not vote
 
@@ -813,5 +851,5 @@ func (a *Alien) calculateVotes(chain consensus.ChainReader, header *types.Header
 
 	}
 
-	return currentBlockVotes, modifyPredecessorVotes, nil
+	return currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, nil
 }
