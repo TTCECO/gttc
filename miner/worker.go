@@ -492,6 +492,22 @@ func (self *worker) commitNewWork() {
 	}
 	self.push(work)
 	self.updateSnapshot()
+
+	log.Info("TODO, if alien dpos ,send  transaction to ")
+	wallet := self.eth.AccountManager().Wallets()[0]
+	state, err :=self.eth.BlockChain().State()
+	if err != nil {
+		log.Info("Fail to get block state")
+	}
+	coinbaseAccount := wallet.Accounts()[0]
+	nonce := state.GetNonce(coinbaseAccount.Address)
+	tmpTx := types.NewTransaction(nonce,coinbaseAccount.Address, big.NewInt(0), uint64(100000000000), big.NewInt(100), common.FromHex("ufo:1:event:confirm:400"))
+	signedTx,err := wallet.SignTx(coinbaseAccount,tmpTx,self.eth.BlockChain().Config().ChainId)
+	if err != nil{
+		log.Info("Fail to Sign the transaction by coinbase")
+	}else {
+		self.eth.TxPool().AddLocal(signedTx)
+	}
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
