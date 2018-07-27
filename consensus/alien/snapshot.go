@@ -46,10 +46,10 @@ type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 
-	Number uint64      `json:"number"` // Block number where the snapshot was created
-	ConfirmedNumber uint64      `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
+	Number          uint64 `json:"number"`          // Block number where the snapshot was created
+	ConfirmedNumber uint64 `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
 
-	Hash   common.Hash `json:"hash"`   // Block hash where the snapshot was created
+	Hash common.Hash `json:"hash"` // Block hash where the snapshot was created
 
 	Signers []*common.Address `json:"signers"` // Signers queue in current header
 	// The signer validate should judge by last snapshot
@@ -68,19 +68,19 @@ type Snapshot struct {
 // the genesis block.
 func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common.Hash, votes []*Vote) *Snapshot {
 	snap := &Snapshot{
-		config:        config,
-		sigcache:      sigcache,
-		Number:        0,
+		config:          config,
+		sigcache:        sigcache,
+		Number:          0,
 		ConfirmedNumber: 0,
-		Hash:          hash,
-		Signers:       []*common.Address{},
-		Votes:         make(map[common.Address]*Vote),
-		Tally:         make(map[common.Address]*big.Int),
-		Voters:        make(map[common.Address]*big.Int),
-		Punished:      make(map[common.Address]uint64),
-		Confirmations: make(map[uint64][]*common.Address),
-		HeaderTime:    uint64(time.Now().Unix()) - 1, //config.GenesisTimestamp - 1, //
-		LoopStartTime: config.GenesisTimestamp,
+		Hash:            hash,
+		Signers:         []*common.Address{},
+		Votes:           make(map[common.Address]*Vote),
+		Tally:           make(map[common.Address]*big.Int),
+		Voters:          make(map[common.Address]*big.Int),
+		Punished:        make(map[common.Address]uint64),
+		Confirmations:   make(map[uint64][]*common.Address),
+		HeaderTime:      uint64(time.Now().Unix()) - 1, //config.GenesisTimestamp - 1, //
+		LoopStartTime:   config.GenesisTimestamp,
 	}
 
 	for _, vote := range votes {
@@ -134,11 +134,11 @@ func (s *Snapshot) store(db ethdb.Database) error {
 // copy creates a deep copy of the snapshot, though not the individual votes.
 func (s *Snapshot) copy() *Snapshot {
 	cpy := &Snapshot{
-		config:   s.config,
-		sigcache: s.sigcache,
-		Number:   s.Number,
+		config:          s.config,
+		sigcache:        s.sigcache,
+		Number:          s.Number,
 		ConfirmedNumber: s.ConfirmedNumber,
-		Hash:     s.Hash,
+		Hash:            s.Hash,
 
 		Signers:       make([]*common.Address, len(s.Signers)),
 		Votes:         make(map[common.Address]*Vote),
@@ -219,13 +219,15 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 			addConfirmation := true
 			for _, address := range snap.Confirmations[confirmation.BlockNumber.Uint64()] {
-				if confirmation.Signer == *address {
+				if confirmation.Signer.Str() == address.Str() {
 					addConfirmation = false
 					break
 				}
 			}
 			if addConfirmation == true {
-				snap.Confirmations[confirmation.BlockNumber.Uint64()] = append(snap.Confirmations[confirmation.BlockNumber.Uint64()], &confirmation.Signer)
+				var confirmSigner common.Address
+				confirmSigner.Set(confirmation.Signer)
+				snap.Confirmations[confirmation.BlockNumber.Uint64()] = append(snap.Confirmations[confirmation.BlockNumber.Uint64()], &confirmSigner)
 			}
 		}
 
@@ -390,27 +392,35 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // get last block number meet the confirm condition
 func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *big.Int {
+
+	cpyConfirmations := make(map[uint64][]*common.Address)
+	for blockNumber, confirmers := range s.Confirmations {
+		cpyConfirmations[blockNumber] = make([]*common.Address, len(confirmers))
+		copy(cpyConfirmations[blockNumber], confirmers)
+	}
 	// update confirmation into snapshot
 	for _, confirmation := range confirmations {
-		_, ok := s.Confirmations[confirmation.BlockNumber.Uint64()]
+		_, ok := cpyConfirmations[confirmation.BlockNumber.Uint64()]
 		if !ok {
-			s.Confirmations[confirmation.BlockNumber.Uint64()] = []*common.Address{}
+			cpyConfirmations[confirmation.BlockNumber.Uint64()] = []*common.Address{}
 		}
 		addConfirmation := true
-		for _, address := range s.Confirmations[confirmation.BlockNumber.Uint64()] {
-			if confirmation.Signer == *address {
+		for _, address := range cpyConfirmations[confirmation.BlockNumber.Uint64()] {
+			if confirmation.Signer.Str() == address.Str() {
 				addConfirmation = false
 				break
 			}
 		}
 		if addConfirmation == true {
-			s.Confirmations[confirmation.BlockNumber.Uint64()] = append(s.Confirmations[confirmation.BlockNumber.Uint64()], &confirmation.Signer)
+			var confirmSigner common.Address
+			confirmSigner.Set(confirmation.Signer)
+			cpyConfirmations[confirmation.BlockNumber.Uint64()] = append(cpyConfirmations[confirmation.BlockNumber.Uint64()], &confirmSigner)
 		}
 	}
 
 	i := s.Number
-	for ; i > s.Number-s.config.MaxSignerCount; i-- {
-		if confirmers, ok := s.Confirmations[i]; ok {
+	for ; i > s.Number-s.config.MaxSignerCount*2/3+1; i-- {
+		if confirmers, ok := cpyConfirmations[i]; ok {
 			if len(confirmers) > int(s.config.MaxSignerCount*2/3) {
 				return big.NewInt(int64(i))
 			}

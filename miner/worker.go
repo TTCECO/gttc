@@ -245,7 +245,7 @@ func (self *worker) update() {
 	defer self.chainSideSub.Unsubscribe()
 
 	alienDelay := time.Duration(300) * time.Second
-	if self.config.Alien != nil && self.config.Alien.Period > 0{
+	if self.config.Alien != nil && self.config.Alien.Period > 0 {
 		alienDelay = time.Duration(self.config.Alien.Period) * time.Second
 	}
 
@@ -287,10 +287,9 @@ func (self *worker) update() {
 				}
 			}
 		case <-time.After(alienDelay):
-			if self.config.Alien != nil && self.config.Alien.Period > 0{
+			if self.config.Alien != nil && self.config.Alien.Period > 0 {
 				self.commitNewWork()
 			}
-
 
 		// System stopped
 		case <-self.txsSub.Err():
@@ -493,20 +492,23 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 	self.updateSnapshot()
 
-	if self.config.Alien != nil{
+	if self.config.Alien != nil {
 		wallet := self.eth.AccountManager().Wallets()[0]
-		state, err :=self.eth.BlockChain().State()
 		if err != nil {
 			log.Info("Fail to get block state")
 		}
 		coinbaseAccount := wallet.Accounts()[0]
-		nonce := state.GetNonce(coinbaseAccount.Address)
-		tmpTx := types.NewTransaction(nonce,coinbaseAccount.Address, big.NewInt(0), uint64(100000000000), big.NewInt(100), common.FromHex(fmt.Sprintf("ufo:1:event:confirm:%d",parent.Number())))
-		signedTx,err := wallet.SignTx(coinbaseAccount,tmpTx,self.eth.BlockChain().Config().ChainId)
-		if err != nil{
+		nonce := self.snapshotState.GetNonce(coinbaseAccount.Address)
+		tmpTx := types.NewTransaction(nonce, coinbaseAccount.Address, big.NewInt(0), uint64(100000), big.NewInt(10000), []byte(fmt.Sprintf("ufo:1:event:confirm:%d", parent.Number())))
+		signedTx, err := wallet.SignTx(coinbaseAccount, tmpTx, self.eth.BlockChain().Config().ChainId)
+		if err != nil {
 			log.Info("Fail to Sign the transaction by coinbase")
-		}else {
-			self.eth.TxPool().AddLocal(signedTx)
+		} else {
+			err = self.eth.TxPool().AddLocal(signedTx)
+			if err != nil {
+				log.Info("Fail to add transaction to local", "err", err)
+			}
+			self.eth.TxPool().SubscribeNewTxsEvent(self.txsCh)
 		}
 	}
 

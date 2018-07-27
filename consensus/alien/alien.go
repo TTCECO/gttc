@@ -472,11 +472,17 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		}
 		parentHeaderExtra := HeaderExtra{}
 
-		rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		if err != nil {
+			log.Info("Fail to decode parent header", "err", err)
+		}
 		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
 
 		currentHeaderExtra := HeaderExtra{}
-		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+		if err != nil {
+			log.Info("Fail to decode parent header", "err", err)
+		}
 		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 			return errPunishedMissing
 		}
@@ -575,7 +581,10 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	// decode extra from last header.extra
 	currentHeaderExtra := HeaderExtra{}
-	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+	err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+	if err != nil {
+		log.Info("Fail to decode parent header", "err", err)
+	}
 	// notice : the currentHeaderExtra contain the info of parent HeaderExtra
 	currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
@@ -788,6 +797,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 										continue
 									}
 								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
+									a.lock.RLock()
 									if len(txDataInfo) >= posEventConfirmNumber {
 										confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
 										if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
@@ -797,8 +807,19 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 										confirmer, _ := types.Sender(signer, tx)
 										// check if the voter is in block
 										confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
+										if confirmedHeader == nil {
+											log.Info("Fail to get confirmedHeader")
+											continue
+										}
 										confirmedHeaderExtra := HeaderExtra{}
-										rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+										if extraVanity+extraSeal > len(confirmedHeader.Extra) {
+											continue
+										}
+										err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+										if err != nil {
+											log.Info("Fail to decode parent header", "err", err)
+											continue
+										}
 										for _, s := range confirmedHeaderExtra.SignerQueue {
 											if s == confirmer {
 												currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
@@ -808,6 +829,11 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 												break
 											}
 										}
+									}
+									a.lock.RUnlock()
+									if tx.Value().Cmp(big.NewInt(0)) == 0 {
+										// if value is not zero, this vote may influence the balance of tx.To()
+										continue
 									}
 
 								} else {
