@@ -481,9 +481,9 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		currentHeaderExtra := HeaderExtra{}
 		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
 		if err != nil {
-			log.Info("Fail to decode parent header", "err", err)
+			log.Info("Fail to decode header", "err", err)
 		}
-		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
+		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing){
 			return errPunishedMissing
 		}
 		for i, signerMissing := range currentHeaderExtra.SignerMissing {
