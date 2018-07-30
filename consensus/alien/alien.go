@@ -459,11 +459,17 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		}
 		parentHeaderExtra := HeaderExtra{}
 
-		rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		if err != nil {
+			log.Info("Fail to decode parent header", "err", err)
+		}
 		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
 
 		currentHeaderExtra := HeaderExtra{}
-		rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+		if err != nil {
+			log.Info("Fail to decode header", "err", err)
+		}
 		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing){
 			return errPunishedMissing
 		}
@@ -562,7 +568,10 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	// decode extra from last header.extra
 	currentHeaderExtra := HeaderExtra{}
-	rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+	err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+	if err != nil {
+		log.Info("Fail to decode parent header", "err", err)
+	}
 	// notice : the currentHeaderExtra contain the info of parent HeaderExtra
 	currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, currentHeaderExtra)
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
