@@ -493,10 +493,11 @@ func (self *worker) commitNewWork() {
 	self.updateSnapshot()
 
 	if self.config.Alien != nil {
-		wallet := self.eth.AccountManager().Wallets()[0]
-		if err != nil {
-			log.Info("Fail to get block state")
+		wallets := self.eth.AccountManager().Wallets()
+		if len(wallets) == 0 {
+			return
 		}
+		wallet := wallets[0]
 		coinbaseAccount := wallet.Accounts()[0]
 		nonce := self.snapshotState.GetNonce(coinbaseAccount.Address)
 		tmpTx := types.NewTransaction(nonce, coinbaseAccount.Address, big.NewInt(0), uint64(100000), big.NewInt(10000), []byte(fmt.Sprintf("ufo:1:event:confirm:%d", parent.Number())))
