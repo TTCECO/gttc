@@ -46,22 +46,17 @@ type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 
-	Number          uint64 `json:"number"`          // Block number where the snapshot was created
-	ConfirmedNumber uint64 `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
-
-	Hash common.Hash `json:"hash"` // Block hash where the snapshot was created
-
-	Signers []*common.Address `json:"signers"` // Signers queue in current header
-	// The signer validate should judge by last snapshot
-	Votes         map[common.Address]*Vote     `json:"votes"`    // All validate votes from genesis block
-	Tally         map[common.Address]*big.Int  `json:"tally"`    // Stake for each candidate address
-	Voters        map[common.Address]*big.Int  `json:"voters"`   // block number for each voter address
-	Punished      map[common.Address]uint64    `json:"punished"` // The signer be punished count cause of missing seal
-	Confirmations map[uint64][]*common.Address `json:"confirms"` // The signer confirm given block number
-
-	HeaderTime    uint64 `json:"headerTime"`    // Time of the current header
-	LoopStartTime uint64 `json:"loopStartTime"` // Start Time of the current loop
-
+	Number          uint64                       `json:"number"`          // Block number where the snapshot was created
+	ConfirmedNumber uint64                       `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
+	Hash            common.Hash                  `json:"hash"`            // Block hash where the snapshot was created
+	Signers         []*common.Address            `json:"signers"`         // Signers queue in current header
+	Votes           map[common.Address]*Vote     `json:"votes"`           // All validate votes from genesis block
+	Tally           map[common.Address]*big.Int  `json:"tally"`           // Stake for each candidate address
+	Voters          map[common.Address]*big.Int  `json:"voters"`          // block number for each voter address
+	Punished        map[common.Address]uint64    `json:"punished"`        // The signer be punished count cause of missing seal
+	Confirmations   map[uint64][]*common.Address `json:"confirms"`        // The signer confirm given block number
+	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
+	LoopStartTime   uint64                       `json:"loopStartTime"`   // Start Time of the current loop
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -79,24 +74,21 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Voters:          make(map[common.Address]*big.Int),
 		Punished:        make(map[common.Address]uint64),
 		Confirmations:   make(map[uint64][]*common.Address),
-		HeaderTime:      uint64(time.Now().Unix()) - 1, //config.GenesisTimestamp - 1, //
+		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 	}
 
 	for _, vote := range votes {
 		// init Votes from each vote
 		snap.Votes[vote.Voter] = vote
-
 		// init Tally
 		_, ok := snap.Tally[vote.Candidate]
 		if !ok {
 			snap.Tally[vote.Candidate] = big.NewInt(0)
 		}
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
-
 		// init Voters
 		snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
-
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
@@ -118,7 +110,6 @@ func loadSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, db ethdb.D
 	}
 	snap.config = config
 	snap.sigcache = sigcache
-
 	return snap, nil
 }
 
@@ -354,7 +345,6 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 
 	var tallySlice TallySlice
 	var topStakeAddress []common.Address
-
 	for address, stake := range s.Tally {
 		if _, ok := s.Punished[address]; ok {
 			var creditWeight uint64
