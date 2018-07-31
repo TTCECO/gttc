@@ -203,7 +203,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 		headerExtra := HeaderExtra{}
 		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 		snap.HeaderTime = header.Time.Uint64()

@@ -124,14 +124,20 @@ var (
 	errUnclesNotAllowed = errors.New("uncles not allowed")
 )
 
-// Vote : Stake is the balance of Voter when create this vote
+// Vote :
+// vote come from custom tx which data like "ufo:1:event:vote"
+// Sender of tx is Voter, the tx.to is Candidate
+// Stake is the balance of Voter when create this vote
 type Vote struct {
 	Voter     common.Address
 	Candidate common.Address
 	Stake     *big.Int
 }
 
-//
+// Confirmation :
+// confirmation come  from custom tx which data like "ufo:1:event:confirm:123"
+// 123 is the block number be confirmed
+// Sender of tx is Signer only if the signer in the SignerQueue for block number 123
 type Confirmation struct {
 	Signer      common.Address
 	BlockNumber *big.Int
@@ -483,7 +489,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		if err != nil {
 			log.Info("Fail to decode header", "err", err)
 		}
-		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing){
+		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 			return errPunishedMissing
 		}
 		for i, signerMissing := range currentHeaderExtra.SignerMissing {
@@ -852,7 +858,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 		}
 
 		if number > 1 {
-			// process normal transaction
+			// process normal transaction which relate to voter
 			if tx.Value().Cmp(big.NewInt(0)) > 0 {
 				a.lock.RLock()
 				signer := types.NewEIP155Signer(tx.ChainId())
