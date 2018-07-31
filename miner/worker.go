@@ -492,25 +492,42 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 	self.updateSnapshot()
 
+	// For PBFT of alien consensus, the follow code may move later
+	// After confirm a new block, the miner send a custom transaction to self, which value is 0
+	// and data like "ufo:1:event:confirm:123" (ufo is prefix, 1 is version, 123 is block number
+	// to let the next signer now this signer already confirm this block
 	if self.config.Alien != nil {
 		wallets := self.eth.AccountManager().Wallets()
-		if len(wallets) == 0 {
-			return
-		}
-		wallet := wallets[0]
-		coinbaseAccount := wallet.Accounts()[0]
-		nonce := self.snapshotState.GetNonce(coinbaseAccount.Address)
-		tmpTx := types.NewTransaction(nonce, coinbaseAccount.Address, big.NewInt(0), uint64(100000), big.NewInt(10000), []byte(fmt.Sprintf("ufo:1:event:confirm:%d", parent.Number())))
-		signedTx, err := wallet.SignTx(coinbaseAccount, tmpTx, self.eth.BlockChain().Config().ChainId)
-		if err != nil {
-			log.Info("Fail to Sign the transaction by coinbase")
-		} else {
-			err = self.eth.TxPool().AddLocal(signedTx)
-			if err != nil {
-				log.Info("Fail to add transaction to local", "err", err)
+		// wallets check
+		if len(wallets) == 0 { return }
+		for _, wallet := range wallets {
+			if len(wallet.Accounts()) == 0 {
+				continue
+			}else{
+				for _, account := range wallet.Accounts(){
+					if account.Address == self.coinbase {
+						// coinbase account found
+						// send custom tx
+						nonce := self.snapshotState.GetNonce(account.Address)
+						tmpTx := types.NewTransaction(nonce, account.Address, big.NewInt(0), uint64(100000), big.NewInt(10000), []byte(fmt.Sprintf("ufo:1:event:confirm:%d", parent.Number())))
+						signedTx, err := wallet.SignTx(account, tmpTx, self.eth.BlockChain().Config().ChainId)
+						if err != nil {
+							log.Info("Fail to Sign the transaction by coinbase", "err", err)
+						} else {
+							err = self.eth.TxPool().AddLocal(signedTx)
+							if err != nil {
+								log.Info("Fail to add transaction to local", "err", err)
+							}
+							self.eth.TxPool().SubscribeNewTxsEvent(self.txsCh)
+						}
+						return
+					}
+				}
 			}
-			self.eth.TxPool().SubscribeNewTxsEvent(self.txsCh)
+
+
 		}
+
 	}
 
 }
