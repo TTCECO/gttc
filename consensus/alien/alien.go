@@ -787,7 +787,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
 								if posEventVote >= ufoMinSplitLen && txDataInfo[posEventVote] == ufoEventVote {
-									a.lock.RLock()
+									//a.lock.RLock()
 									signer := types.NewEIP155Signer(tx.ChainId())
 									voter, _ := types.Sender(signer, tx)
 									if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
@@ -797,13 +797,13 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 											Stake:     state.GetBalance(voter),
 										})
 									}
-									a.lock.RUnlock()
+									//a.lock.RUnlock()
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
 									}
 								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
-									a.lock.RLock()
+									//a.lock.RLock()
 									if len(txDataInfo) >= posEventConfirmNumber {
 										confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
 										if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
@@ -836,7 +836,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 											}
 										}
 									}
-									a.lock.RUnlock()
+									//a.lock.RUnlock()
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
@@ -860,7 +860,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 		if number > 1 {
 			// process normal transaction which relate to voter
 			if tx.Value().Cmp(big.NewInt(0)) > 0 {
-				a.lock.RLock()
+				//a.lock.RLock()
 				signer := types.NewEIP155Signer(tx.ChainId())
 				voter, _ := types.Sender(signer, tx)
 				if snap.isVoter(voter) {
@@ -878,7 +878,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 					})
 
 				}
-				a.lock.RUnlock()
+				//a.lock.RUnlock()
 			}
 		}
 
