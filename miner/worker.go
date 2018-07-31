@@ -244,6 +244,7 @@ func (self *worker) update() {
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
 
+	// set the delay equal to period if use alien consensus
 	alienDelay := time.Duration(300) * time.Second
 	if self.config.Alien != nil && self.config.Alien.Period > 0 {
 		alienDelay = time.Duration(self.config.Alien.Period) * time.Second
@@ -287,6 +288,7 @@ func (self *worker) update() {
 				}
 			}
 		case <-time.After(alienDelay):
+			// try to seal block in each period, even no new block received in dpos
 			if self.config.Alien != nil && self.config.Alien.Period > 0 {
 				self.commitNewWork()
 			}
