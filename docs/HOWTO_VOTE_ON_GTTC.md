@@ -10,7 +10,9 @@ The sample vote in console is like this
 > eth.sendTransaction({from:"0x7544bf9c90d175da395b8d08fcaf34da0a3e0688",to:"0xaafeaaf6111762fea733ff7b4c8b59ac69316385",value:0,data:web3.toHex("ufo:1:event:vote")})
 
 ```
-Voter address is 0x7544bf9c90d175da395b8d08fcaf34da0a3e0688, and candidate address is 0xaafeaaf6111762fea733ff7b4c8b59ac69316385. The balance of voter is used to calculate the number of tickets.
+*   Voter address is 0x7544bf9c90d175da395b8d08fcaf34da0a3e0688
+*   Candidate address is 0xaafeaaf6111762fea733ff7b4c8b59ac69316385
+*   The balance of voter is used to calculate the number of tickets.
 
 
 #### Check the vote status
