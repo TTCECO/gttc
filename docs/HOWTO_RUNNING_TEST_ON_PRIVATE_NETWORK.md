@@ -1,6 +1,6 @@
 ## Running test on a private network
 
-Before read this instruction, please make sure the geth, bootnode and puppeth already compiled and install in your server.
+Before read this instruction, please make sure the geth, bootnode and puppeth already compiled and installed correctly in your server.
 
 #### Create Directory
 
