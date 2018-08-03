@@ -19,9 +19,9 @@
 package alien
 
 import (
+	"bytes"
 	"encoding/json"
 	"math/big"
-	"math/rand"
 	"sort"
 	"time"
 
@@ -49,6 +49,7 @@ type Snapshot struct {
 	Number          uint64                       `json:"number"`          // Block number where the snapshot was created
 	ConfirmedNumber uint64                       `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
 	Hash            common.Hash                  `json:"hash"`            // Block hash where the snapshot was created
+	HistoryHash     []common.Hash                `json:"historyHash"`     // Block hash list for two recent loop
 	Signers         []*common.Address            `json:"signers"`         // Signers queue in current header
 	Votes           map[common.Address]*Vote     `json:"votes"`           // All validate votes from genesis block
 	Tally           map[common.Address]*big.Int  `json:"tally"`           // Stake for each candidate address
@@ -68,6 +69,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Number:          0,
 		ConfirmedNumber: 0,
 		Hash:            hash,
+		HistoryHash:     []common.Hash{},
 		Signers:         []*common.Address{},
 		Votes:           make(map[common.Address]*Vote),
 		Tally:           make(map[common.Address]*big.Int),
@@ -77,6 +79,8 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 	}
+
+	snap.HistoryHash = append(snap.HistoryHash, hash)
 
 	for _, vote := range votes {
 		// init Votes from each vote
@@ -130,6 +134,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Number:          s.Number,
 		ConfirmedNumber: s.ConfirmedNumber,
 		Hash:            s.Hash,
+		HistoryHash:     make([]common.Hash, len(s.HistoryHash)),
 
 		Signers:       make([]*common.Address, len(s.Signers)),
 		Votes:         make(map[common.Address]*Vote),
@@ -141,6 +146,7 @@ func (s *Snapshot) copy() *Snapshot {
 		HeaderTime:    s.HeaderTime,
 		LoopStartTime: s.LoopStartTime,
 	}
+	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
 	for voter, vote := range s.Votes {
 		cpy.Votes[voter] = &Vote{
@@ -205,6 +211,13 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
+
+		//
+		snap.HistoryHash = append(snap.HistoryHash, header.Hash())
+		if len(snap.HistoryHash) > int(s.config.MaxSignerCount)*2 {
+			copy(snap.HistoryHash, snap.HistoryHash[len(snap.HistoryHash)-int(s.config.MaxSignerCount)*2:])
+		}
+
 		// deal the new confirmation in this block
 		for _, confirmation := range headerExtra.CurrentBlockConfirmations {
 			_, ok := snap.Confirmations[confirmation.BlockNumber.Uint64()]
@@ -340,10 +353,47 @@ func (s TallySlice) Len() int           { return len(s) }
 func (s TallySlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s TallySlice) Less(i, j int) bool { return s[i].stake.Cmp(s[j].stake) > 0 }
 
-// get signer queue when one loop finished
-func (s *Snapshot) getSignerQueue() []common.Address {
+type SignerItem struct {
+	addr common.Address
+	hash common.Hash
+}
+type SignerSlice []SignerItem
+
+func (s SignerSlice) Len() int      { return len(s) }
+func (s SignerSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s SignerSlice) Less(i, j int) bool {
+	return bytes.Compare(s[i].hash.Bytes(), s[j].hash.Bytes()) > 0
+}
+
+// verify the SignerQueue base on block hash
+func (s *Snapshot) verifySignerQueue(signerQueue []common.Address) error {
+
+	if len(signerQueue) > int(s.config.MaxSignerCount) {
+		return errInvalidSignerQueue
+	}
+	sq, err := s.createSignerQueue()
+	if err != nil {
+		return err
+	}
+	if len(sq) == 0 {
+		return errInvalidSignerQueue
+	}
+	for i, signer := range signerQueue {
+		if signer != sq[i%len(sq)] {
+			return errInvalidSignerQueue
+		}
+	}
+
+	return nil
+}
+
+func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
+	if (s.Number+1)%s.config.MaxSignerCount != 0 || s.Hash != s.HistoryHash[len(s.HistoryHash)-1] {
+		return nil, errCreateSignerQueueNotAllowed
+	}
 
 	var tallySlice TallySlice
+	var signerSlice SignerSlice
 	var topStakeAddress []common.Address
 	for address, stake := range s.Tally {
 		if _, ok := s.Punished[address]; ok {
@@ -364,15 +414,16 @@ func (s *Snapshot) getSignerQueue() []common.Address {
 	if queueLength > len(tallySlice) {
 		queueLength = len(tallySlice)
 	}
-	for _, tallyItem := range tallySlice[:queueLength] {
-		topStakeAddress = append(topStakeAddress, tallyItem.addr)
+	for i, tallyItem := range tallySlice[:queueLength] {
+		signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
 	}
-	// Set the top candidates in random order
-	for i := 0; i < len(topStakeAddress); i++ {
-		newPos := rand.Int() % len(topStakeAddress)
-		topStakeAddress[i], topStakeAddress[newPos] = topStakeAddress[newPos], topStakeAddress[i]
+	sort.Sort(SignerSlice(signerSlice))
+	// Set the top candidates in random order base on block hash
+	for _, signerItem := range signerSlice {
+		topStakeAddress = append(topStakeAddress, signerItem.addr)
 	}
-	return topStakeAddress
+	return topStakeAddress, nil
+
 }
 
 // check if address belong to voter

@@ -546,7 +546,10 @@ func TestVoting(t *testing.T) {
 						continue
 					}
 					currentHeaderExtra.SignerQueue = []common.Address{}
-					newSignerQueue := snap.getSignerQueue()
+					newSignerQueue, err := snap.createSignerQueue()
+					if err != nil {
+						t.Errorf("test %d: failed to create signer queue: %v", i, err)
+					}
 					for k := 0; k < int(tt.maxSignerCount); k++ {
 						currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[k%len(newSignerQueue)])
 					}

@@ -45,7 +45,7 @@ const (
 	inMemorySnapshots  = 128             // Number of recent vote snapshots to keep in memory
 	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
 	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
-	checkpointInterval = 3600            // About N hours if config.period is N
+	checkpointInterval = 360             // About N hours if config.period is N
 
 	/*
 	 *  ufo:version:category:action/data
@@ -122,6 +122,12 @@ var (
 
 	// errUnclesNotAllowed is returned if uncles exists
 	errUnclesNotAllowed = errors.New("uncles not allowed")
+
+	// errCreateSignerQueueNotAllowed is returned if called in (block number + 1) % maxSignerCount != 0
+	errCreateSignerQueueNotAllowed = errors.New("create signer queue not allowed")
+
+	// errInvalidSignerQueue is returned if verify SignerQueue fail
+	errInvalidSignerQueue = errors.New("invalid signer queue")
 )
 
 // Vote :
@@ -618,7 +624,10 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
 		// create random signersQueue in currentHeaderExtra by snapshot.Tally
 		currentHeaderExtra.SignerQueue = []common.Address{}
-		newSignerQueue := snap.getSignerQueue()
+		newSignerQueue, err := snap.createSignerQueue()
+		if err != nil {
+			return nil, err
+		}
 		for i := 0; i < int(a.config.MaxSignerCount); i++ {
 			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[i%len(newSignerQueue)])
 		}
