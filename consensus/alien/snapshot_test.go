@@ -550,9 +550,9 @@ func TestVoting(t *testing.T) {
 					if err != nil {
 						t.Errorf("test %d: failed to create signer queue: %v", i, err)
 					}
-					for k := 0; k < int(tt.maxSignerCount); k++ {
-						currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[k%len(newSignerQueue)])
-					}
+
+					currentHeaderExtra.SignerQueue = newSignerQueue
+
 					currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + tt.period*tt.maxSignerCount
 				} else {
 				}

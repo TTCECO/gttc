@@ -483,18 +483,38 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			parent = chain.GetHeader(header.ParentHash, number-1)
 		}
 		parentHeaderExtra := HeaderExtra{}
-
 		err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
 		}
-		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
-
 		currentHeaderExtra := HeaderExtra{}
 		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode header", "err", err)
 		}
+		// verify signerqueue
+		if number%a.config.MaxSignerCount == 0 {
+			// sould consider missing punish here
+			/*
+				targetAddress, err := snap.createSignerQueue()
+				if err != nil {
+					return err
+				}
+				for i := 0; i < int(a.config.MaxSignerCount); i++ {
+					if targetAddress[i] != currentHeaderExtra.SignerQueue[i] {
+						return errInvalidSignerQueue
+					}
+				}*/
+		} else {
+			for i := 0; i < int(a.config.MaxSignerCount); i++ {
+				if parentHeaderExtra.SignerQueue[i] != currentHeaderExtra.SignerQueue[i] {
+					return errInvalidSignerQueue
+				}
+			}
+		}
+
+		// verify missing signer for punish
+		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
 		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 			return errPunishedMissing
 		}
@@ -628,9 +648,9 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		if err != nil {
 			return nil, err
 		}
-		for i := 0; i < int(a.config.MaxSignerCount); i++ {
-			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, newSignerQueue[i%len(newSignerQueue)])
-		}
+
+		currentHeaderExtra.SignerQueue = newSignerQueue
+
 	}
 
 	// encode header.extra

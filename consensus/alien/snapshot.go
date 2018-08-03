@@ -213,10 +213,10 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
 
 		//
-		snap.HistoryHash = append(snap.HistoryHash, header.Hash())
-		if len(snap.HistoryHash) > int(s.config.MaxSignerCount)*2 {
-			copy(snap.HistoryHash, snap.HistoryHash[len(snap.HistoryHash)-int(s.config.MaxSignerCount)*2:])
+		if len(snap.HistoryHash) >= int(s.config.MaxSignerCount)*2 {
+			snap.HistoryHash = snap.HistoryHash[:int(s.config.MaxSignerCount)*2-1]
 		}
+		snap.HistoryHash = append(snap.HistoryHash, header.Hash())
 
 		// deal the new confirmation in this block
 		for _, confirmation := range headerExtra.CurrentBlockConfirmations {
@@ -375,11 +375,11 @@ func (s *Snapshot) verifySignerQueue(signerQueue []common.Address) error {
 	if err != nil {
 		return err
 	}
-	if len(sq) == 0 {
+	if len(sq) == 0 || len(sq) != len(signerQueue) {
 		return errInvalidSignerQueue
 	}
 	for i, signer := range signerQueue {
-		if signer != sq[i%len(sq)] {
+		if signer != sq[i] {
 			return errInvalidSignerQueue
 		}
 	}
@@ -419,9 +419,10 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 	}
 	sort.Sort(SignerSlice(signerSlice))
 	// Set the top candidates in random order base on block hash
-	for _, signerItem := range signerSlice {
-		topStakeAddress = append(topStakeAddress, signerItem.addr)
+	for i := 0; i < int(s.config.MaxSignerCount); i++ {
+		topStakeAddress = append(topStakeAddress, signerSlice[i%len(signerSlice)].addr)
 	}
+
 	return topStakeAddress, nil
 
 }
