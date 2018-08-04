@@ -349,9 +349,20 @@ type TallyItem struct {
 }
 type TallySlice []TallyItem
 
-func (s TallySlice) Len() int           { return len(s) }
-func (s TallySlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s TallySlice) Less(i, j int) bool { return s[i].stake.Cmp(s[j].stake) > 0 }
+func (s TallySlice) Len() int      { return len(s) }
+func (s TallySlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s TallySlice) Less(i, j int) bool {
+	//we need sort reverse, so ...
+	isLess := s[i].stake.Cmp(s[j].stake)
+	if isLess > 0 {
+		return true
+
+	} else if isLess < 0 {
+		return false
+	}
+	// if the stake equal
+	return bytes.Compare(s[i].addr.Bytes(), s[j].addr.Bytes()) > 0
+}
 
 type SignerItem struct {
 	addr common.Address

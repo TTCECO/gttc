@@ -494,17 +494,11 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		}
 		// verify signerqueue
 		if number%a.config.MaxSignerCount == 0 {
-			// sould consider missing punish here
-			/*
-				targetAddress, err := snap.createSignerQueue()
-				if err != nil {
-					return err
-				}
-				for i := 0; i < int(a.config.MaxSignerCount); i++ {
-					if targetAddress[i] != currentHeaderExtra.SignerQueue[i] {
-						return errInvalidSignerQueue
-					}
-				}*/
+			err := snap.verifySignerQueue(currentHeaderExtra.SignerQueue)
+			if err != nil {
+				return err
+			}
+
 		} else {
 			for i := 0; i < int(a.config.MaxSignerCount); i++ {
 				if parentHeaderExtra.SignerQueue[i] != currentHeaderExtra.SignerQueue[i] {
