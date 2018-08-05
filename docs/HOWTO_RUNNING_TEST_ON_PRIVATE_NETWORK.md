@@ -13,8 +13,8 @@ $ mkdir node1 node2
 #### Create user account
 
 ```
-$ geth --datadir node1/ account new
-$ geth --datadir node2/ account new
+$ gttc --datadir node1/ account new
+$ gttc --datadir node2/ account new
 ```
 
 #### Write account info into files for run network
@@ -120,8 +120,8 @@ What would you like to do? (default = stats)
 #### Initialize the node
 
 ```
-$ geth --datadir node1/ init genesis.json
-$ geth --datadir node2/ init genesis.json
+$ gttc --datadir node1/ init genesis.json
+$ gttc --datadir node2/ init genesis.json
 ```
 
 #### Create bootnode
@@ -139,10 +139,10 @@ $ bootnode -nodekey boot.key -verbosity 9 -addr :30310
 #### Run node1 and node2
 
 ```
-$ geth --datadir node1/ --syncmode 'full' --port 30311 --rpc --rpcaddr 'localhost' --rpcport 8501 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock 'fa846876ef5ed3826e483303f42d987a66af8e15' --password node1/password.txt --mine
+$ gttc --datadir node1/ --syncmode 'full' --port 30311 --rpc --rpcaddr 'localhost' --rpcport 8501 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock 'fa846876ef5ed3826e483303f42d987a66af8e15' --password node1/password.txt --mine
 ```
 ```
-$ geth --datadir node2/ --syncmode 'full' --port 30312 --rpc --rpcaddr 'localhost' --rpcport 8502 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock '62739566c666df9a057d7e7c92898511d4e64c07' --password node2/password.txt --mine
+$ gttc --datadir node2/ --syncmode 'full' --port 30312 --rpc --rpcaddr 'localhost' --rpcport 8502 --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://20940eac58b9e615706ea3c357c409aecbb44998d1388db49a8df61e727f92029019708b2ad69467f94eef9a49b5d4ffb2cc1e71bb06addeb134fe8bdbc62153@127.0.0.1:30310' --networkid 1014 --gasprice '1' -unlock '62739566c666df9a057d7e7c92898511d4e64c07' --password node2/password.txt --mine
 ```
 
 #### Message show in Terminator

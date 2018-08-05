@@ -2,7 +2,12 @@
 
 #### Vote operation
 
-Vote operation is a normal transaction which from voter to candidate. The transaction write custom information (ufo:1:event:vote) in data.
+Vote operation is a transaction which from voter to candidate. The transaction write custom information (ufo:1:event:vote) in data.
+
+* ufo   :   prefix of custom data
+* 1     :   custom info version
+* event :   category of info (event, oplog ...)
+* vote  :   vote event
 
 The sample vote in console is like this
 
@@ -15,8 +20,20 @@ The sample vote in console is like this
 *   The balance of voter is used to calculate the number of tickets.
 
 
-#### Check the vote status
-The name of our DPOS Algorithm is alien, which provide API with three function.
+#### Confirm operation
+
+Confirm operation is a transaction which from signer to itself. The transaction write custom information (ufo:1:event:confirm:123) in data.
+
+* ufo   :   prefix of custom data
+* 1     :   custom info version
+* event :   category of info (event, oplog ...)
+* confirm  :   confirm event
+* 123   :   block numb be confirmed by this transaction sender
+
+Only the transaction from signer of current loop is valid and will be recorded, the largest block number which received more than (2 * MaxSignerCount)/3 +1 is the last block be confirmed and the result will be record in the ConfirmedBlockNumber in header.extra.
+
+#### Check the snapshot status
+The name of our DPOS-PBFT Algorithm is alien, which provide API with three function.
 
 ```
 > alien
@@ -30,82 +47,64 @@ The name of our DPOS Algorithm is alien, which provide API with three function.
 Anyone can check the current DPOS status by alien.getSnapshot() or status by block number/hash.
 
 ```
-> alien.getSnapshot()
-{
-  hash: "0x2dde5f3fd1f9ef346abc4bcb6a29ad47c130da88c8dc86f29967be93d7225a0c",
-  headerTime: 1533098803,
-  loopStartTime: 1532980288,
-  number: 16756,
-  punished: {
-    0x1962e91cf047accd9d157fbb2661a8242a2293ce: 3368,
-    0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d: 3689,
-    0x8733cf7726055b6d83b28b54b0de39276fddb3da: 4030,
-    0x8d07f644daf08062164073205ae4f10dd2ca8b32: 3712,
-    0xbbdacd1dbd49e3df60ae5c683be7739d237b7328: 63296,
-    0xc5e094488e4d1284d5a1a849c1110ad14a8700bb: 3623,
-    0xc9edbb408d307072a50a0282b09ac10ee1dc1610: 2613
-  },
-  signers: ["0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d", "0xbbdacd1dbd49e3df60ae5c683be7739d237b7328", "0xc9edbb408d307072a50a0282b09ac10ee1dc1610", "0xc5e094488e4d1284d5a1a849c1110ad14a8700bb", "0x8d07f644daf08062164073205ae4f10dd2ca8b32", "0x8733cf7726055b6d83b28b54b0de39276fddb3da", "0x1962e91cf047accd9d157fbb2661a8242a2293ce"],
-  tally: {
-    0x1962e91cf047accd9d157fbb2661a8242a2293ce: 7.1362384635298e+44,
-    0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d: 7.1362384635298e+44,
-    0x8733cf7726055b6d83b28b54b0de39276fddb3da: 7.1362384635298e+44,
-    0x8d07f644daf08062164073205ae4f10dd2ca8b32: 7.1362384635298e+44,
-    0xbbdacd1dbd49e3df60ae5c683be7739d237b7328: 7.1362384635298e+44,
-    0xc5e094488e4d1284d5a1a849c1110ad14a8700bb: 7.1362384635298e+44,
-    0xc9edbb408d307072a50a0282b09ac10ee1dc1610: 2.1408715390589398e+45
-  },
-  voters: {
-    0x1962e91cf047accd9d157fbb2661a8242a2293ce: 0,
-    0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d: 0,
-    0x8733cf7726055b6d83b28b54b0de39276fddb3da: 0,
-    0x8d07f644daf08062164073205ae4f10dd2ca8b32: 0,
-    0xbbdacd1dbd49e3df60ae5c683be7739d237b7328: 0,
-    0xc5e094488e4d1284d5a1a849c1110ad14a8700bb: 0,
-    0xc9edbb408d307072a50a0282b09ac10ee1dc1610: 0
-  },
-  votes: {
-    0x1962e91cf047accd9d157fbb2661a8242a2293ce: {
-      Candidate: "0x1962e91cf047accd9d157fbb2661a8242a2293ce",
-      Stake: 7.1362384635298e+44,
-      Voter: "0x1962e91cf047accd9d157fbb2661a8242a2293ce"
+> alien.getSnapshotAtNumber(48)
+  {
+    confirmedNumber: 44,
+    confirms: {
+      41: ["0x8feba63259ef7e79da13246dc20ff79fe446a478", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x7c352585cd7549bfbc0a7e88bf820fa574174598"],
+      42: ["0x7c352585cd7549bfbc0a7e88bf820fa574174598", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x8feba63259ef7e79da13246dc20ff79fe446a478"],
+      43: ["0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x7c352585cd7549bfbc0a7e88bf820fa574174598", "0x8feba63259ef7e79da13246dc20ff79fe446a478"],
+      44: ["0x7c352585cd7549bfbc0a7e88bf820fa574174598", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x8feba63259ef7e79da13246dc20ff79fe446a478"],
+      45: ["0x8feba63259ef7e79da13246dc20ff79fe446a478", "0x7c352585cd7549bfbc0a7e88bf820fa574174598", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1"],
+      46: ["0x8feba63259ef7e79da13246dc20ff79fe446a478", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x7c352585cd7549bfbc0a7e88bf820fa574174598"]
     },
-    0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d: {
-      Candidate: "0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d",
-      Stake: 7.1362384635298e+44,
-      Voter: "0x755200bcb42ea69643a1bed4c6e79a9b55e8c29d"
+    hash: "0x27009a5d7480cb2802e45b9d0ef2547ce7ad5e720d9281b0d628f314998a6416",
+    headerTime: 1533341653,
+    historyHash: ["0xfb741ff569db0a9277111285d157a0412c4dc6e30509834e7e87ce84755db336", "0x855589fcf6fb8157b29df69cba0393737a1c15a7427666f5e84b34c8a5680523", "0x7b37e235e0686c8defaa0068b0508fe55921bd5e27bf0f1ee3e6909184dc74f4", "0x664bb4e6889acfd8bd4c277ba109cd9fbaf1366ce8472761b050451c01cf1a04", "0xd3d64b715e8568be7d86a82dbfd9a801013132d4229d96963f3869b584426f7a", "0x68a1241b27c209ab584155a670a0473f29ae302eb2fe47d1a75b1eea45898ab2", "0x4c8e6e969c950810c2acf128866f2aa416dc56b1ef2987281de4812622ebb44f", "0x3c7047ba4574bf1e49c9e068d82e1b2c3f59e958658d897f4836db23f6ffcc3c", "0xc05b07cb1c00be507742bd9de8702a42d8cf77f43c566f52196f5b0bc47d084c", "0xd1f96774a2feb4c21add4aeb14ac0d92d5357b1cdc53cead0ed9df459ce308ac", "0xc95bd9b4fd9f9d4ca5a38d2433f6f9d6f48027098316d8b9d95fa1436639338d", "0x300addbe720652487d69c62b37d7281298200b2c7c68170a24dad8503c73940e", "0x6ede482139d9a8f5a7bc385b16c5d3c59ad11715091ad1609aa451f605fcc633", "0x27009a5d7480cb2802e45b9d0ef2547ce7ad5e720d9281b0d628f314998a6416"],
+    loopStartTime: 1533341639,
+    number: 48,
+    punished: {
+      0x7c352585cd7549bfbc0a7e88bf820fa574174598: 880,
+      0x8feba63259ef7e79da13246dc20ff79fe446a478: 950,
+      0xcc9c08721c7d8a792e238e80f6c20cb066e919a1: 1370
     },
-    0x8733cf7726055b6d83b28b54b0de39276fddb3da: {
-      Candidate: "0x8733cf7726055b6d83b28b54b0de39276fddb3da",
-      Stake: 7.1362384635298e+44,
-      Voter: "0x8733cf7726055b6d83b28b54b0de39276fddb3da"
+    signers: ["0x7c352585cd7549bfbc0a7e88bf820fa574174598", "0x8feba63259ef7e79da13246dc20ff79fe446a478", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x7c352585cd7549bfbc0a7e88bf820fa574174598", "0x8feba63259ef7e79da13246dc20ff79fe446a478", "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1", "0x7c352585cd7549bfbc0a7e88bf820fa574174598"],
+    tally: {
+      0x7c352585cd7549bfbc0a7e88bf820fa574174598: 9.046256971665328e+74,
+      0x8feba63259ef7e79da13246dc20ff79fe446a478: 9.046256971665328e+74,
+      0xcc9c08721c7d8a792e238e80f6c20cb066e919a1: 9.046256971665328e+74
     },
-    0x8d07f644daf08062164073205ae4f10dd2ca8b32: {
-      Candidate: "0x8d07f644daf08062164073205ae4f10dd2ca8b32",
-      Stake: 7.1362384635298e+44,
-      Voter: "0x8d07f644daf08062164073205ae4f10dd2ca8b32"
+    voters: {
+      0x7c352585cd7549bfbc0a7e88bf820fa574174598: 0,
+      0x8feba63259ef7e79da13246dc20ff79fe446a478: 0,
+      0xcc9c08721c7d8a792e238e80f6c20cb066e919a1: 0
     },
-    0xbbdacd1dbd49e3df60ae5c683be7739d237b7328: {
-      Candidate: "0xbbdacd1dbd49e3df60ae5c683be7739d237b7328",
-      Stake: 7.1362384635298e+44,
-      Voter: "0xbbdacd1dbd49e3df60ae5c683be7739d237b7328"
-    },
-    0xc5e094488e4d1284d5a1a849c1110ad14a8700bb: {
-      Candidate: "0xc5e094488e4d1284d5a1a849c1110ad14a8700bb",
-      Stake: 7.1362384635298e+44,
-      Voter: "0xc5e094488e4d1284d5a1a849c1110ad14a8700bb"
-    },
-    0xc9edbb408d307072a50a0282b09ac10ee1dc1610: {
-      Candidate: "0xc9edbb408d307072a50a0282b09ac10ee1dc1610",
-      Stake: 2.1408715390589398e+45,
-      Voter: "0xc9edbb408d307072a50a0282b09ac10ee1dc1610"
+    votes: {
+      0x7c352585cd7549bfbc0a7e88bf820fa574174598: {
+        Candidate: "0x7c352585cd7549bfbc0a7e88bf820fa574174598",
+        Stake: 9.046256971665328e+74,
+        Voter: "0x7c352585cd7549bfbc0a7e88bf820fa574174598"
+      },
+      0x8feba63259ef7e79da13246dc20ff79fe446a478: {
+        Candidate: "0x8feba63259ef7e79da13246dc20ff79fe446a478",
+        Stake: 9.046256971665328e+74,
+        Voter: "0x8feba63259ef7e79da13246dc20ff79fe446a478"
+      },
+      0xcc9c08721c7d8a792e238e80f6c20cb066e919a1: {
+        Candidate: "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1",
+        Stake: 9.046256971665328e+74,
+        Voter: "0xcc9c08721c7d8a792e238e80f6c20cb066e919a1"
+      }
     }
   }
-}
+
 
 
 ```
+*   confirmNumber:  Block number confirmed when the snapshot was created
+*   confirms    :   The signer confirm given block number
 *	hash        :   Block hash where the snapshot was created
+*   historyHash :   Block hash list for two recent loop, used to calculate the order of next loop.
 *	headerTime  :   Time of the current header
 *	loopStartTime:  Start Time of the current loop, used to calculate the right miner(signer) by time
 *	number      :   Block number where the snapshot was created
