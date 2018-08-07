@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/crypto"
@@ -16,10 +17,19 @@ const (
 	fromAddress = "0xb7055b228EFE49219231ef3F3A384f3062570Ab1"
 	toAddress   = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
 	pKey        = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
-	count       = 10000
+	defaultCount       = 1000
 )
 
 func main() {
+
+	count := int64(defaultCount)
+	if len(os.Args) > 1{
+		argCount, err := strconv.ParseInt(os.Args[1], 10, 64)
+		if err == nil {
+			count = argCount
+		}
+	}
+	fmt.Println("count : ", count)
 
 	client, err := rpc.Dial("http://localhost:8503")
 	if err != nil {
@@ -62,7 +72,7 @@ func main() {
 
 	for i := nonce; i < nonce+count; i++ {
 
-		tx := types.NewTransaction(uint64(i), toAddress, big.NewInt(1), uint64(100000000), big.NewInt(21000000), []byte{})
+		tx := types.NewTransaction(uint64(i), toAddress, big.NewInt(1), uint64(100000), big.NewInt(21000000), []byte{})
 		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainID)), privateKey)
 		data, err := rlp.EncodeToBytes(signedTx)
 		if err != nil {
