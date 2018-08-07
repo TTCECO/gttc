@@ -31,11 +31,26 @@ func main() {
 	}
 	fmt.Println("count : ", count)
 
-	client, err := rpc.Dial("http://localhost:8503")
+	client, err := rpc.Dial("http://localhost:8501")
 	if err != nil {
 		fmt.Println("rpc.Dial err", err)
 		return
 	}
+
+	client2, err := rpc.Dial("http://localhost:8502")
+	if err != nil {
+		fmt.Println("rpc.Dial err", err)
+		return
+	}
+
+	client3, err := rpc.Dial("http://localhost:8503")
+	if err != nil {
+		fmt.Println("rpc.Dial err", err)
+		return
+	}
+
+
+
 	var result string
 	err = client.Call(&result, "eth_getTransactionCount", fromAddress, "latest")
 	if err != nil {
@@ -79,7 +94,14 @@ func main() {
 			fmt.Println("rlp Encode fail", err)
 			return
 		}
-		err = client.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
+		switch i % 3{
+		case 0:
+			err = client.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
+		case 1:
+			err = client2.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
+		case 2:
+			err = client3.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
+		}
 		if err != nil {
 			fmt.Println("send Transaction fail", err)
 			return
