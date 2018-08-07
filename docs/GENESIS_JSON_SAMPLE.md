@@ -9,8 +9,8 @@ we already deploy a private network by this genesis.json file online. Anyone can
 
 ```
 > mkdir node1
-> geth --datadir node1/ init genesis.json
-> geth --datadir node1/ --syncmode 'full' --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://68142f6c02507e064236f3cab156b2b04392e868da87d910af61b066b6fcea1a95a21bc71799c7b0827e26dea4b23a494b1c9976635d4cf52a4699fc9502d940@39.106.104.30:30312' --networkid 1084
+> gttc --datadir node1/ init genesis.json
+> gttc --datadir node1/ --syncmode 'full' --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://68142f6c02507e064236f3cab156b2b04392e868da87d910af61b066b6fcea1a95a21bc71799c7b0827e26dea4b23a494b1c9976635d4cf52a4699fc9502d940@39.106.104.30:30312' --networkid 1084
 
 ```
 
