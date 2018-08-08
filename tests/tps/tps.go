@@ -2,28 +2,30 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/TTCECO/gttc/rpc"
+	"os"
 	"strconv"
 
 	"math/big"
 )
 
 const (
-	fromAddress = "0xb7055b228EFE49219231ef3F3A384f3062570Ab1"
-	toAddress   = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
-	pKey        = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
-	defaultCount       = 1000
+	fromAddress  = "0xb7055b228EFE49219231ef3F3A384f3062570Ab1"
+	toAddress    = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
+	pKey         = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
+	defaultCount = 1000
+	portStart    = 8501
+	portLen      = 3
 )
 
 func main() {
 
 	count := int64(defaultCount)
-	if len(os.Args) > 1{
+	if len(os.Args) > 1 {
 		argCount, err := strconv.ParseInt(os.Args[1], 10, 64)
 		if err == nil {
 			count = argCount
@@ -31,28 +33,18 @@ func main() {
 	}
 	fmt.Println("count : ", count)
 
-	client, err := rpc.Dial("http://localhost:8501")
-	if err != nil {
-		fmt.Println("rpc.Dial err", err)
-		return
+	cl := []*rpc.Client{}
+	for i := 0; i < portLen; i++ {
+		client, err := rpc.Dial(fmt.Sprintf("http://localhost:%d", i+portStart))
+		if err != nil {
+			fmt.Println("rpc.Dial err", err)
+			return
+		}
+		cl = append(cl, client)
 	}
-
-	client2, err := rpc.Dial("http://localhost:8502")
-	if err != nil {
-		fmt.Println("rpc.Dial err", err)
-		return
-	}
-
-	client3, err := rpc.Dial("http://localhost:8503")
-	if err != nil {
-		fmt.Println("rpc.Dial err", err)
-		return
-	}
-
-
 
 	var result string
-	err = client.Call(&result, "eth_getTransactionCount", fromAddress, "latest")
+	err := cl[0].Call(&result, "eth_getTransactionCount", fromAddress, "latest")
 	if err != nil {
 		fmt.Println("client.nonce err", err)
 		return
@@ -65,7 +57,7 @@ func main() {
 	}
 	fmt.Printf("nonce : %d\n", nonce)
 
-	err = client.Call(&result, "net_version")
+	err = cl[0].Call(&result, "net_version")
 	if err != nil {
 		fmt.Println("get chain id fail", err)
 		return
@@ -86,7 +78,6 @@ func main() {
 	}
 
 	for i := nonce; i < nonce+count; i++ {
-
 		tx := types.NewTransaction(uint64(i), toAddress, big.NewInt(1), uint64(100000), big.NewInt(21000000), []byte{})
 		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainID)), privateKey)
 		data, err := rlp.EncodeToBytes(signedTx)
@@ -94,25 +85,16 @@ func main() {
 			fmt.Println("rlp Encode fail", err)
 			return
 		}
-		switch i % 3{
-		case 0:
-			err = client.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
-		case 1:
-			err = client2.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
-		case 2:
-			err = client3.Call(&result, "eth_sendRawTransaction", common.ToHex(data))
-		}
+		err = cl[i%portLen].Call(&result, "eth_sendRawTransaction", common.ToHex(data))
 		if err != nil {
 			fmt.Println("send Transaction fail", err)
 			return
 		}
 
-		if i%300 == 0 {
+		if i%500 == 0 {
 			fmt.Printf(" nonce is : %d \n", i)
 			fmt.Printf("send Transaction result : %s \n", result)
 		}
 	}
-
 	return
-
 }
