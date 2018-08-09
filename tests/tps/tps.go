@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	fromAddress  = "0xb7055b228EFE49219231ef3F3A384f3062570Ab1"
-	toAddress    = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
-	pKey         = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
+	fromAddress = "0xb7055b228EFE49219231ef3F3A384f3062570Ab1"
+	pKey        = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
+	toAddress   = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
+
 	defaultCount = 1000
 	portStart    = 8501
 	portLen      = 3
@@ -77,6 +78,8 @@ func main() {
 		return
 	}
 
+	txDataList := make([][]byte, count, count)
+
 	for i := nonce; i < nonce+count; i++ {
 		tx := types.NewTransaction(uint64(i), toAddress, big.NewInt(1), uint64(100000), big.NewInt(21000000), []byte{})
 		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainID)), privateKey)
@@ -85,16 +88,39 @@ func main() {
 			fmt.Println("rlp Encode fail", err)
 			return
 		}
-		err = cl[i%portLen].Call(&result, "eth_sendRawTransaction", common.ToHex(data))
-		if err != nil {
-			fmt.Println("send Transaction fail", err)
-			return
-		}
+		txDataList[i-nonce] = data
+	}
 
-		if i%500 == 0 {
-			fmt.Printf(" nonce is : %d \n", i)
-			fmt.Printf("send Transaction result : %s \n", result)
+	fmt.Println("tx data is ready")
+
+	wait := make(chan bool, portLen)
+	for i := 0; i < portLen; i++ {
+
+		go startSendTx(cl, txDataList, i, wait)
+	}
+
+	for i := 0; i < portLen; i++ {
+		<-wait
+	}
+
+	return
+}
+
+func startSendTx(cl []*rpc.Client, txDataList [][]byte, mod int, finish chan<- bool) {
+	var result string
+	for i := range txDataList {
+		if i%portLen == mod {
+			err := cl[mod].Call(&result, "eth_sendRawTransaction", common.ToHex(txDataList[i]))
+			if err != nil {
+				fmt.Println("send Transaction fail", err)
+				return
+			}
+
+			if i%500 == 0 {
+				fmt.Printf("nonce is : %d \n", i)
+				fmt.Printf("send Transaction result : %s \n", result)
+			}
 		}
 	}
-	return
+	finish <- true
 }
