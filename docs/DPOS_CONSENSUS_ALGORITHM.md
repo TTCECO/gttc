@@ -2,7 +2,7 @@
 
 link to the original text: [https://steemit.com/dpos/@dantheman/dpos-consensus-algorithm-this-missing-white-paper](https://steemit.com/dpos/@dantheman/dpos-consensus-algorithm-this-missing-white-paper)
 
-This is the missing white paper and analysis of delegated proof of stake (DPOS). The goal of this paper is to provide an analysis of why DPOS works and what makes it robust. An early description of DPOS can be found at bitshares.org; however, that description also includes many aspects that are not part of the actual consensus process.
+This is the missing white paper and analysis of delegated proof of stake (DPOS). The goal of this paper is to provide an analysis of why DPOS works and what makes it robust. An early description of DPOS can be found at [bitshares.org](https://bitshares.org/technology/delegated-proof-of-stake-consensus/); however, that description also includes many aspects that are not part of the actual consensus process.
 
 All blockchains are fundamentally a deterministic state machine acted upon by transactions. Consensus is the process of agreeing on a deterministic order of transactions and filtering invalid transactions. There are many different consensus algorithms that could produce equivalent ordering of transactions, but DPOS has proven robust, secure, and efficient by years of reliable operation on multiple blockchains.
 
