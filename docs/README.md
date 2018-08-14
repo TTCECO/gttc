@@ -4,7 +4,7 @@
 #### Prerequisites for code review
 You should have good knowledge of golang, understand the concept of DPOS algorithm & PBFT algorithm, familiar with the code of go-ethereum, especially the consensus part.
 
-
+If you not familiar with DPOS or PBFT algorithm, you can find sample description for these algorithm in [DPOS](DPOS_CONSENSUS_ALGORITHM.md), [PBFT](PBFT_CONSENSUS_ALGORITHM.md)
 
 #### About gttc
 
@@ -46,6 +46,8 @@ gttc --datadir node1/ --syncmode 'full' --rpcapi 'personal,db,eth,net,web3,txpoo
 ```
 
 You can test, attack or do anything to this testnet, it is just for test.
+
+#### Test account
 
 The test account we provide on testnet is "0xaafeaaf6111762fea733ff7b4c8b59ac69316385", the current balance of this account is: 7.13623846352979940529142984724747568191373312e+44 . The detail of this address is:
 
