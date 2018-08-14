@@ -29,7 +29,7 @@ gttc-release-v0.0.3.zip in this folder is the lastest version of release.
 
 #### Connection to Testnet
 
-* gttc(github.com/TTCECO/gttc/cmd/gttc) 
+* gttc
 
 ```
 
