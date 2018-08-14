@@ -3,7 +3,7 @@
 
 #### About gttc
 
-gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part we modify is in [consensus](https://github.com/TTCECO/gttc/blob/master/consensus/) directory. We add a new consensus algorithm named [alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien/) in it.
+gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part be modified is in [consensus](https://github.com/TTCECO/gttc/blob/master/consensus/) directory. We add a new consensus algorithm named [alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien/) in it.
 
 Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 files in [consensus/alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien/):
 
@@ -14,22 +14,23 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 file
 
 If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole blockchain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
 
-All the code & documents in this directory is in http://github.com/TTCECO/gttc and will be update there, but it's a private repository, so if you need the access right, please contact me (liupeng@tataufo.com). 
+All the code & documents in this directory is in http://github.com/TTCECO/gttc and will be update there, but it's a private repository, so if you need the access right, please contact me(liupeng@tataufo.com).
 
 gttc-release-v0.0.3.zip in this folder is the lastest version of release.
 
 #### Documents List
 
-* gttc-release-v0.0.3.zip 
+* gttc-release-v0.0.3.zip
+* [DPOS_CONSENSUS_ALGORITHM.md](https://github.com/TTCECO/gttc/blob/master/docs/DPOS_CONSENSUS_ALGORITHM.md): description of DPOS algorithm
 * [genesis.json](https://github.com/TTCECO/gttc/blob/master/docs/genesis.json)  : genesis.json file for the testnet we deploy
 * [HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md) : The instruction of deploy your own testnet.
 * [HOWTO_VOTE_ON_GTTC.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_VOTE_ON_GTTC.md)  : how to vote & confirm in alien(dpos-pbft).
 * [GENESIS_JSON_SAMPLE.md](https://github.com/TTCECO/gttc/blob/master/docs/GENESIS_JSON_SAMPLE.md) : genesis.json sample.
-* [HOWTO_BUILDING_GTTC.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_BUILDING_GTTC.md) : a link to how to build geth, it's same as process of build our code.
+* [HOWTO_BUILDING_GTTC.md](HOWTO_BUILDING_GTTC.md) : a link to how to build geth, it's same as process of build our code.
 
 #### Connection to Testnet
 
-* gttc
+* [gttc](https://github.com/TTCECO/gttc/blob/master/cmd/gttc)
 
 ```
 
