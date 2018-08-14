@@ -1,6 +1,11 @@
 
 ## Readme for Code Review
 
+#### Prerequisites for code review
+You should have good knowledge of golang, understand the concept of DPOS algorithm & PBFT algorithm, familiar with the code of go-ethereum, especially the consensus part.
+
+
+
 #### About gttc
 
 gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part be modified is in [consensus](../consensus/) directory. We add a new consensus algorithm named [alien](../consensus/alien/) in it.
@@ -22,6 +27,7 @@ gttc-release-v0.0.3.zip in this folder is the latest version of release.
 
 * gttc-release-v0.0.3.zip
 * [DPOS_CONSENSUS_ALGORITHM.md](DPOS_CONSENSUS_ALGORITHM.md): description of DPOS algorithm
+* [PBFT_CONSENSUS_ALGORITHM.md](PBFT_CONSENSUS_ALGORITHM.md): description of PBFT algorithm
 * [genesis.json](genesis.json)  : genesis.json file for the testnet we deploy
 * [HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md](HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md) : The instruction of deploy your own testnet.
 * [HOWTO_VOTE_ON_GTTC.md](HOWTO_VOTE_ON_GTTC.md)  : how to vote & confirm in alien(dpos-pbft).
