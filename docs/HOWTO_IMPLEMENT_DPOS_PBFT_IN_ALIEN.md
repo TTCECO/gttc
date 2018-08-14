@@ -19,7 +19,7 @@ Alien contain 4 files in [consensus/alien](../consensus/alien/):
 
 
 #### Data Structure
-`
+```
 // Alien is the delegated-proof-of-stake consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
 type Alien struct {
@@ -32,7 +32,7 @@ type Alien struct {
 	lock       sync.RWMutex        // Protects the signer fields
 }
 
-`
+```
 
 #### Vote by Transaction
 
