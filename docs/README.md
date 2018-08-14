@@ -1,16 +1,16 @@
 
 ## Readme for Code Review
 
-#### About Code
+#### About gttc
 
-gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part we add to geth is in [consensus/alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien) directory.
+gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part we modify is in [consensus](https://github.com/TTCECO/gttc/blob/master/consensus/) directory. We add a new consensus algorithm named [alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien/) in it.
 
-Alien is a simple version of DPOS-PBFT algorithm:
+Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 files in [consensus/alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien/):
 
-* alien.go    : Implement the consensus interface
-* snapshot.go : Keep the snapshot of vote and confirm status for each block
-* snapshot_test.go : test for snapshot
-* api.go      : API
+* **alien.go**    : Implement the consensus interface
+* **snapshot.go** : Keep the snapshot of vote and confirm status for each block
+* **snapshot_test.go** : test for snapshot
+* **api.go**      : API
 
 If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole blockchain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
 
