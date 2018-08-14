@@ -18,36 +18,36 @@ I will to show by example how DPOS operates under most conceivable network condi
 #### Normal Operation
 Under normal operation block producers take turns producing a block every 3 seconds. Assuming no one misses their turn then this will produce the longest possible chain. It is invalid for a block producer to produce a block at any other time slot than the one they are scheduled for.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/1.png)
+![avatar](images/1.png)
 
 #### Minority Fork
 Up to 1⁄3 of the nodes can be malicious or malfunction and create a minority fork. In this case the minority fork will only produce one block every 9 seconds while the majority fork will produce 2 blocks every 9 seconds. Once again, the honest 2⁄3 majority will always be longer than the minority.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/2.png)
+![avatar](images/2.png)
 
 #### Double Production by Disconnected Minority
 The minority can attempt to produce an unlimited number of forks, but all of their forks will be shorter than the majority chain because the minority is limited to growing the chain slower than the majority.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/3.png)
+![avatar](images/3.png)
 
 #### Network Fragmentation
 It is entirely possible for the network to fragment in which case no fork has a majority of the block producers. In this case the longest chain will fall to the largest minority. When network connectivity is restored the smaller minorities will naturally switch to the longest chain and unambiguous consensus will be restored.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/4.png)
+![avatar](images/4.png)
 
 It is possible for there to be 3 forks where the two longest forks are the same length. In this case the producers on the 3rd (smaller fork) will break the tie when they rejoin the network. There is an odd number of producers so it is impossible to maintain a tie for long. Later we will cover producer shuffling which will randomize order of production to ensure that even if two forks have the same number of producers, the forks will grow in different length bursts causing one fork to take over the other.
 
 #### Double Production by Connected Minority
 Under this scenario minority B produced two or more alternative blocks on their time slot. The next scheduled producer ( C ), may choose to build off of any one of the alternatives produced by B. When this happens it will become the longest chain and all nodes that selected B1 will switch forks. It does not matter how many alternative blocks a minority of bad producers attempt to propagate, they will never be part of the longest chain for more than a round.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/5.png)
+![avatar](images/5.png)
 
 #### Last Irreversible Block
 In the event of network fragmentation it is possible for multiple forks to continue to grow for a prolonged period of time. In the long-run, the longest chain will win, but observers require a means to know with certainty when a block is absolutely part of the fastest growing chain. This can be determined by seeing confirmation by 2⁄3+1 of the block producers.
 
 In the diagram below, block B has been confirmed by C and A which represents 2⁄3+1 confirmation and therefore we can infer that no other chains could possibly be longer if 2⁄3 of our producers are honest.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/6.png)
+![avatar](images/6.png)
 
 Note that this “rule” is similar to the 6-block confirmation “rule” for Bitcoin. Some smart individuals can contrive a sequence of events where two nodes could end up on different last irreversible blocks. This edge case requires an attacker to have total control of communication delay and to utilize that control not once, but twice, minutes apart. If this were to happen, then the long-term rule of longest chain still applies. We estimate the odds of such an attack to be close enough to 0 and the economic consequences to be so insignificant that it isn’t worth worrying about.
 
@@ -59,7 +59,7 @@ During this process all observers will have knowledge that the network state is 
 #### Corruption of Majority of Producers
 If the majority of producers become corrupt then they can produce an unlimited number of forks, each of which will appear to be advancing with 2⁄3 majority confirmation. In this case the last irreversible block algorithm reverts to longest chain algorithm. The longest chain will be the one approved by the largest-majority which will be decided by the minority of remaining honest nodes. This kind of behavior would not last long because the stakeholders would eventually vote to replace these producers.
 
-![avatar](https://github.com/TTCECO/gttc/blob/master/docs/images/7.png)
+![avatar](images/7.png)
 
 #### Transactions as Proof of Stake (TaPoS)
 When users sign a transaction they do so under a certain assumption about the state of the blockchain. This assumption is based upon their perception of recent blocks. If the consensus on the longest chain changes then it could potentially invalidate the assumptions the signer had when they consented to the transaction.
