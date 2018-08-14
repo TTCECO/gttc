@@ -1,5 +1,5 @@
 
-## Readme for code review
+## Readme for Code Review
 
 #### About code
 
@@ -21,11 +21,11 @@ gttc-release-v0.0.3.zip in this folder is the lastest version of release.
 #### Documents list
 
 * gttc-release-v0.0.3.zip 
-* genesis.json           : genesis.json file for the testnet we deploy
-* HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md : The instruction of deploy your own testnet.
-* HOWTO_VOTE_ON_GTTC.md  : how to vote & confirm in alien(dpos-pbft).
-* GENESIS_JSON_SAMPLE.md : genesis.json sample.
-* HOWTO_BUILDING_GTTC.md : a link to how to build geth, it's same as process of build our code.
+* [genesis.json](https://github.com/TTCECO/gttc/blob/master/docs/genesis.json)  : genesis.json file for the testnet we deploy
+* [HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md) : The instruction of deploy your own testnet.
+* [HOWTO_VOTE_ON_GTTC.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_VOTE_ON_GTTC.md)  : how to vote & confirm in alien(dpos-pbft).
+* [GENESIS_JSON_SAMPLE.md](https://github.com/TTCECO/gttc/blob/master/docs/GENESIS_JSON_SAMPLE.md) : genesis.json sample.
+* [HOWTO_BUILDING_GTTC.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_BUILDING_GTTC.md) : a link to how to build geth, it's same as process of build our code.
 
 #### Connection to testnet
 
