@@ -25,7 +25,6 @@ gttc-release-v0.0.3.zip in this folder is the latest version of release.
 
 #### Documents List
 
-* gttc-release-v0.0.3.zip
 * [DPOS_CONSENSUS_ALGORITHM.md](DPOS_CONSENSUS_ALGORITHM.md): description of DPOS algorithm
 * [PBFT_CONSENSUS_ALGORITHM.md](PBFT_CONSENSUS_ALGORITHM.md): description of PBFT algorithm
 * [genesis.json](genesis.json)  : genesis.json file for the testnet we deploy

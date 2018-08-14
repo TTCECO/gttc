@@ -1,3 +1,5 @@
+## PBFT Consensus Algorithm
+
 Blockchains are inherently decentralized systems which consist of different actors who act depending on their incentives and on the information that is available to them.
 
 Whenever a new transaction gets broadcasted to the network, nodes have the option to include that transaction to their copy of their ledger or to ignore it. When the majority of the actors which comprise the network decide on a single state, consensus is achieved.
