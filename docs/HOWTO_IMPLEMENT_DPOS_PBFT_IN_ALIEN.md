@@ -127,7 +127,9 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 ```
 #### Confirm block by Transaction
 
+Confirm operation is a transaction which from signer to itself. The transaction write custom information (ufo:1:event:confirm:123) in data.
 
+This transaction be created in [worker.go](../miner/worker.go) by the miner, because the processCustomTx func will check the validation of sender, which must be signer in headerExtra.SignerQueue.
 
 
 
