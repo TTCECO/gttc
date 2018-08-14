@@ -19,7 +19,7 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 file
 
 If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole blockchain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
 
-All the code & documents in this directory is in http://github.com/TTCECO/gttc and will be update there, but it's a private repository, so if you need the access right, please contact me(liupeng@tataufo.com).
+All the code & documents in this directory is in http://github.com/TTCECO/gttc and will be update there, but it's a private repository, so if you need the access right, please contact us.
 
 gttc-release-v0.0.3.zip in this folder is the latest version of release.
 
