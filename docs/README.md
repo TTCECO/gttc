@@ -1,9 +1,9 @@
 
 ## Readme for Code Review
 
-#### About code
+#### About Code
 
-gttc is base on go-ethereum (v1.8.9), the main part we add to geth is in consensus/alien directory. 
+gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part we add to geth is in [consensus/alien](https://github.com/TTCECO/gttc/blob/master/consensus/alien) directory.
 
 Alien is a simple version of DPOS-PBFT algorithm:
 
@@ -18,7 +18,7 @@ All the code & documents in this directory is in http://github.com/TTCECO/gttc a
 
 gttc-release-v0.0.3.zip in this folder is the lastest version of release.
 
-#### Documents list
+#### Documents List
 
 * gttc-release-v0.0.3.zip 
 * [genesis.json](https://github.com/TTCECO/gttc/blob/master/docs/genesis.json)  : genesis.json file for the testnet we deploy
@@ -27,7 +27,7 @@ gttc-release-v0.0.3.zip in this folder is the lastest version of release.
 * [GENESIS_JSON_SAMPLE.md](https://github.com/TTCECO/gttc/blob/master/docs/GENESIS_JSON_SAMPLE.md) : genesis.json sample.
 * [HOWTO_BUILDING_GTTC.md](https://github.com/TTCECO/gttc/blob/master/docs/HOWTO_BUILDING_GTTC.md) : a link to how to build geth, it's same as process of build our code.
 
-#### Connection to testnet
+#### Connection to Testnet
 
 * gttc(github.com/TTCECO/gttc/cmd/gttc) 
 
