@@ -160,8 +160,7 @@ type HeaderExtra struct {
 	ConfirmedBlockNumber      uint64
 }
 
-// Alien is the delegated-proof-of-stake consensus engine proposed to support the
-// Ethereum testnet following the Ropsten attacks.
+// Alien is the delegated-proof-of-stake consensus engine.
 type Alien struct {
 	config     *params.AlienConfig // Consensus engine configuration parameters
 	db         ethdb.Database      // Database to store and retrieve snapshot checkpoints
