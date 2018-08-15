@@ -6,6 +6,11 @@ There are two consensus algorithm already implement by go-ethereum,  ethash (POW
 
 The DPOS-PBFT consensus algorithm base on ethereum we develop is called alien. If you familiar with clique and concept of DPOS, you will find alien is very easy to understand. Alien also use Extra field in header of block to record the all infomation of current block and keep signature of miner. The snapshot keep votes & confirm information of whole blockchain, which will be update by each Seal or VerifySeal func.
 
+If you do not familiar with DPOS or PBFT consensus algorithm, please read the follow documents.
+
+- [DPOS_CONSENSUS_ALGORITHM.md](DPOS_CONSENSUS_ALGORITHM.md)
+- [PBFT_CONSENSUS_ALGORITHM.md](PBFT_CONSENSUS_ALGORITHM.md)
+
 The follow sections will describe how DPOS work in Alien.
 
 
