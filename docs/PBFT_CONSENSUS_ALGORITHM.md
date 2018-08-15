@@ -32,8 +32,9 @@ This implies that the algorithm can reach consensus as long as 2/3 of the actors
 > The important thing to remember is that the goal is for the majority of the lieutenants to choose the same decision, not a specific one.
 
 
+#### Appendix
 
-
-
+1. [Byzantine fault tolerance](https://en.wikipedia.org/wiki/Byzantine_fault_tolerance)
+2. [Practical Byzantine Fault Tolerance](http://pmg.csail.mit.edu/papers/osdi99.pdf)
 
 
