@@ -27,6 +27,7 @@ gttc-release-v0.0.3.zip in this folder is the latest version of release.
 
 * [DPOS_CONSENSUS_ALGORITHM.md](DPOS_CONSENSUS_ALGORITHM.md): description of DPOS algorithm
 * [PBFT_CONSENSUS_ALGORITHM.md](PBFT_CONSENSUS_ALGORITHM.md): description of PBFT algorithm
+* [HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN.md](HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN.md): details about how we implement dpos and pbft.
 * [genesis.json](genesis.json)  : genesis.json file for the testnet we deploy
 * [HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md](HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md) : The instruction of deploy your own testnet.
 * [HOWTO_VOTE_ON_GTTC.md](HOWTO_VOTE_ON_GTTC.md)  : how to vote & confirm in alien(dpos-pbft).
