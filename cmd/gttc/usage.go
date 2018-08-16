@@ -223,6 +223,13 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
+		Name: "GTTC",
+		Flags: []cli.Flag{
+			utils.GTTCRewardsSharePercentage,
+		},
+
+	},
+	{
 		Name: "MISC",
 	},
 }

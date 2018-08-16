@@ -171,7 +171,8 @@ type AlienConfig struct {
 	MinVoterBalance *big.Int  `json:"minVoterBalance"`  // Min voter balance to valid this vote
 	GenesisTimestamp uint64 `json:"genesisTimestamp"`  // The LoopStartTime of first Block
 	SelfVoteSigners []common.Address `json:"signers"` // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
-}
+	RewardsSharePercentage float64 `json:"rewardsSharePercentage"`  // Percentage of rewards miner share with voter
+	}
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *AlienConfig) String() string {

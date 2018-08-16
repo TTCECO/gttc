@@ -533,6 +533,13 @@ var (
 		Usage: "Minimum POW accepted",
 		Value: whisper.DefaultMinimumPoW,
 	}
+
+	GTTCRewardsSharePercentage = cli.Float64Flag{
+		Name: "gttc.rsp",
+		Usage: "Percentage of Rewards miner share with voter",
+		Value: 38.8,
+	}
+
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
