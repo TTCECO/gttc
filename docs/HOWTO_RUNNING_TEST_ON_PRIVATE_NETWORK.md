@@ -160,7 +160,7 @@ INFO [06-01|17:14:00] Regenerated local transaction journal    transactions=0 ac
 INFO [06-01|17:14:00] Starting P2P networking
 INFO [06-01|17:14:02] UDP listener up                          self=enode://c965ca2abf97c6f5aa02a72cdcdbd5b95d2a5321f80a86f66bfbc41586c3d7f4b21f01f9b34ad9ffb5798c697b28f0803ae640ef35f0667d4deb3de363319348@[::]:30312
 INFO [06-01|17:14:02] RLPx listener up                         self=enode://c965ca2abf97c6f5aa02a72cdcdbd5b95d2a5321f80a86f66bfbc41586c3d7f4b21f01f9b34ad9ffb5798c697b28f0803ae640ef35f0667d4deb3de363319348@[::]:30312
-INFO [06-01|17:14:02] IPC endpoint opened                      url=/Users/tataufo/myeth/node2/geth.ipc
+INFO [06-01|17:14:02] IPC endpoint opened                      url=/Users/tataufo/myeth/node2/gttc.ipc
 INFO [06-01|17:14:02] HTTP endpoint opened                     url=http://localhost:8502               cors= vhosts=localhost
 INFO [06-01|17:14:03] Unlocked account                         address=0x62739566c666Df9a057D7E7c92898511D4e64c07
 INFO [06-01|17:14:03] Transaction pool price threshold updated price=1

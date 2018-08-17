@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	clientIdentifier = "geth" // Client identifier to advertise over the network
+	clientIdentifier = "gttc" // Client identifier to advertise over the network
 )
 
 var (
