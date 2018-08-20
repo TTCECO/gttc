@@ -303,7 +303,9 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				th.SetThreads(threads)
 			}
 		}
-		ethereum.BlockChain().Config().Alien.RewardsSharePercentage =  ctx.GlobalFloat64(utils.GTTCRewardsSharePercentage.Name)
+		if ethereum.BlockChain().Config().Alien != nil {
+			ethereum.BlockChain().Config().Alien.RewardsSharePercentage =  ctx.GlobalFloat64(utils.GTTCRewardsSharePercentage.Name)
+		}
 		// Set the gas price to the limits from the CLI and start mining
 		ethereum.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
 		if err := ethereum.StartMining(true); err != nil {
