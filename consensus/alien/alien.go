@@ -815,7 +815,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 
 									signer := types.NewEIP155Signer(tx.ChainId())
 									voter, _ := types.Sender(signer, tx)
-									a.lock.RLock()
+									//a.lock.RLock()
 									if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
 										currentBlockVotes = append(currentBlockVotes, Vote{
 											Voter:     voter,
@@ -823,13 +823,12 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 											Stake:     state.GetBalance(voter),
 										})
 									}
-									a.lock.RUnlock()
+									//a.lock.RUnlock()
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
 									}
 								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
-									//a.lock.RLock()
 									if len(txDataInfo) >= posEventConfirmNumber {
 										confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
 										if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
@@ -862,7 +861,6 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 											}
 										}
 									}
-									//a.lock.RUnlock()
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
@@ -890,22 +888,22 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 				signer := types.NewEIP155Signer(tx.ChainId())
 				voter, _ := types.Sender(signer, tx)
 				if snap.isVoter(voter) {
-					a.lock.RLock()
+					//a.lock.RLock()
 					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
 						Voter:     voter,
 						Candidate: common.Address{},
 						Stake:     state.GetBalance(voter),
 					})
-					a.lock.RUnlock()
+					//a.lock.RUnlock()
 				}
 				if snap.isVoter(*tx.To()) {
-					a.lock.RLock()
+					//a.lock.RLock()
 					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
 						Voter:     *tx.To(),
 						Candidate: common.Address{},
 						Stake:     state.GetBalance(*tx.To()),
 					})
-					a.lock.RUnlock()
+					//a.lock.RUnlock()
 				}
 
 			}
