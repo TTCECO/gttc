@@ -38,6 +38,7 @@ const (
 	missingPublishCredit    = 100  // punished for missing one block seal
 	signRewardCredit        = 10   // seal one block
 	minCalSignerQueueCredit = 300  // when calculate the signerQueue,
+	loopCntRecreateSigners  = 10   // loop count to recreate signers from top tally
 	// the credit of one signer is at least minCalSignerQueueCredit
 )
 
@@ -403,31 +404,42 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 		return nil, errCreateSignerQueueNotAllowed
 	}
 
-	var tallySlice TallySlice
 	var signerSlice SignerSlice
 	var topStakeAddress []common.Address
-	for address, stake := range s.Tally {
-		if _, ok := s.Punished[address]; ok {
-			var creditWeight uint64
-			if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
-				creditWeight = minCalSignerQueueCredit
+
+	if (s.Number+1)%(s.config.MaxSignerCount*loopCntRecreateSigners) == 0 {
+		// only recalculate signers from to tally per 10 loop,
+		// other loop end just reset the order of signers by block hash (nearly random)
+		var tallySlice TallySlice
+		for address, stake := range s.Tally {
+			if _, ok := s.Punished[address]; ok {
+				var creditWeight uint64
+				if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
+					creditWeight = minCalSignerQueueCredit
+				} else {
+					creditWeight = defaultFullCredit - s.Punished[address]
+				}
+				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
 			} else {
-				creditWeight = defaultFullCredit - s.Punished[address]
+				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 			}
-			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
-		} else {
-			tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
+		}
+
+		sort.Sort(TallySlice(tallySlice))
+		queueLength := int(s.config.MaxSignerCount)
+		if queueLength > len(tallySlice) {
+			queueLength = len(tallySlice)
+		}
+		for i, tallyItem := range tallySlice[:queueLength] {
+			signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+		}
+
+	} else {
+		for i, signer := range s.Signers {
+			signerSlice = append(signerSlice, SignerItem{*signer, s.HistoryHash[len(s.HistoryHash)-1-i]})
 		}
 	}
 
-	sort.Sort(TallySlice(tallySlice))
-	queueLength := int(s.config.MaxSignerCount)
-	if queueLength > len(tallySlice) {
-		queueLength = len(tallySlice)
-	}
-	for i, tallyItem := range tallySlice[:queueLength] {
-		signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
-	}
 	sort.Sort(SignerSlice(signerSlice))
 	// Set the top candidates in random order base on block hash
 	for i := 0; i < int(s.config.MaxSignerCount); i++ {
