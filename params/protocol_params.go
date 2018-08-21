@@ -25,7 +25,7 @@ var (
 const (
 	GasLimitBoundDivisor uint64 = 64		//1024    // The bound divisor of the gas limit, used in update calculations.
 	MinGasLimit          uint64 = 500000	//5000    // Minimum the gas limit may ever be.
-	GenesisGasLimit      uint64 = 47123888 	//4712388 // Gas limit of the Genesis block.
+	GenesisGasLimit      uint64 = 50000000 	//5000000 // Gas limit of the Genesis block.
 
 	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
 	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.

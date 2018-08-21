@@ -815,15 +815,18 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 
 									signer := types.NewEIP155Signer(tx.ChainId())
 									voter, _ := types.Sender(signer, tx)
-									//a.lock.RLock()
+
 									if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
+										a.lock.RLock()
+										stake := state.GetBalance(voter)
+										a.lock.RUnlock()
 										currentBlockVotes = append(currentBlockVotes, Vote{
 											Voter:     voter,
 											Candidate: *tx.To(),
-											Stake:     state.GetBalance(voter),
+											Stake:     stake,
 										})
 									}
-									//a.lock.RUnlock()
+
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
@@ -888,22 +891,24 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 				signer := types.NewEIP155Signer(tx.ChainId())
 				voter, _ := types.Sender(signer, tx)
 				if snap.isVoter(voter) {
-					//a.lock.RLock()
+					a.lock.RLock()
+					stake := state.GetBalance(voter)
+					a.lock.RUnlock()
 					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
 						Voter:     voter,
 						Candidate: common.Address{},
-						Stake:     state.GetBalance(voter),
+						Stake:     stake,
 					})
-					//a.lock.RUnlock()
 				}
 				if snap.isVoter(*tx.To()) {
-					//a.lock.RLock()
+					a.lock.RLock()
+					stake := state.GetBalance(*tx.To())
+					a.lock.RUnlock()
 					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
 						Voter:     *tx.To(),
 						Candidate: common.Address{},
-						Stake:     state.GetBalance(*tx.To()),
+						Stake:     stake,
 					})
-					//a.lock.RUnlock()
 				}
 
 			}
