@@ -37,8 +37,7 @@ const (
 	defaultFullCredit       = 1000 // no punished
 	missingPublishCredit    = 100  // punished for missing one block seal
 	signRewardCredit        = 10   // seal one block
-	minCalSignerQueueCredit = 300  // when calculate the signerQueue,
-	loopCntRecreateSigners  = 10   // loop count to recreate signers from top tally
+	minCalSignerQueueCredit = 300  // when calculate the signerQueue
 	// the credit of one signer is at least minCalSignerQueueCredit
 )
 
@@ -46,6 +45,7 @@ const (
 type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
+	LCRS     uint64              // Loop count to recreate signers from top tally
 
 	Number          uint64                       `json:"number"`          // Block number where the snapshot was created
 	ConfirmedNumber uint64                       `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
@@ -63,10 +63,12 @@ type Snapshot struct {
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
 // the genesis block.
-func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common.Hash, votes []*Vote) *Snapshot {
+func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common.Hash, votes []*Vote, lcrs uint64) *Snapshot {
+
 	snap := &Snapshot{
 		config:          config,
 		sigcache:        sigcache,
+		LCRS:            lcrs,
 		Number:          0,
 		ConfirmedNumber: 0,
 		Hash:            hash,
@@ -132,6 +134,7 @@ func (s *Snapshot) copy() *Snapshot {
 	cpy := &Snapshot{
 		config:          s.config,
 		sigcache:        s.sigcache,
+		LCRS:            s.LCRS,
 		Number:          s.Number,
 		ConfirmedNumber: s.ConfirmedNumber,
 		Hash:            s.Hash,
@@ -407,7 +410,7 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 	var signerSlice SignerSlice
 	var topStakeAddress []common.Address
 
-	if (s.Number+1)%(s.config.MaxSignerCount*loopCntRecreateSigners) == 0 {
+	if (s.Number+1)%(s.config.MaxSignerCount*s.LCRS) == 0 {
 		// only recalculate signers from to tally per 10 loop,
 		// other loop end just reset the order of signers by block hash (nearly random)
 		var tallySlice TallySlice

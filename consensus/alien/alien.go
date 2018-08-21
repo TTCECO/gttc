@@ -67,15 +67,16 @@ const (
 
 // Alien delegated-proof-of-stake protocol constants.
 var (
-	SignerBlockReward      = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
-	defaultEpochLength     = uint64(3000000)   // Default number of blocks after which vote's period of validity
-	defaultBlockPeriod     = uint64(3)         // Default minimum difference between two consecutive block's timestamps
-	defaultMaxSignerCount  = uint64(21)        //
-	defaultMinVoterBalance = new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e+18))
-	extraVanity            = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
-	extraSeal              = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
-	uncleHash              = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	defaultDifficulty      = big.NewInt(1)            // Default difficulty
+	SignerBlockReward                = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
+	defaultEpochLength               = uint64(3000000)   // Default number of blocks after which vote's period of validity
+	defaultBlockPeriod               = uint64(3)         // Default minimum difference between two consecutive block's timestamps
+	defaultMaxSignerCount            = uint64(21)        //
+	defaultMinVoterBalance           = new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e+18))
+	extraVanity                      = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraSeal                        = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
+	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	defaultDifficulty                = big.NewInt(1)            // Default difficulty
+	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -351,7 +352,7 @@ func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 		return ErrInvalidTimestamp
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	_, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil)
+	_, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil, defaultLoopCntRecalculateSigners)
 	if err != nil {
 		return err
 	}
@@ -361,7 +362,7 @@ func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
-func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, genesisVotes []*Vote) (*Snapshot, error) {
+func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, genesisVotes []*Vote, lcrs uint64) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -389,7 +390,7 @@ func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 				return nil, err
 			}
 
-			snap = newSnapshot(a.config, a.signatures, genesis.Hash(), genesisVotes)
+			snap = newSnapshot(a.config, a.signatures, genesis.Hash(), genesisVotes, lcrs)
 			if err := snap.store(a.db); err != nil {
 				return nil, err
 			}
@@ -463,7 +464,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return errUnknownBlock
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil)
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil, defaultLoopCntRecalculateSigners)
 	if err != nil {
 		return err
 	}
@@ -617,7 +618,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 
 	// Assemble the voting snapshot to check which votes make sense
-	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes)
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes, defaultLoopCntRecalculateSigners)
 	if err != nil {
 		return nil, err
 	}
@@ -698,7 +699,7 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	a.lock.RUnlock()
 
 	// Bail out if we're unauthorized to sign a block
-	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, nil)
+	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
 	if err != nil {
 		return nil, err
 	}
@@ -794,7 +795,7 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 	)
 	number = header.Number.Uint64()
 	if number > 1 {
-		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil)
+		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
 		if err != nil {
 			return nil, nil, nil, err
 		}

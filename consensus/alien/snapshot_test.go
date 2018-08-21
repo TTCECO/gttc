@@ -540,7 +540,7 @@ func TestVoting(t *testing.T) {
 				signer = currentHeaderExtra.SignerQueue[uint64(j)%tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
 				if (j+1)%int(tt.maxSignerCount) == 0 {
-					snap, err := alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil)
+					snap, err := alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil, uint64(1))
 					if err != nil {
 						t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 						continue
@@ -581,7 +581,7 @@ func TestVoting(t *testing.T) {
 			accounts.sign(headers[j], accounts.name(signer))
 
 			// Pass all the headers through alien and ensure tallying succeeds
-			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes)
+			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes, uint64(1))
 			genesisVotes = []*Vote{}
 			if err != nil {
 				t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
@@ -591,7 +591,7 @@ func TestVoting(t *testing.T) {
 
 		// verify the result in test case
 		head := headers[len(headers)-1]
-		snap, err := alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil)
+		snap, err := alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil, uint64(1))
 		//
 		if err != nil {
 			t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
