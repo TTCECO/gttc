@@ -34,10 +34,14 @@ import (
 )
 
 const (
-	defaultFullCredit       = 1000 // no punished
-	missingPublishCredit    = 100  // punished for missing one block seal
-	signRewardCredit        = 10   // seal one block
-	minCalSignerQueueCredit = 300  // when calculate the signerQueue
+	defaultFullCredit               = 1000 // no punished
+	missingPublishCredit            = 100  // punished for missing one block seal
+	signRewardCredit                = 10   // seal one block
+	minCalSignerQueueCredit         = 300  // when calculate the signerQueue
+	defaultOfficialMaxSignerCount   = 21   // official max signer count
+	defaultOfficialFirstLevelCount  = 10   // official first level , 100% in signer queue
+	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
+	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
 )
 
@@ -433,8 +437,36 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 		if queueLength > len(tallySlice) {
 			queueLength = len(tallySlice)
 		}
-		for i, tallyItem := range tallySlice[:queueLength] {
-			signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+
+		if queueLength == defaultOfficialMaxSignerCount && len(tallySlice) > defaultOfficialThirdLevelCount {
+			for i, tallyItem := range tallySlice[:defaultOfficialFirstLevelCount] {
+				signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+			}
+			var signerSecondLevelSlice, signerThirdLevelSlice, signerLastLevelSlice SignerSlice
+			// 60%
+			for i, tallyItem := range tallySlice[defaultOfficialFirstLevelCount:defaultOfficialSecondLevelCount] {
+				signerSecondLevelSlice = append(signerSecondLevelSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+			}
+			sort.Sort(SignerSlice(signerSecondLevelSlice))
+			signerSlice = append(signerSlice, signerSecondLevelSlice[:6]...)
+			// 40%
+			for i, tallyItem := range tallySlice[defaultOfficialSecondLevelCount:defaultOfficialThirdLevelCount] {
+				signerThirdLevelSlice = append(signerThirdLevelSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+			}
+			sort.Sort(SignerSlice(signerThirdLevelSlice))
+			signerSlice = append(signerSlice, signerThirdLevelSlice[:4]...)
+			// choose 1 from last
+			for i, tallyItem := range tallySlice[defaultOfficialThirdLevelCount:] {
+				signerLastLevelSlice = append(signerLastLevelSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+			}
+			sort.Sort(SignerSlice(signerLastLevelSlice))
+			signerSlice = append(signerSlice, signerLastLevelSlice[0])
+
+		} else {
+			for i, tallyItem := range tallySlice[:queueLength] {
+				signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
+			}
+
 		}
 
 	} else {
