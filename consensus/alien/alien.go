@@ -813,57 +813,14 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 								// check is vote or not
 								if posEventVote >= ufoMinSplitLen && txDataInfo[posEventVote] == ufoEventVote {
 
-									signer := types.NewEIP155Signer(tx.ChainId())
-									voter, _ := types.Sender(signer, tx)
-
-									if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
-										a.lock.RLock()
-										stake := state.GetBalance(voter)
-										a.lock.RUnlock()
-										currentBlockVotes = append(currentBlockVotes, Vote{
-											Voter:     voter,
-											Candidate: *tx.To(),
-											Stake:     stake,
-										})
-									}
+									currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx)
 
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
 									}
 								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
-									if len(txDataInfo) >= posEventConfirmNumber {
-										confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
-										if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
-											continue
-										}
-										signer := types.NewEIP155Signer(tx.ChainId())
-										confirmer, _ := types.Sender(signer, tx)
-										// check if the voter is in block
-										confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
-										if confirmedHeader == nil {
-											log.Info("Fail to get confirmedHeader")
-											continue
-										}
-										confirmedHeaderExtra := HeaderExtra{}
-										if extraVanity+extraSeal > len(confirmedHeader.Extra) {
-											continue
-										}
-										err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
-										if err != nil {
-											log.Info("Fail to decode parent header", "err", err)
-											continue
-										}
-										for _, s := range confirmedHeaderExtra.SignerQueue {
-											if s == confirmer {
-												currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
-													Signer:      confirmer,
-													BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
-												})
-												break
-											}
-										}
-									}
+									currentBlockConfirmations = a.processEventConfirm(currentBlockConfirmations, chain, txDataInfo, number, tx)
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()
 										continue
@@ -885,36 +842,97 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 		}
 
 		if number > 1 {
-			// process normal transaction which relate to voter
-			if tx.Value().Cmp(big.NewInt(0)) > 0 {
-
-				signer := types.NewEIP155Signer(tx.ChainId())
-				voter, _ := types.Sender(signer, tx)
-				if snap.isVoter(voter) {
-					a.lock.RLock()
-					stake := state.GetBalance(voter)
-					a.lock.RUnlock()
-					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
-						Voter:     voter,
-						Candidate: common.Address{},
-						Stake:     stake,
-					})
-				}
-				if snap.isVoter(*tx.To()) {
-					a.lock.RLock()
-					stake := state.GetBalance(*tx.To())
-					a.lock.RUnlock()
-					modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
-						Voter:     *tx.To(),
-						Candidate: common.Address{},
-						Stake:     stake,
-					})
-				}
-
-			}
+			modifyPredecessorVotes = a.processPredecessorVoter(modifyPredecessorVotes, state, tx, snap)
 		}
 
 	}
 
 	return currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, nil
+}
+
+func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction) []Vote {
+	signer := types.NewEIP155Signer(tx.ChainId())
+	voter, _ := types.Sender(signer, tx)
+	if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
+
+		a.lock.RLock()
+		stake := state.GetBalance(voter)
+		a.lock.RUnlock()
+
+		currentBlockVotes = append(currentBlockVotes, Vote{
+			Voter:     voter,
+			Candidate: *tx.To(),
+			Stake:     stake,
+		})
+	}
+
+	return currentBlockVotes
+}
+
+func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction) []Confirmation {
+	if len(txDataInfo) >= posEventConfirmNumber {
+		confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
+		if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
+			return currentBlockConfirmations
+		}
+		signer := types.NewEIP155Signer(tx.ChainId())
+		confirmer, _ := types.Sender(signer, tx)
+		// check if the voter is in block
+		confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
+		if confirmedHeader == nil {
+			log.Info("Fail to get confirmedHeader")
+			return currentBlockConfirmations
+		}
+		confirmedHeaderExtra := HeaderExtra{}
+		if extraVanity+extraSeal > len(confirmedHeader.Extra) {
+			return currentBlockConfirmations
+		}
+		err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+		if err != nil {
+			log.Info("Fail to decode parent header", "err", err)
+			return currentBlockConfirmations
+		}
+		for _, s := range confirmedHeaderExtra.SignerQueue {
+			if s == confirmer {
+				currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
+					Signer:      confirmer,
+					BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
+				})
+				break
+			}
+		}
+	}
+
+	return currentBlockConfirmations
+}
+
+func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, snap *Snapshot) []Vote {
+	// process normal transaction which relate to voter
+	if tx.Value().Cmp(big.NewInt(0)) > 0 {
+
+		signer := types.NewEIP155Signer(tx.ChainId())
+		voter, _ := types.Sender(signer, tx)
+		if snap.isVoter(voter) {
+			a.lock.RLock()
+			stake := state.GetBalance(voter)
+			a.lock.RUnlock()
+			modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
+				Voter:     voter,
+				Candidate: common.Address{},
+				Stake:     stake,
+			})
+		}
+		if snap.isVoter(*tx.To()) {
+			a.lock.RLock()
+			stake := state.GetBalance(*tx.To())
+			a.lock.RUnlock()
+			modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
+				Voter:     *tx.To(),
+				Candidate: common.Address{},
+				Stake:     stake,
+			})
+		}
+
+	}
+	return modifyPredecessorVotes
 }
