@@ -531,6 +531,101 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},
+		{
+			/*	Case 11:
+			*	All self vote in  genesis
+			* 	lcrs  is 1, so the signers will recalculate after 5 block
+			*   official 21 node test case
+			 */
+			addrNames: []string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10",
+				"A11", "A12", "A13", "A14", "A15", "A16", "A17", "A18", "A19", "A20",
+				"A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30",
+				"A31", "A32", "A33", "A34", "A35", "A36", "A37", "A38", "A39", "A40"},
+			period:           uint64(3),
+			epoch:            uint64(300),
+			maxSignerCount:   uint64(21),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters: []testerSelfVoter{{"A1", 5000}, {"A2", 5000}, {"A3", 5000}, {"A4", 5000}, {"A5", 5000},
+				{"A6", 5000}, {"A7", 5000}, {"A8", 5000}, {"A9", 5000}, {"A10", 5000},
+				{"A11", 4000}, {"A12", 4000}, {"A13", 4000}, {"A14", 4000}, {"A15", 4000},
+				{"A16", 4000}, {"A17", 4000}, {"A18", 4000}, {"A19", 4000}, {"A20", 4000},
+				{"A21", 3000}, {"A22", 3000}, {"A23", 3000}, {"A24", 3000}, {"A25", 3000},
+				{"A26", 3000}, {"A27", 3000}, {"A28", 3000}, {"A29", 3000}, {"A30", 3000},
+				{"A31", 2000}, {"A32", 2000}, {"A33", 2000}, {"A34", 2000}, {"A35", 2000},
+				{"A36", 2000}, {"A37", 2000}, {"A38", 2000}, {"A39", 2000}, {"A40", 2000}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}}, {[]testerTransaction{}},
+				{[]testerTransaction{}}, {[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{},
+				Tally: map[string]int{"A1": 5000, "A2": 5000, "A3": 5000, "A4": 5000, "A5": 5000, "A6": 5000, "A7": 5000, "A8": 5000, "A9": 5000, "A10": 5000,
+					"A11": 4000, "A12": 4000, "A13": 4000, "A14": 4000, "A15": 4000, "A16": 4000, "A17": 4000, "A18": 4000, "A19": 4000, "A20": 4000,
+					"A21": 3000, "A22": 3000, "A23": 3000, "A24": 3000, "A25": 3000, "A26": 3000, "A27": 3000, "A28": 3000, "A29": 3000, "A30": 3000,
+					"A31": 2000, "A32": 2000, "A33": 2000, "A34": 2000, "A35": 2000, "A36": 2000, "A37": 2000, "A38": 2000, "A39": 2000, "A40": 2000},
+				Voters: map[string]int{"A1": 0, "A2": 0, "A3": 0, "A4": 0, "A5": 0, "A6": 0, "A7": 0, "A8": 0, "A9": 0, "A10": 0,
+					"A11": 0, "A12": 0, "A13": 0, "A14": 0, "A15": 0, "A16": 0, "A17": 0, "A18": 0, "A19": 0, "A20": 0,
+					"A21": 0, "A22": 0, "A23": 0, "A24": 0, "A25": 0, "A26": 0, "A27": 0, "A28": 0, "A29": 0, "A30": 0,
+					"A31": 0, "A32": 0, "A33": 0, "A34": 0, "A35": 0, "A36": 0, "A37": 0, "A38": 0, "A39": 0, "A40": 0},
+				Votes: map[string]*testerVote{
+					"A1":  {"A1", "A1", 5000},
+					"A2":  {"A2", "A2", 5000},
+					"A3":  {"A3", "A3", 5000},
+					"A4":  {"A4", "A4", 5000},
+					"A5":  {"A5", "A5", 5000},
+					"A6":  {"A6", "A6", 5000},
+					"A7":  {"A7", "A7", 5000},
+					"A8":  {"A8", "A8", 5000},
+					"A9":  {"A9", "A9", 5000},
+					"A10": {"A10", "A10", 5000},
+					"A11": {"A11", "A11", 4000},
+					"A12": {"A12", "A12", 4000},
+					"A13": {"A13", "A13", 4000},
+					"A14": {"A14", "A14", 4000},
+					"A15": {"A15", "A15", 4000},
+					"A16": {"A16", "A16", 4000},
+					"A17": {"A17", "A17", 4000},
+					"A18": {"A18", "A18", 4000},
+					"A19": {"A19", "A19", 4000},
+					"A20": {"A20", "A20", 4000},
+					"A21": {"A21", "A21", 3000},
+					"A22": {"A22", "A22", 3000},
+					"A23": {"A23", "A23", 3000},
+					"A24": {"A24", "A24", 3000},
+					"A25": {"A25", "A25", 3000},
+					"A26": {"A26", "A26", 3000},
+					"A27": {"A27", "A27", 3000},
+					"A28": {"A28", "A28", 3000},
+					"A29": {"A29", "A29", 3000},
+					"A30": {"A30", "A30", 3000},
+					"A31": {"A31", "A31", 2000},
+					"A32": {"A32", "A32", 2000},
+					"A33": {"A33", "A33", 2000},
+					"A34": {"A34", "A34", 2000},
+					"A35": {"A35", "A35", 2000},
+					"A36": {"A36", "A36", 2000},
+					"A37": {"A37", "A37", 2000},
+					"A38": {"A38", "A38", 2000},
+					"A39": {"A39", "A39", 2000},
+					"A40": {"A40", "A40", 2000},
+				},
+			},
+		},
 	}
 	// Run through the scenarios and test them
 	for i, tt := range tests {
@@ -683,21 +778,68 @@ func TestVoting(t *testing.T) {
 			continue
 		}
 		// check signers
-		signers := map[common.Address]int{}
-		for _, signer := range snap.Signers {
-			signers[*signer] = 1
+		if len(tt.result.Signers) > 0 {
 
-		}
-		for _, signer := range tt.result.Signers {
-			signers[accounts.address(signer)] += 2
-		}
+			signers := map[common.Address]int{}
+			for _, signer := range snap.Signers {
+				signers[*signer] = 1
 
-		for address, cnt := range signers {
-			if cnt != 3 {
-				t.Errorf("test %d: signer %v address: %v not in result signers %d", i, accounts.name(address), address, cnt)
-				continue
 			}
+			for _, signer := range tt.result.Signers {
+				signers[accounts.address(signer)] += 2
+			}
+
+			for address, cnt := range signers {
+				if cnt != 3 {
+					t.Errorf("test %d: signer %v address: %v not in result signers %d", i, accounts.name(address), address, cnt)
+					continue
+				}
+			}
+		} else {
+			// check signers official 21 node
+			firstLevel := map[common.Address]int{}
+			secondLevel := map[common.Address]int{}
+			thirdLevel := map[common.Address]int{}
+			otherLevel := map[common.Address]int{}
+
+			for signer, tally := range tt.result.Tally {
+				switch tally {
+				case 5000:
+					firstLevel[accounts.address(signer)] = 0
+				case 4000:
+					secondLevel[accounts.address(signer)] = 0
+				case 3000:
+					thirdLevel[accounts.address(signer)] = 0
+				case 2000:
+					otherLevel[accounts.address(signer)] = 0
+
+				}
+
+			}
+			var l1, l2, l3, l4 int
+			for _, signer := range snap.Signers {
+				if _, ok := firstLevel[*signer]; ok {
+					l1 += 1
+					continue
+				}
+				if _, ok := secondLevel[*signer]; ok {
+					l2 += 1
+					continue
+				}
+				if _, ok := thirdLevel[*signer]; ok {
+					l3 += 1
+					continue
+				}
+				if _, ok := otherLevel[*signer]; ok {
+					l4 += 1
+				}
+			}
+			if l1 != 10 || l2 != 6 || l3 != 4 || l4 != 1 {
+				t.Errorf("test %d: signer not select right count from different level l1 = %d, l2 = %d, l3 = %d, l4 = %d", i, l1, l2, l3, l4)
+			}
+
 		}
+
 		// check tally
 		if len(tt.result.Tally) != len(snap.Tally) {
 			t.Errorf("test %d: tally length result %d, snap %d dismatch", i, len(tt.result.Tally), len(snap.Tally))
