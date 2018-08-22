@@ -132,6 +132,7 @@ func TestVoting(t *testing.T) {
 		maxSignerCount   uint64               // default 5 for test
 		minVoterBalance  int                  // default 50
 		genesisTimestamp uint64               // default time.now() - period + 1
+		lcrs             uint64               // loop count to recreate signers from top tally
 		selfVoters       []testerSelfVoter    //
 		txHeaders        []testerSingleHeader //
 		result           testerSnapshot       // the result of current snapshot
@@ -146,6 +147,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -178,6 +180,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(7),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -210,6 +213,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -242,6 +246,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -279,6 +284,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -312,6 +318,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -346,6 +353,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -385,6 +393,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(8),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}},
 			txHeaders: []testerSingleHeader{
@@ -424,6 +433,7 @@ func TestVoting(t *testing.T) {
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
 			minVoterBalance:  50,
+			lcrs:             1,
 			genesisTimestamp: uint64(0),
 			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
 			txHeaders: []testerSingleHeader{
@@ -443,6 +453,81 @@ func TestVoting(t *testing.T) {
 					"A": {"A", "A", 100},
 					"C": {"C", "D", 110},
 					"D": {"D", "C", 80},
+				},
+			},
+		},
+		{
+			/*	Case 9:
+			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 3
+			* 	lcrs  is 2, so the signers will recalculate after 5 *2 block
+			* 	D is still not signer
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             2,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 200, "D": 200},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 200},
+				},
+			},
+		},
+		{
+			/*	Case 10:
+			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 3
+			* 	lcrs  is 2, so the signers will recalculate after 5 *2 block
+			* 	D is signer
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             2,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B", "D"},
+				Tally:   map[string]int{"A": 100, "B": 200, "D": 200},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 3},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 200},
 				},
 			},
 		},
@@ -540,7 +625,7 @@ func TestVoting(t *testing.T) {
 				signer = currentHeaderExtra.SignerQueue[uint64(j)%tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
 				if (j+1)%int(tt.maxSignerCount) == 0 {
-					snap, err := alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil, uint64(1))
+					snap, err := alien.snapshot(&testerChainReader{db: db}, headers[j-1].Number.Uint64(), headers[j-1].Hash(), headers, nil, uint64(tt.lcrs))
 					if err != nil {
 						t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
 						continue
@@ -581,7 +666,7 @@ func TestVoting(t *testing.T) {
 			accounts.sign(headers[j], accounts.name(signer))
 
 			// Pass all the headers through alien and ensure tallying succeeds
-			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes, uint64(1))
+			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes, uint64(tt.lcrs))
 			genesisVotes = []*Vote{}
 			if err != nil {
 				t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
@@ -591,7 +676,7 @@ func TestVoting(t *testing.T) {
 
 		// verify the result in test case
 		head := headers[len(headers)-1]
-		snap, err := alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil, uint64(1))
+		snap, err := alien.snapshot(&testerChainReader{db: db}, head.Number.Uint64(), head.Hash(), headers, nil, uint64(tt.lcrs))
 		//
 		if err != nil {
 			t.Errorf("test %d: failed to create voting snapshot: %v", i, err)
