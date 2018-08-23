@@ -226,6 +226,12 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "BROWSER",
 		Flags: []cli.Flag{
 			utils.BrowserEnabledFlag,
+			utils.BrowserDriverFlag,
+			utils.BrowserDBIPFlag,
+			utils.BrowserDBPortFlag,
+			utils.BrowserDBNameFlag,
+			utils.BrowserDBUserFlag,
+			utils.BrowserDBPassFlag,
 		},
 	},
 	{

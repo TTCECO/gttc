@@ -533,10 +533,40 @@ var (
 		Usage: "Minimum POW accepted",
 		Value: whisper.DefaultMinimumPoW,
 	}
-
 	BrowserEnabledFlag = cli.BoolFlag{
 		Name: "browser",
-		Usage: "Enable browser",
+		Usage: "Enable browser (bm)",
+	}
+	BrowserDriverFlag = cli.StringFlag{
+		Name: "bm.driver",
+		Usage: "Browser database driver",
+		Value: "mysql",
+	}
+	BrowserDBIPFlag = cli.StringFlag{
+		Name: "bm.ip",
+		Usage: "Browser database IP ",
+		Value: "127.0.0.1",
+	}
+	BrowserDBPortFlag = cli.IntFlag{
+		Name: "bm.port",
+		Usage: "Browser database port",
+		Value: 3306,
+	}
+	BrowserDBNameFlag = cli.StringFlag{
+		Name: "bm.dbname",
+		Usage: "Browser database dbname",
+		Value: "test",
+	}
+	BrowserDBUserFlag = cli.StringFlag{
+		Name: "bm.user",
+		Usage: "Browser database user",
+		Value: "root",
+	}
+	BrowserDBPassFlag = cli.StringFlag{
+		Name: "bm.pass",
+		Usage: "Browser database password",
+		Value: "",
+
 	}
 
 )
