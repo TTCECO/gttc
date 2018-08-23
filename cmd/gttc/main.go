@@ -194,6 +194,7 @@ func init() {
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, whisperFlags...)
+	app.Flags = append(app.Flags, browserFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -331,6 +332,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 					utils.Fatalf("database connect fail: %s", err)
 				}
 				ethereum.BlockChain().Config().Alien.BrowserDB = browseDB
+				stack.SetBrowserDBConn(browseDB)
 			}
 		}
 

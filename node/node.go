@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"database/sql"
 
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/ethdb"
@@ -68,6 +69,8 @@ type Node struct {
 	wsHandler  *rpc.Server  // Websocket RPC request handler to process the API requests
 
 	stop chan struct{} // Channel to wait for termination notifications
+
+	browserDB *sql.DB   // DB conn to store info for browser
 	lock sync.RWMutex
 
 	log log.Logger
@@ -396,6 +399,22 @@ func (n *Node) stopWS() {
 	}
 }
 
+func (n *Node) SetBrowserDBConn(db *sql.DB) {
+	n.browserDB = db
+}
+
+func (n *Node) stopBrowserDBConn() {
+	if n.browserDB != nil {
+		err := n.browserDB.Close()
+		if err != nil {
+			n.log.Error("Can't close the connection to browser database", "err", err)
+		}else {
+			n.log.Info("Connection to browser database closed")
+		}
+
+	}
+}
+
 // Stop terminates a running node along with all it's services. In the node was
 // not started, an error is returned.
 func (n *Node) Stop() error {
@@ -411,6 +430,7 @@ func (n *Node) Stop() error {
 	n.stopWS()
 	n.stopHTTP()
 	n.stopIPC()
+	n.stopBrowserDBConn()
 	n.rpcAPIs = nil
 	failure := &StopError{
 		Services: make(map[reflect.Type]error),
