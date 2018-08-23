@@ -17,9 +17,10 @@
 package params
 
 import (
+	"database/sql"
 	"fmt"
-	"math/big"
 	"github.com/TTCECO/gttc/common"
+	"math/big"
 )
 
 var (
@@ -81,12 +82,12 @@ var (
 		ByzantiumBlock:      big.NewInt(1035301),
 		ConstantinopleBlock: nil,
 		Alien: &AlienConfig{
-			Period: 3,
-			Epoch:  30000,
-			MaxSignerCount: 21,
-			MinVoterBalance: new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)) ,
+			Period:           3,
+			Epoch:            30000,
+			MaxSignerCount:   21,
+			MinVoterBalance:  new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
 			GenesisTimestamp: 0,
-			SelfVoteSigners: []common.Address{},
+			SelfVoteSigners:  []common.Address{},
 		},
 	}
 
@@ -95,25 +96,23 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0),  big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000},nil}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
 
 	// AllAlienProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Alien consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllAlienProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil,&AlienConfig{Period: 3, Epoch: 30000, MaxSignerCount:21, MinVoterBalance: new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)) , GenesisTimestamp:0, SelfVoteSigners: []common.Address{}}}
+	AllAlienProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, &AlienConfig{Period: 3, Epoch: 30000, MaxSignerCount: 21, MinVoterBalance: new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)), GenesisTimestamp: 0, SelfVoteSigners: []common.Address{}}}
 
-
-
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0),  big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil,nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -140,7 +139,7 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
-	Alien  *AlienConfig `json:"alien,omitempty"`
+	Alien  *AlienConfig  `json:"alien,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
@@ -162,16 +161,16 @@ func (c *CliqueConfig) String() string {
 	return "clique"
 }
 
-
 // AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
 type AlienConfig struct {
-	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
-	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-	MaxSignerCount uint64  `json:"maxSignersCount"`  // Max count of signers
-	MinVoterBalance *big.Int  `json:"minVoterBalance"`  // Min voter balance to valid this vote
-	GenesisTimestamp uint64 `json:"genesisTimestamp"`  // The LoopStartTime of first Block
-	SelfVoteSigners []common.Address `json:"signers"` // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
-	}
+	Period           uint64           `json:"period"`           // Number of seconds between blocks to enforce
+	Epoch            uint64           `json:"epoch"`            // Epoch length to reset votes and checkpoint
+	MaxSignerCount   uint64           `json:"maxSignersCount"`  // Max count of signers
+	MinVoterBalance  *big.Int         `json:"minVoterBalance"`  // Min voter balance to valid this vote
+	GenesisTimestamp uint64           `json:"genesisTimestamp"` // The LoopStartTime of first Block
+	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
+	BrowserDB        *sql.DB          // outside Database for blockchain browser
+}
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *AlienConfig) String() string {
@@ -207,7 +206,6 @@ func (c *ChainConfig) String() string {
 func (c *ChainConfig) IsHomestead(num *big.Int) bool {
 	return isForked(c.HomesteadBlock, num)
 }
-
 
 func (c *ChainConfig) IsEIP150(num *big.Int) bool {
 	return isForked(c.EIP150Block, num)

@@ -18,7 +18,9 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	"os"
 	"runtime"
 	"sort"
@@ -139,6 +141,16 @@ var (
 		utils.WhisperEnabledFlag,
 		utils.WhisperMaxMessageSizeFlag,
 		utils.WhisperMinPOWFlag,
+	}
+
+	browserFlags = []cli.Flag{
+		utils.BrowserEnabledFlag,
+		utils.BrowserDriverFlag,
+		utils.BrowserDBIPFlag,
+		utils.BrowserDBPortFlag,
+		utils.BrowserDBNameFlag,
+		utils.BrowserDBUserFlag,
+		utils.BrowserDBPassFlag,
 	}
 )
 
@@ -296,6 +308,29 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 			if th, ok := ethereum.Engine().(threaded); ok {
 				th.SetThreads(threads)
+			}
+		}
+
+		if ethereum.BlockChain().Config().Alien != nil {
+
+			if ctx.GlobalBool(utils.BrowserEnabledFlag.Name) {
+				// connect browser database
+				driver := ctx.GlobalString(utils.BrowserDriverFlag.Name)
+				ip := ctx.GlobalString(utils.BrowserDBIPFlag.Name)
+				port := ctx.GlobalInt(utils.BrowserDBPortFlag.Name)
+				user := ctx.GlobalString(utils.BrowserDBUserFlag.Name)
+				pass := ctx.GlobalString(utils.BrowserDBPassFlag.Name)
+				DBName := ctx.GlobalString(utils.BrowserDBNameFlag.Name)
+
+				browseDB, err := sql.Open(driver, fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, pass, ip, port, DBName))
+				if err != nil {
+					utils.Fatalf("database connect fail: %s", err)
+				}
+				_, err = browseDB.Exec(fmt.Sprintf("use %s;", DBName))
+				if err != nil {
+					utils.Fatalf("database connect fail: %s", err)
+				}
+				ethereum.BlockChain().Config().Alien.BrowserDB = browseDB
 			}
 		}
 
