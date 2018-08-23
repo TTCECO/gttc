@@ -141,8 +141,8 @@ var (
 		utils.WhisperMinPOWFlag,
 	}
 
-	gttcFlags = []cli.Flag{
-		utils.GTTCRewardsSharePercentage,
+	browserFlags = []cli.Flag{
+		utils.BrowserEnabledFlag,
 	}
 )
 
@@ -186,7 +186,7 @@ func init() {
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, whisperFlags...)
-	app.Flags = append(app.Flags, gttcFlags...)
+	app.Flags = append(app.Flags, browserFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -304,7 +304,8 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 		}
 		if ethereum.BlockChain().Config().Alien != nil {
-			ethereum.BlockChain().Config().Alien.RewardsSharePercentage = ctx.GlobalFloat64(utils.GTTCRewardsSharePercentage.Name)
+			// connect db
+			// ctx.GlobalBool(utils.BrowserEnabledFlag.Name)
 		}
 		// Set the gas price to the limits from the CLI and start mining
 		ethereum.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))

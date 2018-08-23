@@ -755,8 +755,6 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
-	//todo : miner share with voter calculate by RewardsSharePercentage
-
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, blockReward)
 }

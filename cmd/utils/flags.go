@@ -534,10 +534,9 @@ var (
 		Value: whisper.DefaultMinimumPoW,
 	}
 
-	GTTCRewardsSharePercentage = cli.Float64Flag{
-		Name: "gttc.rsp",
-		Usage: "Percentage of Rewards miner share with voter",
-		Value: 38.8,
+	BrowserEnabledFlag = cli.BoolFlag{
+		Name: "browser",
+		Usage: "Enable browser",
 	}
 
 )

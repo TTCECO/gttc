@@ -223,9 +223,9 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
-		Name: "GTTC",
+		Name: "BROWSER",
 		Flags: []cli.Flag{
-			utils.GTTCRewardsSharePercentage,
+			utils.BrowserEnabledFlag,
 		},
 	},
 	{
