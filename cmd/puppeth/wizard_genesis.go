@@ -99,17 +99,16 @@ func (w *wizard) makeGenesis() {
 			copy(genesis.ExtraData[32+i*common.AddressLength:], signer[:])
 		}
 
-
 	case choice == "" || choice == "3":
 		// In the case of alien, configure the consensus parameters
 		genesis.Difficulty = big.NewInt(1)
 		genesis.Config.Alien = &params.AlienConfig{
-			Period: 3,
-			Epoch:  30000,
-			MaxSignerCount: 21,
-			MinVoterBalance: new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
+			Period:           3,
+			Epoch:            30000,
+			MaxSignerCount:   21,
+			MinVoterBalance:  new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
 			GenesisTimestamp: uint64(time.Now().Unix()) + (60 * 5), // Add five minutes
-			SelfVoteSigners: []common.Address{},
+			SelfVoteSigners:  []common.Address{},
 		}
 		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 6)")
@@ -130,7 +129,7 @@ func (w *wizard) makeGenesis() {
 
 		fmt.Println()
 		fmt.Println("How many minutes delay to create first block ? (default = 5 minutes)")
-		genesis.Config.Alien.GenesisTimestamp = uint64(time.Now().Unix()) + uint64(w.readDefaultInt(5) * 60)
+		genesis.Config.Alien.GenesisTimestamp = uint64(time.Now().Unix()) + uint64(w.readDefaultInt(5)*60)
 
 		// We also need the initial list of signers
 		fmt.Println()
@@ -148,12 +147,11 @@ func (w *wizard) makeGenesis() {
 			}
 		}
 
-		genesis.ExtraData = make([]byte, 32 + 65)
+		genesis.ExtraData = make([]byte, 32+65)
 
 	default:
 		log.Crit("Invalid consensus engine choice", "choice", choice)
 	}
-
 
 	// Consensus all set, just ask for initial funds and go
 	fmt.Println()

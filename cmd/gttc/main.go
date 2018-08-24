@@ -18,7 +18,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"os"
@@ -33,6 +32,7 @@ import (
 	"github.com/TTCECO/gttc/console"
 	"github.com/TTCECO/gttc/eth"
 	"github.com/TTCECO/gttc/ethclient"
+	"github.com/TTCECO/gttc/extra/browserdb/tbdb"
 	"github.com/TTCECO/gttc/internal/debug"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/metrics"
@@ -322,17 +322,13 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				user := ctx.GlobalString(utils.BrowserDBUserFlag.Name)
 				pass := ctx.GlobalString(utils.BrowserDBPassFlag.Name)
 				DBName := ctx.GlobalString(utils.BrowserDBNameFlag.Name)
-
-				browseDB, err := sql.Open(driver, fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, pass, ip, port, DBName))
+				ttcBrowserDB := &tbdb.TTCBrowserDB{}
+				err := ttcBrowserDB.Open(driver, ip, port, user, pass, DBName)
 				if err != nil {
 					utils.Fatalf("database connect fail: %s", err)
 				}
-				_, err = browseDB.Exec(fmt.Sprintf("use %s;", DBName))
-				if err != nil {
-					utils.Fatalf("database connect fail: %s", err)
-				}
-				ethereum.BlockChain().Config().Alien.BrowserDB = browseDB
-				stack.SetBrowserDBConn(browseDB)
+				ethereum.BlockChain().Config().Alien.BrowserDB = ttcBrowserDB
+				stack.SetBrowserDBConn(ttcBrowserDB)
 			}
 		}
 

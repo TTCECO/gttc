@@ -17,9 +17,9 @@
 package params
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/TTCECO/gttc/common"
+	"github.com/TTCECO/gttc/extra/browserdb"
 	"math/big"
 )
 
@@ -163,13 +163,13 @@ func (c *CliqueConfig) String() string {
 
 // AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
 type AlienConfig struct {
-	Period           uint64           `json:"period"`           // Number of seconds between blocks to enforce
-	Epoch            uint64           `json:"epoch"`            // Epoch length to reset votes and checkpoint
-	MaxSignerCount   uint64           `json:"maxSignersCount"`  // Max count of signers
-	MinVoterBalance  *big.Int         `json:"minVoterBalance"`  // Min voter balance to valid this vote
-	GenesisTimestamp uint64           `json:"genesisTimestamp"` // The LoopStartTime of first Block
-	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
-	BrowserDB        *sql.DB          // outside Database for blockchain browser
+	Period           uint64               `json:"period"`           // Number of seconds between blocks to enforce
+	Epoch            uint64               `json:"epoch"`            // Epoch length to reset votes and checkpoint
+	MaxSignerCount   uint64               `json:"maxSignersCount"`  // Max count of signers
+	MinVoterBalance  *big.Int             `json:"minVoterBalance"`  // Min voter balance to valid this vote
+	GenesisTimestamp uint64               `json:"genesisTimestamp"` // The LoopStartTime of first Block
+	SelfVoteSigners  []common.Address     `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
+	BrowserDB        *browserdb.BrowserDB // outside Database for blockchain browser
 }
 
 // String implements the stringer interface, returning the consensus engine details.

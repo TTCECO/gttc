@@ -25,11 +25,11 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"database/sql"
 
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/event"
+	"github.com/TTCECO/gttc/extra/browserdb"
 	"github.com/TTCECO/gttc/internal/debug"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/p2p"
@@ -70,8 +70,8 @@ type Node struct {
 
 	stop chan struct{} // Channel to wait for termination notifications
 
-	browserDB *sql.DB   // DB conn to store info for browser
-	lock sync.RWMutex
+	browserDB *browserdb.BrowserDB // DB conn to store info for browser
+	lock      sync.RWMutex
 
 	log log.Logger
 }
@@ -399,16 +399,19 @@ func (n *Node) stopWS() {
 	}
 }
 
-func (n *Node) SetBrowserDBConn(db *sql.DB) {
-	n.browserDB = db
+func (n *Node) SetBrowserDBConn(browserDB browserdb.BrowserDB) {
+	n.browserDB = &browserDB
 }
 
 func (n *Node) stopBrowserDBConn() {
+
+	browserDB := *n.browserDB
+
 	if n.browserDB != nil {
-		err := n.browserDB.Close()
+		err := browserDB.Close()
 		if err != nil {
 			n.log.Error("Can't close the connection to browser database", "err", err)
-		}else {
+		} else {
 			n.log.Info("Connection to browser database closed")
 		}
 
