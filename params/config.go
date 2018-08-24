@@ -19,7 +19,7 @@ package params
 import (
 	"fmt"
 	"github.com/TTCECO/gttc/common"
-	"github.com/TTCECO/gttc/extra/browserdb"
+	"github.com/TTCECO/gttc/extra/browserdb/tbdb"
 	"math/big"
 )
 
@@ -169,7 +169,7 @@ type AlienConfig struct {
 	MinVoterBalance  *big.Int             `json:"minVoterBalance"`  // Min voter balance to valid this vote
 	GenesisTimestamp uint64               `json:"genesisTimestamp"` // The LoopStartTime of first Block
 	SelfVoteSigners  []common.Address     `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
-	BrowserDB        *browserdb.BrowserDB // outside Database for blockchain browser
+	BrowserDB        *tbdb.TTCBrowserDB // outside Database for blockchain browser
 }
 
 // String implements the stringer interface, returning the consensus engine details.
