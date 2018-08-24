@@ -20,7 +20,4 @@ type BrowserDB interface {
 	Open(driver string, ip string, port int, user string, password string, DBName string) error
 	Close() error
 	CreateDefaultTable() error
-	SaveTx() error
-	SaveBlock() error
-	SaveSnapshot() error
 }

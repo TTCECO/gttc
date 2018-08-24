@@ -25,6 +25,7 @@ import (
 	"sort"
 	"time"
 
+	"fmt"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
@@ -182,7 +183,8 @@ func (s *Snapshot) copy() *Snapshot {
 
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
-func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
+func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*Snapshot, error) {
+	s.config = config
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return s, nil
@@ -219,6 +221,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
+		if snap.config.BrowserDB != nil {
+			snap.config.BrowserDB.Exec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
+		}
 
 		//
 		if len(snap.HistoryHash) >= int(s.config.MaxSignerCount)*2 {

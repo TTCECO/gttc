@@ -48,15 +48,10 @@ func (b *TTCBrowserDB) CreateDefaultTable() error {
 	return nil
 }
 
-func (b *TTCBrowserDB) SaveTx() error {
-
-	return nil
-}
-
-func (b *TTCBrowserDB) SaveBlock() error {
-	return nil
-}
-
-func (b *TTCBrowserDB) SaveSnapshot() error {
+func (b *TTCBrowserDB) Exec(input string) error {
+	_, err := b.db.Exec(input)
+	if err != nil {
+		return err
+	}
 	return nil
 }

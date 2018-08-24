@@ -421,7 +421,7 @@ func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
 
-	snap, err := snap.apply(headers)
+	snap, err := snap.apply(headers, chain.Config().Alien)
 	if err != nil {
 		return nil, err
 	}
