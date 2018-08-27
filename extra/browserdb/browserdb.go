@@ -16,8 +16,14 @@
 
 package browserdb
 
+const (
+	MYSQL_DRIVER = "mysql"
+	MONGO_DRIVER = "mongo"
+)
+
 type BrowserDB interface {
 	Open(driver string, ip string, port int, user string, password string, DBName string) error
 	Close() error
+	GetDriver() string
 	CreateDefaultTable() error
 }

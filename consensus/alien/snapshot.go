@@ -29,6 +29,7 @@ import (
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
+	"github.com/TTCECO/gttc/extra/browserdb"
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
@@ -222,7 +223,11 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
 		if snap.config.BrowserDB != nil {
-			snap.config.BrowserDB.Exec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
+			if snap.config.BrowserDB.GetDriver() == browserdb.MYSQL_DRIVER {
+				snap.config.BrowserDB.MysqlExec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
+			} else if snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+				snap.config.BrowserDB.MongoSave(fmt.Sprintf("%d", snap.ConfirmedNumber))
+			}
 		}
 
 		//

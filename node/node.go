@@ -404,10 +404,8 @@ func (n *Node) SetBrowserDBConn(browserDB browserdb.BrowserDB) {
 }
 
 func (n *Node) stopBrowserDBConn() {
-
-	browserDB := *n.browserDB
-
 	if n.browserDB != nil {
+		browserDB := *n.browserDB
 		err := browserDB.Close()
 		if err != nil {
 			n.log.Error("Can't close the connection to browser database", "err", err)

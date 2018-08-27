@@ -18,29 +18,64 @@ package tbdb
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/TTCECO/gttc/extra/browserdb"
 	_ "github.com/go-sql-driver/mysql"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"strings"
 )
 
 type TTCBrowserDB struct {
-	db *sql.DB
+	driver       string
+	mysqlDB      *sql.DB
+	mongoDB      *mgo.Database
+	mongoSession *mgo.Session
 }
 
 func (b *TTCBrowserDB) Open(driver string, ip string, port int, user string, password string, DBName string) error {
-	db, err := sql.Open(driver, fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, password, ip, port, DBName))
-	if err != nil {
-		return err
+	b.driver = strings.ToLower(driver)
+
+	if b.driver == browserdb.MYSQL_DRIVER {
+		db, err := sql.Open(driver, fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, password, ip, port, DBName))
+		if err != nil {
+			return err
+		}
+		_, err = db.Exec(fmt.Sprintf("use %s;", DBName))
+		if err != nil {
+			return err
+		}
+		b.mysqlDB = db
+	} else if b.driver == browserdb.MONGO_DRIVER {
+		session, err := mgo.Dial(fmt.Sprintf("%s:%s@%s:%d", user, password, ip, port))
+		if err != nil {
+			return err
+		}
+		session.SetMode(mgo.Monotonic, true)
+		b.mongoSession = session
+		b.mongoDB = b.mongoSession.DB(DBName)
+
+	} else {
+		return errors.New(fmt.Sprintf("%s database is not support", driver))
 	}
-	_, err = db.Exec(fmt.Sprintf("use %s;", DBName))
-	if err != nil {
-		return err
-	}
-	b.db = db
+
 	return nil
 }
 
 func (b *TTCBrowserDB) Close() error {
-	return b.db.Close()
+	if b.driver == browserdb.MYSQL_DRIVER && b.mysqlDB != nil {
+		return b.mysqlDB.Close()
+	} else if b.driver == browserdb.MONGO_DRIVER && b.mongoSession != nil {
+		b.mongoSession.Close()
+		return nil
+	} else {
+		return nil
+	}
+}
+
+func (b *TTCBrowserDB) GetDriver() string {
+	return b.driver
 }
 
 func (b *TTCBrowserDB) CreateDefaultTable() error {
@@ -48,8 +83,16 @@ func (b *TTCBrowserDB) CreateDefaultTable() error {
 	return nil
 }
 
-func (b *TTCBrowserDB) Exec(input string) error {
-	_, err := b.db.Exec(input)
+func (b *TTCBrowserDB) MysqlExec(input string) error {
+	_, err := b.mysqlDB.Exec(input)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *TTCBrowserDB) MongoSave(input string) error {
+	err := b.mongoDB.C("snapshot").Insert(&bson.M{"number": input})
 	if err != nil {
 		return err
 	}
