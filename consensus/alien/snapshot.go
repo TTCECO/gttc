@@ -182,6 +182,41 @@ func (s *Snapshot) copy() *Snapshot {
 	return cpy
 }
 
+// copy creates a deep copy of the snapshot, though not the individual votes.
+func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} {
+	cpy := map[string]interface{}{}
+	cpyTally := make(map[string]string)
+	for voter, tally := range s.Tally {
+		cpyTally[voter.Hex()] = tally.String()
+	}
+	cpy["Tally"] = cpyTally
+	cpyVoters := make(map[string]uint64)
+	for voter, number := range s.Voters {
+		cpyVoters[voter.Hex()] = number.Uint64()
+	}
+	cpy["Voters"] = cpyVoters
+	cpyVotes := make(map[string]map[string]interface{})
+	for voter, vote := range s.Votes {
+		cpyVotes[voter.Hex()] = map[string]interface{}{
+			"Voter":     vote.Voter.Hex(),
+			"Candidate": vote.Candidate.Hex(),
+			"Stake":     vote.Stake.String(),
+		}
+	}
+	cpy["Votes"] = cpyVotes
+
+	cpySigners := make([]string, len(s.Signers))
+	for i, signer := range s.Signers {
+		cpySigners[i] = signer.Hex()
+	}
+	cpy["Signers"] = cpySigners
+	cpy["Number"] = s.Number
+	cpy["Coinbase"] = header.Coinbase.Hex()
+	cpy["GasLimit"] = header.GasLimit
+	cpy["GasUsed"] = header.GasUsed
+	return cpy
+}
+
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
 func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*Snapshot, error) {
@@ -226,7 +261,10 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 			if snap.config.BrowserDB.GetDriver() == browserdb.MYSQL_DRIVER {
 				snap.config.BrowserDB.MysqlExec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
 			} else if snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
-				snap.config.BrowserDB.MongoSave(fmt.Sprintf("%d", snap.ConfirmedNumber))
+				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 

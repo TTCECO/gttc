@@ -91,8 +91,8 @@ func (b *TTCBrowserDB) MysqlExec(input string) error {
 	return nil
 }
 
-func (b *TTCBrowserDB) MongoSave(input string) error {
-	err := b.mongoDB.C("snapshot").Insert(&bson.M{"number": input})
+func (b *TTCBrowserDB) MongoSave(collection string, data bson.M) error {
+	err := b.mongoDB.C(collection).Insert(data)
 	if err != nil {
 		return err
 	}
