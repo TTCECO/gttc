@@ -189,31 +189,31 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 	for voter, tally := range s.Tally {
 		cpyTally[voter.Hex()] = tally.String()
 	}
-	cpy["Tally"] = cpyTally
+	cpy["tally"] = cpyTally
 	cpyVoters := make(map[string]uint64)
 	for voter, number := range s.Voters {
 		cpyVoters[voter.Hex()] = number.Uint64()
 	}
-	cpy["Voters"] = cpyVoters
+	cpy["voters"] = cpyVoters
 	cpyVotes := make(map[string]map[string]interface{})
 	for voter, vote := range s.Votes {
 		cpyVotes[voter.Hex()] = map[string]interface{}{
-			"Voter":     vote.Voter.Hex(),
-			"Candidate": vote.Candidate.Hex(),
-			"Stake":     vote.Stake.String(),
+			"voter":     vote.Voter.Hex(),
+			"candidate": vote.Candidate.Hex(),
+			"stake":     vote.Stake.String(),
 		}
 	}
-	cpy["Votes"] = cpyVotes
+	cpy["votes"] = cpyVotes
 
 	cpySigners := make([]string, len(s.Signers))
 	for i, signer := range s.Signers {
 		cpySigners[i] = signer.Hex()
 	}
-	cpy["Signers"] = cpySigners
-	cpy["Number"] = s.Number
-	cpy["Coinbase"] = header.Coinbase.Hex()
-	cpy["GasLimit"] = header.GasLimit
-	cpy["GasUsed"] = header.GasUsed
+	cpy["signers"] = cpySigners
+	cpy["number"] = s.Number
+	cpy["coinbase"] = header.Coinbase.Hex()
+	cpy["gasLimit"] = header.GasLimit
+	cpy["gasUsed"] = header.GasUsed
 	return cpy
 }
 
@@ -265,9 +265,9 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 				if err != nil {
 					return nil, err
 				}
-				updateCondition := map[string]interface{}{"Number":snap.ConfirmedNumber}
-				updateData := map[string]interface{}{"$set":map[string]bool{ "Confirmed":true}}
-				err = snap.config.BrowserDB.MongoUpdate("snapshot",updateCondition, updateData)
+				updateCondition := map[string]interface{}{"Number": snap.ConfirmedNumber}
+				updateData := map[string]interface{}{"$set": map[string]bool{"Confirmed": true}}
+				err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
 
 			}
 		}

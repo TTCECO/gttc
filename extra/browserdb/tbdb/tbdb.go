@@ -91,10 +91,10 @@ func (b *TTCBrowserDB) MysqlExec(input string) error {
 	return nil
 }
 
-func (b *TTCBrowserDB) MongoSave(collection string, data bson.M) error {
-	return b.mongoDB.C(collection).Insert(data)
+func (b *TTCBrowserDB) MongoSave(collection string, data ...interface{}) error {
+	return b.mongoDB.C(collection).Insert(data...)
 }
 
 func (b *TTCBrowserDB) MongoUpdate(collection string, condition bson.M, data bson.M) error {
-	return b.mongoDB.C(collection).Update(condition,data)
+	return b.mongoDB.C(collection).Update(condition, data)
 }

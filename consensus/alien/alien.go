@@ -34,6 +34,7 @@ import (
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/crypto/sha3"
 	"github.com/TTCECO/gttc/ethdb"
+	"github.com/TTCECO/gttc/extra/browserdb"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
@@ -159,6 +160,18 @@ type HeaderExtra struct {
 	SignerQueue               []common.Address
 	SignerMissing             []common.Address
 	ConfirmedBlockNumber      uint64
+}
+
+// TxRecord is the record of one transaction. The data save into MongoDB for browser
+type TxRecord struct {
+	Number   uint64
+	Hash     string
+	From     string
+	To       string
+	Value    string
+	Data     string
+	Gas      uint64
+	GasPrice string
 }
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -521,6 +534,33 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 
 	if !snap.inturn(signer, header.Time.Uint64()) {
 		return errUnauthorized
+	}
+
+	//
+	if chain.Config().Alien.BrowserDB != nil && chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+
+		var parent *types.Header
+		if len(parents) > 0 {
+			parent = parents[len(parents)-1]
+		} else {
+			parent = chain.GetHeader(header.ParentHash, number-1)
+		}
+		parentBlock := chain.GetBlock(parent.Hash(), parent.Number.Uint64())
+		if parentBlock != nil {
+			var txsData []interface{}
+			for _, tx := range parentBlock.Transactions() {
+				signer := types.NewEIP155Signer(tx.ChainId())
+				from, _ := types.Sender(signer, tx)
+				txsData = append(txsData, &TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
+					from.Hex(), tx.To().Hex(),
+					tx.Value().String(), string(tx.Data()),
+					tx.Gas(), tx.GasPrice().String()})
+			}
+			err := chain.Config().Alien.BrowserDB.MongoSave("txs", txsData...)
+			if err != nil {
+				log.Info("save transaction into mongodb fail ", "error", err)
+			}
+		}
 	}
 
 	return nil
