@@ -265,6 +265,10 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 				if err != nil {
 					return nil, err
 				}
+				updateCondition := map[string]interface{}{"Number":snap.ConfirmedNumber}
+				updateData := map[string]interface{}{"$set":map[string]bool{ "Confirmed":true}}
+				err = snap.config.BrowserDB.MongoUpdate("snapshot",updateCondition, updateData)
+
 			}
 		}
 
