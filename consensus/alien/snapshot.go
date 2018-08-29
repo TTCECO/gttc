@@ -37,6 +37,7 @@ const (
 	defaultFullCredit               = 1000 // no punished
 	missingPublishCredit            = 100  // punished for missing one block seal
 	signRewardCredit                = 10   // seal one block
+	autoRewardCredit                = 1    // credit auto recover for each block
 	minCalSignerQueueCredit         = 300  // when calculate the signerQueue
 	defaultOfficialMaxSignerCount   = 21   // official max signer count
 	defaultOfficialFirstLevelCount  = 10   // official first level , 100% in signer queue
@@ -299,6 +300,11 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				delete(snap.Punished, header.Coinbase)
 			}
 		}
+		// reduct the punish for all punished
+		for signerEach := range snap.Punished {
+			snap.Punished[signerEach] -= autoRewardCredit
+		}
+
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
