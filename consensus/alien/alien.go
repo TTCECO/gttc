@@ -63,6 +63,19 @@ const (
 	posEventVote          = 3
 	posEventConfirm       = 3
 	posEventConfirmNumber = 4
+
+	/*
+	 * decision type
+	 */
+	decisionTypeWaitTillEnd = 1
+	decisionTypeImmediately = 2
+
+	/*
+	 *  proposal type
+	 */
+	proposalTypeCandidateAdd                  = 1
+	proposalTypeCandidateRemove               = 2
+	proposalTypeMinerRewardDistributionModify = 3 // count in one thousand
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -149,6 +162,34 @@ type Vote struct {
 type Confirmation struct {
 	Signer      common.Address
 	BlockNumber *big.Int
+}
+
+// Proposal :
+// proposal come from  custom tx which data like "ufo:1:event:proposal:candidate:add" or "ufo:1:event:proposal:percentage:60"
+// proposal only come from the current candidates
+// not only candidate add/remove , current signer can proposal for params modify like percentage of reward distribution ...
+type Proposal struct {
+	Hash                   common.Hash    // tx hash
+	Version                int            // version of current proposal
+	ReceivedNumber         *big.Int       // received block number
+	ValidationCnt          uint64         // validation block number length of this proposal from the received block number
+	ImplementNumber        *big.Int       // block number to implement modification in this proposal
+	DecisionType           int            // success if condition fill / success if condition fill and block number reach ValidationCnt
+	ProposalType           int            // type of proposal 1 - add candidate 2 - remove candidate ...
+	Proposer               common.Address //
+	CandidateAdd           common.Address
+	CandidateRemove        common.Address
+	MinerRewardPerThousand *big.Int
+}
+
+// Declare :
+// declare come from custom tx which data like "ufo:1:event:declare:hash
+// proposal only come from the current candidates
+// hash is the hash of proposal tx
+type Declare struct {
+	ProposalHash common.Hash
+	Declarer     common.Address
+	Decision     bool
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
