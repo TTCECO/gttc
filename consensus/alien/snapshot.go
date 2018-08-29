@@ -531,3 +531,20 @@ func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *bi
 	}
 	return big.NewInt(int64(i))
 }
+
+func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
+
+	rewards := make(map[common.Address]*big.Int)
+	allStake := big.NewInt(0)
+	for voter, vote := range s.Votes {
+		if vote.Candidate.Hex() == coinbase.Hex() {
+			allStake.Add(allStake, vote.Stake)
+			rewards[voter] = new(big.Int).Set(vote.Stake)
+		}
+	}
+	for _, stake := range rewards {
+		stake.Mul(stake, votersReward)
+		stake.Div(stake, allStake)
+	}
+	return rewards
+}

@@ -77,6 +77,7 @@ var (
 	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	defaultDifficulty                = big.NewInt(1)            // Default difficulty
 	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
+	defaultMinerRewardPerThousand    = big.NewInt(618)          // Default reward for miner in each block from block reward (618/1000)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -664,7 +665,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Difficulty = new(big.Int).Set(defaultDifficulty)
 
 	// Accumulate any block rewards and commit the final state root
-	accumulateRewards(chain.Config(), state, header)
+	accumulateRewards(chain.Config(), state, header, snap)
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
@@ -753,14 +754,24 @@ func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header) {
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot) {
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
+	minerReward := new(big.Int).Set(blockReward)
+	minerReward.Mul(minerReward, defaultMinerRewardPerThousand)
+	minerReward.Div(minerReward, big.NewInt(1000))
+
+	votersReward := blockReward.Sub(blockReward, minerReward)
+
+	// rewards for the voters
+	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
+		state.AddBalance(voter, reward)
+	}
 	// rewards for the miner
-	state.AddBalance(header.Coinbase, blockReward)
+	state.AddBalance(header.Coinbase, minerReward)
 }
 
 // Get the signer missing from last signer till header.Coinbase
