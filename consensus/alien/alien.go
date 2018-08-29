@@ -826,8 +826,9 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
 								if posEventVote >= ufoMinSplitLen && txDataInfo[posEventVote] == ufoEventVote {
-
-									currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx)
+									if snap.isCandidate(*tx.To()) {
+										currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx)
+									}
 
 									if tx.Value().Cmp(big.NewInt(0)) == 0 {
 										// if value is not zero, this vote may influence the balance of tx.To()

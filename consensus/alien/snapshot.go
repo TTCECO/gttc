@@ -44,6 +44,9 @@ const (
 	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
+	candidateAdding   = 0
+	candidateNormal   = 1
+	candidateRemoving = 2
 )
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -59,7 +62,8 @@ type Snapshot struct {
 	Signers         []*common.Address            `json:"signers"`         // Signers queue in current header
 	Votes           map[common.Address]*Vote     `json:"votes"`           // All validate votes from genesis block
 	Tally           map[common.Address]*big.Int  `json:"tally"`           // Stake for each candidate address
-	Voters          map[common.Address]*big.Int  `json:"voters"`          // block number for each voter address
+	Voters          map[common.Address]*big.Int  `json:"voters"`          // Block number for each voter address
+	Candidates      map[common.Address]uint64    `json:"candidates"`      // Candidates for Signers (0- adding procedure 1- normal 2- removing procedure)
 	Punished        map[common.Address]uint64    `json:"punished"`        // The signer be punished count cause of missing seal
 	Confirmations   map[uint64][]*common.Address `json:"confirms"`        // The signer confirm given block number
 	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
@@ -83,6 +87,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Tally:           make(map[common.Address]*big.Int),
 		Voters:          make(map[common.Address]*big.Int),
 		Punished:        make(map[common.Address]uint64),
+		Candidates:      make(map[common.Address]uint64),
 		Confirmations:   make(map[uint64][]*common.Address),
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
@@ -101,6 +106,8 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
 		// init Voters
 		snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
+		// init Candidates
+		snap.Candidates[vote.Voter] = candidateNormal
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
@@ -149,6 +156,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
+		Candidates:    make(map[common.Address]uint64),
 		Punished:      make(map[common.Address]uint64),
 		Confirmations: make(map[uint64][]*common.Address),
 
@@ -169,6 +177,9 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 	for voter, number := range s.Voters {
 		cpy.Voters[voter] = number
+	}
+	for candidate, state := range s.Candidates {
+		cpy.Candidates[candidate] = state
 	}
 	for signer, cnt := range s.Punished {
 		cpy.Punished[signer] = cnt
@@ -327,7 +338,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 	}
 	// deal the expired confirmation
-	for blockNumber, _ := range snap.Confirmations {
+	for blockNumber := range snap.Confirmations {
 		if snap.Number-blockNumber > snap.config.MaxSignerCount {
 			delete(snap.Confirmations, blockNumber)
 		}
@@ -413,6 +424,7 @@ func (s *Snapshot) verifySignerQueue(signerQueue []common.Address) error {
 }
 
 func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
+
 	if (s.Number+1)%s.config.MaxSignerCount != 0 || s.Hash != s.HistoryHash[len(s.HistoryHash)-1] {
 		return nil, errCreateSignerQueueNotAllowed
 	}
@@ -421,20 +433,24 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 	var topStakeAddress []common.Address
 
 	if (s.Number+1)%(s.config.MaxSignerCount*s.LCRS) == 0 {
+		// before recalculate the signers, clear the candidate is not in snap.Candidates
+
 		// only recalculate signers from to tally per 10 loop,
 		// other loop end just reset the order of signers by block hash (nearly random)
 		var tallySlice TallySlice
 		for address, stake := range s.Tally {
-			if _, ok := s.Punished[address]; ok {
-				var creditWeight uint64
-				if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
-					creditWeight = minCalSignerQueueCredit
+			if s.isCandidate(address) {
+				if _, ok := s.Punished[address]; ok {
+					var creditWeight uint64
+					if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
+						creditWeight = minCalSignerQueueCredit
+					} else {
+						creditWeight = defaultFullCredit - s.Punished[address]
+					}
+					tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
 				} else {
-					creditWeight = defaultFullCredit - s.Punished[address]
+					tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 				}
-				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
-			} else {
-				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 			}
 		}
 
@@ -495,6 +511,17 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 func (s *Snapshot) isVoter(address common.Address) bool {
 	if _, ok := s.Voters[address]; ok {
 		return true
+	}
+	return false
+}
+
+// check if address belong to candidate
+func (s *Snapshot) isCandidate(address common.Address) bool {
+	if state, ok := s.Candidates[address]; ok {
+		// in adding procedure, the candidate not being valid by enough signer (delegate stake accurately)
+		if state != candidateAdding {
+			return true
+		}
 	}
 	return false
 }
