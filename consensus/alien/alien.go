@@ -175,11 +175,11 @@ type Confirmation struct {
 type Proposal struct {
 	ReceivedNumber         *big.Int       // received block number
 	Hash                   common.Hash    // tx hash
-	Version                int            // version of current proposal
+	Version                uint64         // version of current proposal
 	ValidationCnt          uint64         // validation block number length of this proposal from the received block number
 	ImplementNumber        *big.Int       // block number to implement modification in this proposal
-	DecisionType           int            // success if condition fill / success if condition fill and block number reach ValidationCnt
-	ProposalType           int            // type of proposal 1 - add candidate 2 - remove candidate ...
+	DecisionType           uint64         // success if condition fill / success if condition fill and block number reach ValidationCnt
+	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address //
 	CandidateAdd           common.Address
 	CandidateRemove        common.Address
@@ -202,7 +202,7 @@ type HeaderExtra struct {
 	CurrentBlockConfirmations []Confirmation
 	CurrentBlockVotes         []Vote
 	CurrentBlockProposals     []Proposal
-	CurrentBlockDeclare       []Declare
+	CurrentBlockDeclares      []Declare
 	ModifyPredecessorVotes    []Vote
 	LoopStartTime             uint64
 	SignerQueue               []common.Address
@@ -633,15 +633,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 	header.Extra = header.Extra[:extraVanity]
 
-	// calculate votes write into header.extra
-	currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, currentBlockProposals, currentBlockDeclares, err := a.processCustomTx(chain, header, state, txs)
-	if err != nil {
-		return nil, err
-	}
-
 	// genesisVotes write direct into snapshot, which number is 1
 	var genesisVotes []*Vote
+	parentHeaderExtra := HeaderExtra{}
 	currentHeaderExtra := HeaderExtra{}
+
 	if number == 1 {
 		alreadyVote := make(map[common.Address]struct{})
 		for _, voter := range a.config.SelfVoteSigners {
@@ -657,20 +653,22 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	} else {
 		// decode extra from last header.extra
-		err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+		err := rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
 			return nil, err
 		}
+		currentHeaderExtra.ConfirmedBlockNumber = parentHeaderExtra.ConfirmedBlockNumber
+		currentHeaderExtra.SignerQueue = parentHeaderExtra.SignerQueue
+		currentHeaderExtra.LoopStartTime = parentHeaderExtra.LoopStartTime
+		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
 	}
 
-	// notice : the currentHeaderExtra contain the info of parent HeaderExtra
-	currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, currentHeaderExtra)
-	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
-	currentHeaderExtra.CurrentBlockConfirmations = currentBlockConfirmations
-	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
-	currentHeaderExtra.CurrentBlockProposals = currentBlockProposals
-	currentHeaderExtra.CurrentBlockDeclare = currentBlockDeclares
+	// calculate votes write into header.extra
+	currentHeaderExtra, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs)
+	if err != nil {
+		return nil, err
+	}
 
 	// Assemble the voting snapshot to check which votes make sense
 	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes, defaultLoopCntRecalculateSigners)
@@ -678,7 +676,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		return nil, err
 	}
 
-	currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentBlockConfirmations).Uint64()
+	currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentHeaderExtra.CurrentBlockConfirmations).Uint64()
 
 	// write signerQueue in first header, from self vote signers in genesis block
 	if number == 1 {
@@ -845,24 +843,19 @@ func getSignerMissing(lastSigner common.Address, currentSigner common.Address, e
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, []Confirmation, []Proposal, []Declare, error) {
+func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) (HeaderExtra, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 	var (
-		currentBlockConfirmations []Confirmation
-		currentBlockVotes         []Vote
-		modifyPredecessorVotes    []Vote
-		currentBlockProposals     []Proposal
-		currentBlockDeclares      []Declare
-		snap                      *Snapshot
-		err                       error
-		number                    uint64
+		snap   *Snapshot
+		err    error
+		number uint64
 	)
 	number = header.Number.Uint64()
 	if number > 1 {
 		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
 		if err != nil {
-			return nil, nil, nil, nil, nil, err
+			return headerExtra, err
 		}
 	}
 
@@ -884,13 +877,13 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
 								if txDataInfo[posEventVote] == ufoEventVote && snap.isCandidate(*tx.To()) {
-									currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx, txSender)
+									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
-									currentBlockConfirmations = a.processEventConfirm(currentBlockConfirmations, chain, txDataInfo, number, tx, txSender)
+									headerExtra.CurrentBlockConfirmations = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender)
 								} else if txDataInfo[posEventProposal] == ufoEventPorposal && snap.isCandidate(txSender) {
-									currentBlockProposals = a.processEventProposal(currentBlockProposals, tx, txSender)
+									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, tx, txSender)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
-									currentBlockDeclares = a.processEventDeclare(currentBlockDeclares, tx, txSender)
+									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, tx, txSender)
 								}
 
 								// if value is not zero, this vote may influence the balance of tx.To()
@@ -910,12 +903,12 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 		}
 
 		if number > 1 {
-			modifyPredecessorVotes = a.processPredecessorVoter(modifyPredecessorVotes, state, tx, txSender, snap)
+			headerExtra.ModifyPredecessorVotes = a.processPredecessorVoter(headerExtra.ModifyPredecessorVotes, state, tx, txSender, snap)
 		}
 
 	}
 
-	return currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, currentBlockProposals, currentBlockDeclares, nil
+	return headerExtra, nil
 }
 
 func (a *Alien) processEventProposal(currentBlockProposals []Proposal, tx *types.Transaction, voter common.Address) []Proposal {
