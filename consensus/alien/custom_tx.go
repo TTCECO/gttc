@@ -65,6 +65,11 @@ const (
 	proposalTypeCandidateAdd                  = 1
 	proposalTypeCandidateRemove               = 2
 	proposalTypeMinerRewardDistributionModify = 3 // count in one thousand
+
+	/*
+	 * proposal related
+	 */
+	defaultValidationCnt = 30000
 )
 
 // Vote :
@@ -87,32 +92,28 @@ type Confirmation struct {
 }
 
 // Proposal :
-// proposal come from  custom tx which data like "ufo:1:event:proposal:candidate:add" or "ufo:1:event:proposal:percentage:60"
+// proposal come from  custom tx which data like "ufo:1:event:proposal:candidate:add:address" or "ufo:1:event:proposal:percentage:60"
 // proposal only come from the current candidates
 // not only candidate add/remove , current signer can proposal for params modify like percentage of reward distribution ...
 type Proposal struct {
-	ReceivedNumber         *big.Int       // received block number
 	Hash                   common.Hash    // tx hash
-	Version                uint64         // version of current proposal
 	ValidationCnt          uint64         // validation block number length of this proposal from the received block number
 	ImplementNumber        *big.Int       // block number to implement modification in this proposal
 	DecisionType           uint64         // success if condition fill / success if condition fill and block number reach ValidationCnt
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address //
-	CandidateAdd           common.Address
-	CandidateRemove        common.Address
-	MinerRewardPerThousand *big.Int
+	Candidate              common.Address
+	MinerRewardPerThousand uint64
 }
 
 // Declare :
-// declare come from custom tx which data like "ufo:1:event:declare:hash
+// declare come from custom tx which data like "ufo:1:event:declare:hash:yes"
 // proposal only come from the current candidates
 // hash is the hash of proposal tx
 type Declare struct {
-	ReceivedNumber *big.Int // received block number
-	ProposalHash   common.Hash
-	Declarer       common.Address
-	Decision       bool
+	ProposalHash common.Hash
+	Declarer     common.Address
+	Decision     bool
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
@@ -167,9 +168,9 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
 									headerExtra.CurrentBlockConfirmations = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender)
 								} else if txDataInfo[posEventProposal] == ufoEventPorposal && snap.isCandidate(txSender) {
-									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, tx, txSender)
+									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, tx, txSender)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
-									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, tx, txSender)
+									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, txDataInfo, tx, txSender)
 								}
 
 								// if value is not zero, this vote may influence the balance of tx.To()
@@ -197,14 +198,88 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 	return headerExtra, nil
 }
 
-func (a *Alien) processEventProposal(currentBlockProposals []Proposal, tx *types.Transaction, voter common.Address) []Proposal {
+func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
 
-	return currentBlockProposals
+	proposal := Proposal{
+		Hash:                   tx.Hash(),
+		ValidationCnt:          defaultValidationCnt,
+		ImplementNumber:        big.NewInt(1),
+		DecisionType:           decisionTypeImmediately,
+		ProposalType:           proposalTypeCandidateAdd,
+		Proposer:               proposer,
+		Candidate:              common.Address{},
+		MinerRewardPerThousand: defaultMinerRewardPerThousand,
+	}
+
+	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
+		k, v := txDataInfo[posEventProposal+1+i*2], txDataInfo[posEventProposal+2+i*2]
+		switch k {
+		case "validation_cnt":
+			if validationCnt, err := strconv.Atoi(v); err != nil || validationCnt <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.ValidationCnt = uint64(validationCnt)
+			}
+		case "implement_number":
+			if implementNumber, err := strconv.Atoi(v); err != nil || implementNumber <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.ImplementNumber = big.NewInt(int64(implementNumber))
+			}
+		case "decision_type":
+			if decisionType, err := strconv.Atoi(v); err != nil || (decisionType != decisionTypeWaitTillEnd && decisionType != decisionTypeImmediately) {
+				return currentBlockProposals
+			} else {
+				proposal.DecisionType = uint64(decisionType)
+			}
+		case "proposal_type":
+			if proposalType, err := strconv.Atoi(v); err != nil || (proposalType != proposalTypeCandidateAdd && proposalType != proposalTypeCandidateRemove && proposalType != proposalTypeMinerRewardDistributionModify) {
+				return currentBlockProposals
+			} else {
+				proposal.ProposalType = uint64(proposalType)
+			}
+		case "candidate":
+			// not check here
+			proposal.Candidate.SetString(v)
+		case "mrpt":
+			// miner reward per thousand
+			if mrpt, err := strconv.Atoi(v); err != nil || mrpt < 0 || mrpt > 1000 {
+				return currentBlockProposals
+			} else {
+				proposal.MinerRewardPerThousand = uint64(mrpt)
+			}
+
+		}
+	}
+
+	return append(currentBlockProposals, proposal)
 }
 
-func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, tx *types.Transaction, voter common.Address) []Declare {
+func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, txDataInfo []string, tx *types.Transaction, declarer common.Address) []Declare {
 
-	return currentBlockDeclares
+	declare := Declare{
+		ProposalHash: common.Hash{},
+		Declarer:     declarer,
+		Decision:     true,
+	}
+
+	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
+		k, v := txDataInfo[posEventProposal+1+i*2], txDataInfo[posEventProposal+2+i*2]
+		switch k {
+		case "hash":
+			declare.ProposalHash.SetString(v)
+		case "decision":
+			if v == "yes" {
+				declare.Decision = true
+			} else if v == "no" {
+				declare.Decision = false
+			} else {
+				return currentBlockDeclares
+			}
+		}
+	}
+
+	return append(currentBlockDeclares, declare)
 }
 
 func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address) []Vote {

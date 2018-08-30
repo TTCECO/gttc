@@ -58,7 +58,7 @@ var (
 	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	defaultDifficulty                = big.NewInt(1)            // Default difficulty
 	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
-	defaultMinerRewardPerThousand    = big.NewInt(618)          // Default reward for miner in each block from block reward (618/1000)
+	defaultMinerRewardPerThousand    = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -712,7 +712,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
 	minerReward := new(big.Int).Set(blockReward)
-	minerReward.Mul(minerReward, defaultMinerRewardPerThousand)
+	minerReward.Mul(minerReward, big.NewInt(int64(defaultMinerRewardPerThousand)))
 	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
 	votersReward := blockReward.Sub(blockReward, minerReward)
