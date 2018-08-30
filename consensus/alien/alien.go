@@ -56,12 +56,16 @@ const (
 	ufoCategoryLog        = "oplog"
 	ufoEventVote          = "vote"
 	ufoEventConfirm       = "confirm"
+	ufoEventPorposal      = "proposal"
+	ufoEventDeclare       = "declare"
 	ufoMinSplitLen        = 3
 	posPrefix             = 0
 	posVersion            = 1
 	posCategory           = 2
 	posEventVote          = 3
 	posEventConfirm       = 3
+	posEventProposal      = 3
+	posEventDeclare       = 3
 	posEventConfirmNumber = 4
 
 	/*
@@ -169,9 +173,9 @@ type Confirmation struct {
 // proposal only come from the current candidates
 // not only candidate add/remove , current signer can proposal for params modify like percentage of reward distribution ...
 type Proposal struct {
+	ReceivedNumber         *big.Int       // received block number
 	Hash                   common.Hash    // tx hash
 	Version                int            // version of current proposal
-	ReceivedNumber         *big.Int       // received block number
 	ValidationCnt          uint64         // validation block number length of this proposal from the received block number
 	ImplementNumber        *big.Int       // block number to implement modification in this proposal
 	DecisionType           int            // success if condition fill / success if condition fill and block number reach ValidationCnt
@@ -187,15 +191,18 @@ type Proposal struct {
 // proposal only come from the current candidates
 // hash is the hash of proposal tx
 type Declare struct {
-	ProposalHash common.Hash
-	Declarer     common.Address
-	Decision     bool
+	ReceivedNumber *big.Int // received block number
+	ProposalHash   common.Hash
+	Declarer       common.Address
+	Decision       bool
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
 	CurrentBlockConfirmations []Confirmation
 	CurrentBlockVotes         []Vote
+	CurrentBlockProposals     []Proposal
+	CurrentBlockDeclare       []Declare
 	ModifyPredecessorVotes    []Vote
 	LoopStartTime             uint64
 	SignerQueue               []common.Address
@@ -627,7 +634,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Extra = header.Extra[:extraVanity]
 
 	// calculate votes write into header.extra
-	currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, err := a.processCustomTx(chain, header, state, txs)
+	currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, currentBlockProposals, currentBlockDeclares, err := a.processCustomTx(chain, header, state, txs)
 	if err != nil {
 		return nil, err
 	}
@@ -662,6 +669,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
 	currentHeaderExtra.CurrentBlockConfirmations = currentBlockConfirmations
 	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
+	currentHeaderExtra.CurrentBlockProposals = currentBlockProposals
+	currentHeaderExtra.CurrentBlockDeclare = currentBlockDeclares
 
 	// Assemble the voting snapshot to check which votes make sense
 	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes, defaultLoopCntRecalculateSigners)
@@ -803,7 +812,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 
 	minerReward := new(big.Int).Set(blockReward)
 	minerReward.Mul(minerReward, defaultMinerRewardPerThousand)
-	minerReward.Div(minerReward, big.NewInt(1000))
+	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
 	votersReward := blockReward.Sub(blockReward, minerReward)
 
@@ -836,13 +845,15 @@ func getSignerMissing(lastSigner common.Address, currentSigner common.Address, e
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, []Confirmation, error) {
+func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, []Confirmation, []Proposal, []Declare, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 	var (
 		currentBlockConfirmations []Confirmation
 		currentBlockVotes         []Vote
 		modifyPredecessorVotes    []Vote
+		currentBlockProposals     []Proposal
+		currentBlockDeclares      []Declare
 		snap                      *Snapshot
 		err                       error
 		number                    uint64
@@ -851,11 +862,17 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 	if number > 1 {
 		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	}
 
 	for _, tx := range txs {
+
+		txSender, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
+		if err != nil {
+			continue
+		}
+
 		if len(string(tx.Data())) >= len(ufoPrefix) {
 			txData := string(tx.Data())
 			txDataInfo := strings.Split(txData, ":")
@@ -866,26 +883,21 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 						if txDataInfo[posCategory] == ufoCategoryEvent {
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
-								if posEventVote >= ufoMinSplitLen && txDataInfo[posEventVote] == ufoEventVote {
-									if snap.isCandidate(*tx.To()) {
-										currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx)
-									}
-
-									if tx.Value().Cmp(big.NewInt(0)) == 0 {
-										// if value is not zero, this vote may influence the balance of tx.To()
-										continue
-									}
-								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
-									currentBlockConfirmations = a.processEventConfirm(currentBlockConfirmations, chain, txDataInfo, number, tx)
-									if tx.Value().Cmp(big.NewInt(0)) == 0 {
-										// if value is not zero, this vote may influence the balance of tx.To()
-										continue
-									}
-
-								} else {
-									//todo : other event not vote
-
+								if txDataInfo[posEventVote] == ufoEventVote && snap.isCandidate(*tx.To()) {
+									currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx, txSender)
+								} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
+									currentBlockConfirmations = a.processEventConfirm(currentBlockConfirmations, chain, txDataInfo, number, tx, txSender)
+								} else if txDataInfo[posEventProposal] == ufoEventPorposal && snap.isCandidate(txSender) {
+									currentBlockProposals = a.processEventProposal(currentBlockProposals, tx, txSender)
+								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
+									currentBlockDeclares = a.processEventDeclare(currentBlockDeclares, tx, txSender)
 								}
+
+								// if value is not zero, this vote may influence the balance of tx.To()
+								if tx.Value().Cmp(big.NewInt(0)) == 0 {
+									continue
+								}
+
 							} else {
 								// todo : something wrong, leave this transaction to process as normal transaction
 							}
@@ -898,17 +910,25 @@ func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Heade
 		}
 
 		if number > 1 {
-			modifyPredecessorVotes = a.processPredecessorVoter(modifyPredecessorVotes, state, tx, snap)
+			modifyPredecessorVotes = a.processPredecessorVoter(modifyPredecessorVotes, state, tx, txSender, snap)
 		}
 
 	}
 
-	return currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, nil
+	return currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, currentBlockProposals, currentBlockDeclares, nil
 }
 
-func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction) []Vote {
-	signer := types.NewEIP155Signer(tx.ChainId())
-	voter, _ := types.Sender(signer, tx)
+func (a *Alien) processEventProposal(currentBlockProposals []Proposal, tx *types.Transaction, voter common.Address) []Proposal {
+
+	return currentBlockProposals
+}
+
+func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, tx *types.Transaction, voter common.Address) []Declare {
+
+	return currentBlockDeclares
+}
+
+func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address) []Vote {
 	if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
 
 		a.lock.RLock()
@@ -925,14 +945,12 @@ func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB,
 	return currentBlockVotes
 }
 
-func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction) []Confirmation {
+func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address) []Confirmation {
 	if len(txDataInfo) >= posEventConfirmNumber {
 		confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
 		if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
 			return currentBlockConfirmations
 		}
-		signer := types.NewEIP155Signer(tx.ChainId())
-		confirmer, _ := types.Sender(signer, tx)
 		// check if the voter is in block
 		confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
 		if confirmedHeader == nil {
@@ -962,12 +980,9 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 	return currentBlockConfirmations
 }
 
-func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, snap *Snapshot) []Vote {
+func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address, snap *Snapshot) []Vote {
 	// process normal transaction which relate to voter
 	if tx.Value().Cmp(big.NewInt(0)) > 0 {
-
-		signer := types.NewEIP155Signer(tx.ChainId())
-		voter, _ := types.Sender(signer, tx)
 		if snap.isVoter(voter) {
 			a.lock.RLock()
 			stake := state.GetBalance(voter)
