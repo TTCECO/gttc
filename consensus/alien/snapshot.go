@@ -66,6 +66,7 @@ type Snapshot struct {
 	Candidates      map[common.Address]uint64    `json:"candidates"`      // Candidates for Signers (0- adding procedure 1- normal 2- removing procedure)
 	Punished        map[common.Address]uint64    `json:"punished"`        // The signer be punished count cause of missing seal
 	Confirmations   map[uint64][]*common.Address `json:"confirms"`        // The signer confirm given block number
+	Proposals       map[common.Hash]*Proposal    `json:"proposals"`       // The Proposals going or success (failed proposal will be removed)
 	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
 	LoopStartTime   uint64                       `json:"loopStartTime"`   // Start Time of the current loop
 }
@@ -89,6 +90,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Punished:        make(map[common.Address]uint64),
 		Candidates:      make(map[common.Address]uint64),
 		Confirmations:   make(map[uint64][]*common.Address),
+		Proposals:       make(map[common.Hash]*Proposal),
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 	}
@@ -158,6 +160,7 @@ func (s *Snapshot) copy() *Snapshot {
 		Voters:        make(map[common.Address]*big.Int),
 		Candidates:    make(map[common.Address]uint64),
 		Punished:      make(map[common.Address]uint64),
+		Proposals:     make(map[common.Hash]*Proposal),
 		Confirmations: make(map[uint64][]*common.Address),
 
 		HeaderTime:    s.HeaderTime,
@@ -187,6 +190,9 @@ func (s *Snapshot) copy() *Snapshot {
 	for blockNumber, confirmers := range s.Confirmations {
 		cpy.Confirmations[blockNumber] = make([]*common.Address, len(confirmers))
 		copy(cpy.Confirmations[blockNumber], confirmers)
+	}
+	for txHash, proposal := range s.Proposals {
+		cpy.Proposals[txHash] = proposal.copy()
 	}
 
 	return cpy
@@ -311,9 +317,19 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				delete(snap.Punished, header.Coinbase)
 			}
 		}
-		// reduct the punish for all punished
+		// reduce the punish for all punished
 		for signerEach := range snap.Punished {
 			snap.Punished[signerEach] -= autoRewardCredit
+		}
+		// deal proposals
+		for _, proposal := range headerExtra.CurrentBlockProposals {
+			snap.Proposals[proposal.Hash] = &proposal
+		}
+		// deal declares
+		for _, declare := range headerExtra.CurrentBlockDeclares {
+			if _, ok := snap.Proposals[declare.ProposalHash]; ok {
+				// todo
+			}
 		}
 
 	}

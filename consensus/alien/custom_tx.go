@@ -104,6 +104,26 @@ type Proposal struct {
 	Proposer               common.Address //
 	Candidate              common.Address
 	MinerRewardPerThousand uint64
+	Enable                 bool       // Result of proposal
+	Declares               []*Declare // Declare this proposal received
+}
+
+func (p *Proposal) copy() *Proposal {
+	cpy := &Proposal{
+		Hash:                   p.Hash,
+		ValidationCnt:          p.ValidationCnt,
+		ImplementNumber:        new(big.Int).Set(p.ImplementNumber),
+		DecisionType:           p.DecisionType,
+		ProposalType:           p.ProposalType,
+		Proposer:               p.Proposer,
+		Candidate:              p.Candidate,
+		MinerRewardPerThousand: p.MinerRewardPerThousand,
+		Enable:                 p.Enable,
+		Declares:               make([]*Declare, len(p.Declares)),
+	}
+
+	copy(cpy.Declares, p.Declares)
+	return cpy
 }
 
 // Declare :
@@ -209,6 +229,8 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		Proposer:               proposer,
 		Candidate:              common.Address{},
 		MinerRewardPerThousand: defaultMinerRewardPerThousand,
+		Enable:                 false,
+		Declares:               []*Declare{},
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
