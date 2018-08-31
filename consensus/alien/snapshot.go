@@ -328,7 +328,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		for _, declare := range headerExtra.CurrentBlockDeclares {
 			if proposal, ok := snap.Proposals[declare.ProposalHash]; ok {
 				// check the proposal enable status and valid block number
-				if proposal.ReceivedNumber.Uint64()+proposal.ValidationCnt < header.Number.Uint64() || proposal.Enable || !s.isCandidate(proposal.Proposer) {
+				if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*snap.config.MaxSignerCount < header.Number.Uint64() || proposal.Enable || !s.isCandidate(proposal.Proposer) {
 					continue
 				}
 				// check if this signer already declare on this proposal

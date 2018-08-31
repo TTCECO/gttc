@@ -69,7 +69,7 @@ const (
 	/*
 	 * proposal related
 	 */
-	defaultValidationCnt = 30000
+	defaultValidationLoopCnt = 30000
 )
 
 // Vote :
@@ -97,9 +97,9 @@ type Confirmation struct {
 // not only candidate add/remove , current signer can proposal for params modify like percentage of reward distribution ...
 type Proposal struct {
 	Hash                   common.Hash    // tx hash
-	ValidationCnt          uint64         // validation block number length of this proposal from the received block number
+	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ImplementNumber        *big.Int       // block number to implement modification in this proposal
-	DecisionType           uint64         // success if condition fill / success if condition fill and block number reach ValidationCnt
+	DecisionType           uint64         // success if condition fill / success if condition fill and block number reach ValidationLoopCnt
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address //
 	Candidate              common.Address
@@ -112,7 +112,7 @@ type Proposal struct {
 func (p *Proposal) copy() *Proposal {
 	cpy := &Proposal{
 		Hash:                   p.Hash,
-		ValidationCnt:          p.ValidationCnt,
+		ValidationLoopCnt:      p.ValidationLoopCnt,
 		ImplementNumber:        new(big.Int).Set(p.ImplementNumber),
 		DecisionType:           p.DecisionType,
 		ProposalType:           p.ProposalType,
@@ -224,7 +224,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
-		ValidationCnt:          defaultValidationCnt,
+		ValidationLoopCnt:      defaultValidationLoopCnt,
 		ImplementNumber:        big.NewInt(1),
 		DecisionType:           decisionTypeImmediately,
 		ProposalType:           proposalTypeCandidateAdd,
@@ -239,11 +239,11 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
 		k, v := txDataInfo[posEventProposal+1+i*2], txDataInfo[posEventProposal+2+i*2]
 		switch k {
-		case "validation_cnt":
-			if validationCnt, err := strconv.Atoi(v); err != nil || validationCnt <= 0 {
+		case "vlcnt":
+			if validationLoopCnt, err := strconv.Atoi(v); err != nil || validationLoopCnt <= 0 {
 				return currentBlockProposals
 			} else {
-				proposal.ValidationCnt = uint64(validationCnt)
+				proposal.ValidationLoopCnt = uint64(validationLoopCnt)
 			}
 		case "implement_number":
 			if implementNumber, err := strconv.Atoi(v); err != nil || implementNumber <= 0 {
