@@ -327,8 +327,20 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 		// deal declares
 		for _, declare := range headerExtra.CurrentBlockDeclares {
-			if _, ok := snap.Proposals[declare.ProposalHash]; ok {
-				// todo
+			if proposal, ok := snap.Proposals[declare.ProposalHash]; ok {
+				// todo : check the proposal enable status and valid block number
+				alreadyDeclare := false
+				for _, v := range proposal.Declares {
+					if v.Declarer.Hex() == declare.Declarer.Hex() {
+						// this declarer already declare for this proposal
+						alreadyDeclare = true
+						break
+					}
+				}
+				if !alreadyDeclare {
+					snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares, &declare)
+				}
+				// todo: check if this proposal is enabled
 			}
 		}
 
