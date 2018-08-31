@@ -106,6 +106,7 @@ type Proposal struct {
 	MinerRewardPerThousand uint64
 	Enable                 bool       // Result of proposal
 	Declares               []*Declare // Declare this proposal received
+	ReceivedNumber         *big.Int   // block number of proposal received
 }
 
 func (p *Proposal) copy() *Proposal {
@@ -120,6 +121,7 @@ func (p *Proposal) copy() *Proposal {
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
 		Enable:                 p.Enable,
 		Declares:               make([]*Declare, len(p.Declares)),
+		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -231,6 +233,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		MinerRewardPerThousand: defaultMinerRewardPerThousand,
 		Enable:                 false,
 		Declares:               []*Declare{},
+		ReceivedNumber:         big.NewInt(0),
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -262,7 +265,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			}
 		case "candidate":
 			// not check here
-			proposal.Candidate.SetString(v)
+			proposal.Candidate.UnmarshalText([]byte(v))
 		case "mrpt":
 			// miner reward per thousand
 			if mrpt, err := strconv.Atoi(v); err != nil || mrpt < 0 || mrpt > 1000 {
@@ -285,11 +288,11 @@ func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, txDataInfo [
 		Decision:     true,
 	}
 
-	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
-		k, v := txDataInfo[posEventProposal+1+i*2], txDataInfo[posEventProposal+2+i*2]
+	for i := 0; i < len(txDataInfo[posEventDeclare+1:])/2; i++ {
+		k, v := txDataInfo[posEventDeclare+1+i*2], txDataInfo[posEventDeclare+2+i*2]
 		switch k {
 		case "hash":
-			declare.ProposalHash.SetString(v)
+			declare.ProposalHash.UnmarshalText([]byte(v))
 		case "decision":
 			if v == "yes" {
 				declare.Decision = true

@@ -44,9 +44,7 @@ const (
 	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
-	candidateAdding   = 0
-	candidateNormal   = 1
-	candidateRemoving = 2
+	candidateNormal = 1
 )
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -323,12 +321,17 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 		// deal proposals
 		for _, proposal := range headerExtra.CurrentBlockProposals {
+			proposal.ReceivedNumber = new(big.Int).Set(header.Number)
 			snap.Proposals[proposal.Hash] = &proposal
 		}
-		// deal declares
+		// deal declares decisionTypeImmediately
 		for _, declare := range headerExtra.CurrentBlockDeclares {
 			if proposal, ok := snap.Proposals[declare.ProposalHash]; ok {
-				// todo : check the proposal enable status and valid block number
+				// check the proposal enable status and valid block number
+				if proposal.ReceivedNumber.Uint64()+proposal.ValidationCnt < header.Number.Uint64() || proposal.Enable || !s.isCandidate(proposal.Proposer) {
+					continue
+				}
+				// check if this signer already declare on this proposal
 				alreadyDeclare := false
 				for _, v := range proposal.Declares {
 					if v.Declarer.Hex() == declare.Declarer.Hex() {
@@ -337,12 +340,42 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 						break
 					}
 				}
-				if !alreadyDeclare {
-					snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares, &declare)
+				if alreadyDeclare {
+					continue
 				}
-				// todo: check if this proposal is enabled
+				// add declare to proposal
+				snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares, &declare)
+
+				// calculate the current stake of this proposal
+				judegmentStake := big.NewInt(0)
+				for _, tally := range snap.Tally {
+					judegmentStake.Add(judegmentStake, tally)
+				}
+				judegmentStake.Mul(judegmentStake, big.NewInt(2))
+				judegmentStake.Div(judegmentStake, big.NewInt(3))
+				// calculate declare stake
+				yesDeclareStake := big.NewInt(0)
+				for _, declare := range snap.Proposals[declare.ProposalHash].Declares {
+					if declare.Decision {
+						yesDeclareStake.Add(yesDeclareStake, snap.Tally[declare.Declarer])
+					}
+				}
+				if yesDeclareStake.Cmp(judegmentStake) > 0 {
+					snap.Proposals[declare.ProposalHash].Enable = true
+					// process add candidate
+					switch snap.Proposals[declare.ProposalHash].ProposalType {
+					case proposalTypeCandidateAdd:
+						snap.Candidates[snap.Proposals[declare.ProposalHash].Candidate] = candidateNormal
+					case proposalTypeCandidateRemove:
+						if _, ok := snap.Candidates[snap.Proposals[declare.ProposalHash].Candidate]; ok {
+							delete(snap.Candidates, snap.Proposals[declare.ProposalHash].Candidate)
+						}
+						// todo :case proposalTypeMinerRewardDistributionModify:
+					}
+				}
 			}
 		}
+		// todo :deal declares decisionTypeWaitTillEnd
 
 	}
 	snap.Number += uint64(len(headers))
@@ -545,11 +578,8 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // check if address belong to candidate
 func (s *Snapshot) isCandidate(address common.Address) bool {
-	if state, ok := s.Candidates[address]; ok {
-		// in adding procedure, the candidate not being valid by enough signer (delegate stake accurately)
-		if state != candidateAdding {
-			return true
-		}
+	if _, ok := s.Candidates[address]; ok {
+		return true
 	}
 	return false
 }
