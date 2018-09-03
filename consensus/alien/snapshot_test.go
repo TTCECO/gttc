@@ -788,6 +788,47 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},
+		{
+			/*	Case 16:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B E F in  genesis
+			*   A proposal B remove from candidates, and A, E ,F declare agree to this proposal,
+			*   the sum stake of A E F is more than 2/3 of all stake, so B is not in candidates
+			*   Now do not change the vote automatically,
+			 */
+			addrNames:        []string{"A", "B", "C", "D", "E", "F"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}, {"E", 2000}, {"F", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "B", txHash: "a", proposalType: proposalTypeCandidateRemove}}},
+				{[]testerTransaction{{from: "A", to: "A", isDeclare: true, txHash: "a", decision: true}, {from: "E", to: "E", isDeclare: true, txHash: "a", decision: true}, {from: "F", to: "F", isDeclare: true, txHash: "a", decision: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "E", "F"},
+				Tally:   map[string]int{"A": 100, "B": 200, "E": 2000, "F": 200},
+				Voters:  map[string]int{"A": 0, "B": 0, "E": 0, "F": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"E": {"E", "E", 2000},
+					"F": {"F", "F", 200},
+				},
+			},
+		},
 	}
 
 	// Run through the scenarios and test them
