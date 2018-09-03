@@ -671,7 +671,47 @@ func TestVoting(t *testing.T) {
 			/*	Case 13:
 			*   Candidate from Poa is enable
 			*	Two self vote address A B in  genesis
+			*   A proposal D to candidates, B declare agree to this proposal ,but not pass 2/3 * all stake, so fail
 			* 	C vote D to be signer in block 3, but D is not in candidates ,so this vote not valid
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "D", txHash: "a", proposalType: proposalTypeCandidateAdd}}},
+				{[]testerTransaction{{from: "B", to: "B", isDeclare: true, txHash: "a", decision: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 250, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 200},
+				Voters:  map[string]int{"A": 0, "B": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+				},
+			},
+		},
+		{
+			/*	Case 14:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B in  genesis
+			*   A proposal D to candidates, and A,B declare agree to this proposal, so D is in candidates
+			* 	C vote D to be signer in block 5
 			 */
 			addrNames:        []string{"A", "B", "C", "D"},
 			candidatePOA:     true,
