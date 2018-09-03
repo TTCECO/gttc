@@ -334,7 +334,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				// check if this signer already declare on this proposal
 				alreadyDeclare := false
 				for _, v := range proposal.Declares {
-					if v.Declarer.Hex() == declare.Declarer.Hex() {
+					if v.Declarer.Str() == declare.Declarer.Str() {
 						// this declarer already declare for this proposal
 						alreadyDeclare = true
 						break
@@ -356,7 +356,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				judegmentStake.Div(judegmentStake, big.NewInt(3))
 				// calculate declare stake
 				yesDeclareStake := big.NewInt(0)
-				for _, declare := range snap.Proposals[declare.ProposalHash].Declares {
+				for _, declare := range proposal.Declares {
 					if declare.Decision {
 						yesDeclareStake.Add(yesDeclareStake, snap.Tally[declare.Declarer])
 					}
@@ -364,12 +364,12 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				if yesDeclareStake.Cmp(judegmentStake) > 0 {
 					snap.Proposals[declare.ProposalHash].Enable = true
 					// process add candidate
-					switch snap.Proposals[declare.ProposalHash].ProposalType {
+					switch proposal.ProposalType {
 					case proposalTypeCandidateAdd:
 						snap.Candidates[snap.Proposals[declare.ProposalHash].Candidate] = candidateNormal
 					case proposalTypeCandidateRemove:
-						if _, ok := snap.Candidates[snap.Proposals[declare.ProposalHash].Candidate]; ok {
-							delete(snap.Candidates, snap.Proposals[declare.ProposalHash].Candidate)
+						if _, ok := snap.Candidates[proposal.Candidate]; ok {
+							delete(snap.Candidates, proposal.Candidate)
 						}
 						// todo :case proposalTypeMinerRewardDistributionModify:
 					}
@@ -631,7 +631,7 @@ func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.In
 	rewards := make(map[common.Address]*big.Int)
 	allStake := big.NewInt(0)
 	for voter, vote := range s.Votes {
-		if vote.Candidate.Hex() == coinbase.Hex() {
+		if vote.Candidate.Str() == coinbase.Str() {
 			allStake.Add(allStake, vote.Stake)
 			rewards[voter] = new(big.Int).Set(vote.Stake)
 		}
