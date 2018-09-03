@@ -328,7 +328,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		for _, declare := range headerExtra.CurrentBlockDeclares {
 			if proposal, ok := snap.Proposals[declare.ProposalHash]; ok {
 				// check the proposal enable status and valid block number
-				if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*snap.config.MaxSignerCount < header.Number.Uint64() || proposal.Enable || !s.isCandidate(proposal.Proposer) {
+				if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*snap.config.MaxSignerCount < header.Number.Uint64() || proposal.Enable || !s.isCandidate(declare.Declarer) {
 					continue
 				}
 				// check if this signer already declare on this proposal
@@ -344,7 +344,8 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 					continue
 				}
 				// add declare to proposal
-				snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares, &declare)
+				snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares,
+					&Declare{declare.ProposalHash, declare.Declarer, declare.Decision})
 
 				// calculate the current stake of this proposal
 				judegmentStake := big.NewInt(0)
