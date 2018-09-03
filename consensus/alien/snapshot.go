@@ -578,7 +578,9 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // check if address belong to candidate
 func (s *Snapshot) isCandidate(address common.Address) bool {
-	if _, ok := s.Candidates[address]; ok {
+	if !candidateFromPOA {
+		return true
+	} else if _, ok := s.Candidates[address]; ok {
 		return true
 	}
 	return false

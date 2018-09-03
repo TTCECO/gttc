@@ -59,6 +59,7 @@ var (
 	defaultDifficulty                = big.NewInt(1)            // Default difficulty
 	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
 	defaultMinerRewardPerThousand    = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
+	candidateFromPOA                 = true                     // If true, only declare by 2/3 signers could be validate candidates
 )
 
 // Various error messages to mark blocks invalid. These should be private to

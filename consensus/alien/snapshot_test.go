@@ -127,6 +127,7 @@ func TestVoting(t *testing.T) {
 	// Define the various voting scenarios to test
 	tests := []struct {
 		addrNames        []string             // accounts used in this case
+		candidatePOA     bool                 // candidate from POA
 		period           uint64               // default 3
 		epoch            uint64               // default 30000
 		maxSignerCount   uint64               // default 5 for test
@@ -627,8 +628,10 @@ func TestVoting(t *testing.T) {
 			},
 		},
 	}
+
 	// Run through the scenarios and test them
 	for i, tt := range tests {
+		candidateFromPOA = tt.candidatePOA
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
