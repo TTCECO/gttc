@@ -243,38 +243,38 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.HistoryHash = append(snap.HistoryHash, header.Hash())
 
 		// deal the new confirmation in this block
-		updateSnapshotByConfirmations(snap, headerExtra.CurrentBlockConfirmations)
+		snap.updateSnapshotByConfirmations(headerExtra.CurrentBlockConfirmations)
 
 		// deal the new vote from voter
-		updateSnapshotByVotes(snap, headerExtra.CurrentBlockVotes, header.Number)
+		snap.updateSnapshotByVotes(headerExtra.CurrentBlockVotes, header.Number)
 
 		// deal the voter which balance modified
-		updateSnapshotByMPVotes(snap, headerExtra.ModifyPredecessorVotes)
+		snap.updateSnapshotByMPVotes(headerExtra.ModifyPredecessorVotes)
 
 		// deal the snap related with punished
-		updateSnapshotForPunish(snap, headerExtra.SignerMissing, header.Number, header.Coinbase)
+		snap.updateSnapshotForPunish(headerExtra.SignerMissing, header.Number, header.Coinbase)
 
 		// deal proposals
-		updateSnapshotByProposals(snap, headerExtra.CurrentBlockProposals, header.Number)
+		snap.updateSnapshotByProposals(headerExtra.CurrentBlockProposals, header.Number)
 
 		// deal declares decisionTypeImmediately
-		updateSnapshotByDeclares(snap, headerExtra.CurrentBlockDeclares, header.Number)
+		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 		// todo :deal declares decisionTypeWaitTillEnd
 
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
 
-	updateSnapshotForExpired(snap)
+	snap.updateSnapshotForExpired()
 
 	return snap, nil
 }
 
-func updateSnapshotByDeclares(snap *Snapshot, declares []Declare, headerNumber *big.Int) {
+func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *big.Int) {
 	for _, declare := range declares {
-		if proposal, ok := snap.Proposals[declare.ProposalHash]; ok {
+		if proposal, ok := s.Proposals[declare.ProposalHash]; ok {
 			// check the proposal enable status and valid block number
-			if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*snap.config.MaxSignerCount < headerNumber.Uint64() || proposal.Enable || !snap.isCandidate(declare.Declarer) {
+			if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount < headerNumber.Uint64() || proposal.Enable || !s.isCandidate(declare.Declarer) {
 				continue
 			}
 			// check if this signer already declare on this proposal
@@ -290,12 +290,12 @@ func updateSnapshotByDeclares(snap *Snapshot, declares []Declare, headerNumber *
 				continue
 			}
 			// add declare to proposal
-			snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares,
+			s.Proposals[declare.ProposalHash].Declares = append(s.Proposals[declare.ProposalHash].Declares,
 				&Declare{declare.ProposalHash, declare.Declarer, declare.Decision})
 
 			// calculate the current stake of this proposal
 			judegmentStake := big.NewInt(0)
-			for _, tally := range snap.Tally {
+			for _, tally := range s.Tally {
 				judegmentStake.Add(judegmentStake, tally)
 			}
 			judegmentStake.Mul(judegmentStake, big.NewInt(2))
@@ -304,18 +304,18 @@ func updateSnapshotByDeclares(snap *Snapshot, declares []Declare, headerNumber *
 			yesDeclareStake := big.NewInt(0)
 			for _, declare := range proposal.Declares {
 				if declare.Decision {
-					yesDeclareStake.Add(yesDeclareStake, snap.Tally[declare.Declarer])
+					yesDeclareStake.Add(yesDeclareStake, s.Tally[declare.Declarer])
 				}
 			}
 			if yesDeclareStake.Cmp(judegmentStake) > 0 {
-				snap.Proposals[declare.ProposalHash].Enable = true
+				s.Proposals[declare.ProposalHash].Enable = true
 				// process add candidate
 				switch proposal.ProposalType {
 				case proposalTypeCandidateAdd:
-					snap.Candidates[snap.Proposals[declare.ProposalHash].Candidate] = candidateNormal
+					s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateNormal
 				case proposalTypeCandidateRemove:
-					if _, ok := snap.Candidates[proposal.Candidate]; ok {
-						delete(snap.Candidates, proposal.Candidate)
+					if _, ok := s.Candidates[proposal.Candidate]; ok {
+						delete(s.Candidates, proposal.Candidate)
 					}
 					// todo :case proposalTypeMinerRewardDistributionModify:
 				}
@@ -324,54 +324,54 @@ func updateSnapshotByDeclares(snap *Snapshot, declares []Declare, headerNumber *
 	}
 }
 
-func updateSnapshotByProposals(snap *Snapshot, proposals []Proposal, headerNumber *big.Int) {
+func (s *Snapshot) updateSnapshotByProposals(proposals []Proposal, headerNumber *big.Int) {
 	for _, proposal := range proposals {
 		proposal.ReceivedNumber = new(big.Int).Set(headerNumber)
-		snap.Proposals[proposal.Hash] = &proposal
+		s.Proposals[proposal.Hash] = &proposal
 	}
 }
 
-func updateSnapshotForExpired(snap *Snapshot) {
+func (s *Snapshot) updateSnapshotForExpired() {
 	// deal the expired vote
-	for voterAddress, voteNumber := range snap.Voters {
-		if len(snap.Voters) <= int(snap.config.MaxSignerCount) || len(snap.Tally) <= int(snap.config.MaxSignerCount) {
+	for voterAddress, voteNumber := range s.Voters {
+		if len(s.Voters) <= int(s.config.MaxSignerCount) || len(s.Tally) <= int(s.config.MaxSignerCount) {
 			break
 		}
-		if snap.Number-voteNumber.Uint64() > snap.config.Epoch {
+		if s.Number-voteNumber.Uint64() > s.config.Epoch {
 			// clear the vote
-			if expiredVote, ok := snap.Votes[voterAddress]; ok {
-				snap.Tally[expiredVote.Candidate].Sub(snap.Tally[expiredVote.Candidate], expiredVote.Stake)
-				if snap.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
-					delete(snap.Tally, expiredVote.Candidate)
+			if expiredVote, ok := s.Votes[voterAddress]; ok {
+				s.Tally[expiredVote.Candidate].Sub(s.Tally[expiredVote.Candidate], expiredVote.Stake)
+				if s.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
+					delete(s.Tally, expiredVote.Candidate)
 				}
-				delete(snap.Votes, expiredVote.Voter)
-				delete(snap.Voters, expiredVote.Voter)
+				delete(s.Votes, expiredVote.Voter)
+				delete(s.Voters, expiredVote.Voter)
 			}
 		}
 	}
 	// deal the expired confirmation
-	for blockNumber := range snap.Confirmations {
-		if snap.Number-blockNumber > snap.config.MaxSignerCount {
-			delete(snap.Confirmations, blockNumber)
+	for blockNumber := range s.Confirmations {
+		if s.Number-blockNumber > s.config.MaxSignerCount {
+			delete(s.Confirmations, blockNumber)
 		}
 	}
 
 	// remove 0 stake tally
-	for address, tally := range snap.Tally {
+	for address, tally := range s.Tally {
 		if tally.Cmp(big.NewInt(0)) <= 0 {
-			delete(snap.Tally, address)
+			delete(s.Tally, address)
 		}
 	}
 }
 
-func updateSnapshotByConfirmations(snap *Snapshot, confirmations []Confirmation) {
+func (s *Snapshot) updateSnapshotByConfirmations(confirmations []Confirmation) {
 	for _, confirmation := range confirmations {
-		_, ok := snap.Confirmations[confirmation.BlockNumber.Uint64()]
+		_, ok := s.Confirmations[confirmation.BlockNumber.Uint64()]
 		if !ok {
-			snap.Confirmations[confirmation.BlockNumber.Uint64()] = []*common.Address{}
+			s.Confirmations[confirmation.BlockNumber.Uint64()] = []*common.Address{}
 		}
 		addConfirmation := true
-		for _, address := range snap.Confirmations[confirmation.BlockNumber.Uint64()] {
+		for _, address := range s.Confirmations[confirmation.BlockNumber.Uint64()] {
 			if confirmation.Signer.Str() == address.Str() {
 				addConfirmation = false
 				break
@@ -380,72 +380,72 @@ func updateSnapshotByConfirmations(snap *Snapshot, confirmations []Confirmation)
 		if addConfirmation == true {
 			var confirmSigner common.Address
 			confirmSigner.Set(confirmation.Signer)
-			snap.Confirmations[confirmation.BlockNumber.Uint64()] = append(snap.Confirmations[confirmation.BlockNumber.Uint64()], &confirmSigner)
+			s.Confirmations[confirmation.BlockNumber.Uint64()] = append(s.Confirmations[confirmation.BlockNumber.Uint64()], &confirmSigner)
 		}
 	}
 }
 
-func updateSnapshotByVotes(snap *Snapshot, votes []Vote, headerNumber *big.Int) {
+func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 	for _, vote := range votes {
 		// update Votes, Tally, Voters data
-		if lastVote, ok := snap.Votes[vote.Voter]; ok {
-			snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
+		if lastVote, ok := s.Votes[vote.Voter]; ok {
+			s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
 		}
-		if _, ok := snap.Tally[vote.Candidate]; ok {
+		if _, ok := s.Tally[vote.Candidate]; ok {
 
-			snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
+			s.Tally[vote.Candidate].Add(s.Tally[vote.Candidate], vote.Stake)
 		} else {
-			snap.Tally[vote.Candidate] = vote.Stake
+			s.Tally[vote.Candidate] = vote.Stake
 		}
 
-		snap.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
-		snap.Voters[vote.Voter] = headerNumber
+		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
+		s.Voters[vote.Voter] = headerNumber
 	}
 }
 
-func updateSnapshotByMPVotes(snap *Snapshot, votes []Vote) {
+func (s *Snapshot) updateSnapshotByMPVotes(votes []Vote) {
 	for _, txVote := range votes {
 
-		if lastVote, ok := snap.Votes[txVote.Voter]; ok {
-			snap.Tally[lastVote.Candidate].Sub(snap.Tally[lastVote.Candidate], lastVote.Stake)
-			snap.Tally[lastVote.Candidate].Add(snap.Tally[lastVote.Candidate], txVote.Stake)
-			snap.Votes[txVote.Voter] = &Vote{Voter: txVote.Voter, Candidate: lastVote.Candidate, Stake: txVote.Stake}
+		if lastVote, ok := s.Votes[txVote.Voter]; ok {
+			s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
+			s.Tally[lastVote.Candidate].Add(s.Tally[lastVote.Candidate], txVote.Stake)
+			s.Votes[txVote.Voter] = &Vote{Voter: txVote.Voter, Candidate: lastVote.Candidate, Stake: txVote.Stake}
 			// do not modify header number of snap.Voters
 		}
 	}
 }
 
-func updateSnapshotForPunish(snap *Snapshot, signerMissing []common.Address, headerNumber *big.Int, coinbase common.Address) {
+func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, headerNumber *big.Int, coinbase common.Address) {
 	// set punished count to half of origin in Epoch
-	if headerNumber.Uint64()%snap.config.Epoch == 0 {
-		for bePublished := range snap.Punished {
-			if count := snap.Punished[bePublished] / 2; count > 0 {
-				snap.Punished[bePublished] = count
+	if headerNumber.Uint64()%s.config.Epoch == 0 {
+		for bePublished := range s.Punished {
+			if count := s.Punished[bePublished] / 2; count > 0 {
+				s.Punished[bePublished] = count
 			} else {
-				delete(snap.Punished, bePublished)
+				delete(s.Punished, bePublished)
 			}
 		}
 	}
 	// punish the missing signer
 	for _, signerMissing := range signerMissing {
-		if _, ok := snap.Punished[signerMissing]; ok {
-			snap.Punished[signerMissing] += missingPublishCredit
+		if _, ok := s.Punished[signerMissing]; ok {
+			s.Punished[signerMissing] += missingPublishCredit
 		} else {
-			snap.Punished[signerMissing] = missingPublishCredit
+			s.Punished[signerMissing] = missingPublishCredit
 		}
 	}
 	// reduce the punish of sign signer
-	if _, ok := snap.Punished[coinbase]; ok {
+	if _, ok := s.Punished[coinbase]; ok {
 
-		if snap.Punished[coinbase] > signRewardCredit {
-			snap.Punished[coinbase] -= signRewardCredit
+		if s.Punished[coinbase] > signRewardCredit {
+			s.Punished[coinbase] -= signRewardCredit
 		} else {
-			delete(snap.Punished, coinbase)
+			delete(s.Punished, coinbase)
 		}
 	}
 	// reduce the punish for all punished
-	for signerEach := range snap.Punished {
-		snap.Punished[signerEach] -= autoRewardCredit
+	for signerEach := range s.Punished {
+		s.Punished[signerEach] -= autoRewardCredit
 	}
 }
 
