@@ -35,10 +35,16 @@ import (
 )
 
 type testerTransaction struct {
-	from    string // name of from address
-	to      string // name of to address
-	balance int    // balance address in snap.voter
-	isVote  bool   // is msg in data is "ufo:1:event:vote"
+	from         string // name of from address
+	to           string // name of to address
+	balance      int    // balance address in snap.voter
+	isVote       bool   // "ufo:1:event:vote"
+	isProposal   bool   // "ufo:1:event:proposal:..."
+	proposalType uint64 // proposalTypeCandidateAdd or proposalTypeCandidateRemove
+	isDeclare    bool   // "ufo:1:event:declare:..."
+	candidate    string // name of candidate in proposal
+	txHash       string // hash of tx
+	decision     bool   // decision of declare
 }
 
 type testerSingleHeader struct {
@@ -127,6 +133,7 @@ func TestVoting(t *testing.T) {
 	// Define the various voting scenarios to test
 	tests := []struct {
 		addrNames        []string             // accounts used in this case
+		candidatePOA     bool                 // candidate from POA
 		period           uint64               // default 3
 		epoch            uint64               // default 30000
 		maxSignerCount   uint64               // default 5 for test
@@ -626,9 +633,207 @@ func TestVoting(t *testing.T) {
 				},
 			},
 		},
+		{
+			/*	Case 12:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B in  genesis
+			* 	C vote D to be signer in block 3, but D is not in candidates ,so this vote not valid
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 200, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 200},
+				Voters:  map[string]int{"A": 0, "B": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+				},
+			},
+		},
+		{
+			/*	Case 13:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B in  genesis
+			*   A proposal D to candidates, B declare agree to this proposal ,but not pass 2/3 * all stake, so fail
+			* 	C vote D to be signer in block 3, but D is not in candidates ,so this vote not valid
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "D", txHash: "a", proposalType: proposalTypeCandidateAdd}}},
+				{[]testerTransaction{{from: "B", to: "B", isDeclare: true, txHash: "a", decision: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 250, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B"},
+				Tally:   map[string]int{"A": 100, "B": 200},
+				Voters:  map[string]int{"A": 0, "B": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+				},
+			},
+		},
+		{
+			/*	Case 14:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B in  genesis
+			*   A proposal D to candidates, and A,B declare agree to this proposal, so D is in candidates
+			* 	C vote D to be signer in block 5
+			 */
+			addrNames:        []string{"A", "B", "C", "D"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "D", txHash: "a", proposalType: proposalTypeCandidateAdd}}},
+				{[]testerTransaction{{from: "A", to: "A", isDeclare: true, txHash: "a", decision: true}, {from: "B", to: "B", isDeclare: true, txHash: "a", decision: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 250, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B", "D"},
+				Tally:   map[string]int{"A": 100, "B": 200, "D": 250},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 5},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"C": {"C", "D", 250},
+				},
+			},
+		},
+		{
+			/*	Case 15:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B E F in  genesis
+			*   A proposal D to candidates, and A,B,F declare agree to this proposal,
+			*   but the sum stake of A B F is less than 2/3 of all stake, so D is not in candidates
+			* 	C vote D to be signer in block 5
+			 */
+			addrNames:        []string{"A", "B", "C", "D", "E", "F"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}, {"E", 2000}, {"F", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "D", txHash: "a", proposalType: proposalTypeCandidateAdd}}},
+				{[]testerTransaction{{from: "A", to: "A", isDeclare: true, txHash: "a", decision: true}, {from: "B", to: "B", isDeclare: true, txHash: "a", decision: true}, {from: "F", to: "F", isDeclare: true, txHash: "a", decision: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "C", to: "D", balance: 250, isVote: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "B", "E", "F"},
+				Tally:   map[string]int{"A": 100, "B": 200, "E": 2000, "F": 200},
+				Voters:  map[string]int{"A": 0, "B": 0, "E": 0, "F": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"E": {"E", "E", 2000},
+					"F": {"F", "F", 200},
+				},
+			},
+		},
+		{
+			/*	Case 16:
+			*   Candidate from Poa is enable
+			*	Two self vote address A B E F in  genesis
+			*   A proposal B remove from candidates, and A, E ,F declare agree to this proposal,
+			*   the sum stake of A E F is more than 2/3 of all stake, so B is not in candidates
+			*   Now do not change the vote automatically,
+			 */
+			addrNames:        []string{"A", "B", "C", "D", "E", "F"},
+			candidatePOA:     true,
+			period:           uint64(3),
+			epoch:            uint64(31),
+			maxSignerCount:   uint64(5),
+			minVoterBalance:  50,
+			lcrs:             1,
+			genesisTimestamp: uint64(0),
+			selfVoters:       []testerSelfVoter{{"A", 100}, {"B", 200}, {"E", 2000}, {"F", 200}},
+			txHeaders: []testerSingleHeader{
+				{[]testerTransaction{}},
+				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "B", txHash: "a", proposalType: proposalTypeCandidateRemove}}},
+				{[]testerTransaction{{from: "A", to: "A", isDeclare: true, txHash: "a", decision: true}, {from: "E", to: "E", isDeclare: true, txHash: "a", decision: true}, {from: "F", to: "F", isDeclare: true, txHash: "a", decision: true}}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+			},
+			result: testerSnapshot{
+				Signers: []string{"A", "E", "F"},
+				Tally:   map[string]int{"A": 100, "B": 200, "E": 2000, "F": 200},
+				Voters:  map[string]int{"A": 0, "B": 0, "E": 0, "F": 0},
+				Votes: map[string]*testerVote{
+					"A": {"A", "A", 100},
+					"B": {"B", "B", 200},
+					"E": {"E", "E", 2000},
+					"F": {"F", "F", 200},
+				},
+			},
+		},
 	}
+
 	// Run through the scenarios and test them
 	for i, tt := range tests {
+		candidateFromPOA = tt.candidatePOA
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
@@ -643,6 +848,7 @@ func TestVoting(t *testing.T) {
 			}
 		}
 
+		var snap *Snapshot
 		// Prepare data for the genesis block
 		var genesisVotes []*Vote             // for create the new snapshot of genesis block
 		var selfVoteSigners []common.Address // for header extra
@@ -684,16 +890,44 @@ func TestVoting(t *testing.T) {
 		for j, header := range tt.txHeaders {
 
 			var currentBlockVotes []Vote
+			var currentBlockProposals []Proposal
+			var currentBlockDeclares []Declare
 			var modifyPredecessorVotes []Vote
 			for _, trans := range header.txs {
 				if trans.isVote {
-					if trans.balance >= tt.minVoterBalance {
+					if trans.balance >= tt.minVoterBalance && snap.isCandidate(accounts.address(trans.to)) {
 						// vote event
 						currentBlockVotes = append(currentBlockVotes, Vote{
 							Voter:     accounts.address(trans.from),
 							Candidate: accounts.address(trans.to),
 							Stake:     big.NewInt(int64(trans.balance)),
 						})
+					}
+				} else if trans.isProposal {
+					if snap.isCandidate(accounts.address(trans.from)) {
+						currentBlockProposals = append(currentBlockProposals, Proposal{
+							Hash:                   common.HexToHash(trans.txHash),
+							ValidationLoopCnt:      defaultValidationLoopCnt,
+							ImplementNumber:        big.NewInt(1),
+							DecisionType:           decisionTypeImmediately,
+							ProposalType:           trans.proposalType,
+							Proposer:               accounts.address(trans.from),
+							Candidate:              accounts.address(trans.candidate),
+							MinerRewardPerThousand: defaultMinerRewardPerThousand,
+							Enable:                 false,
+							Declares:               []*Declare{},
+							ReceivedNumber:         big.NewInt(int64(j)),
+						})
+					}
+				} else if trans.isDeclare {
+					if snap.isCandidate(accounts.address(trans.from)) {
+
+						currentBlockDeclares = append(currentBlockDeclares, Declare{
+							ProposalHash: common.HexToHash(trans.txHash),
+							Declarer:     accounts.address(trans.from),
+							Decision:     trans.decision,
+						})
+
 					}
 				} else {
 					// modify balance
@@ -742,6 +976,8 @@ func TestVoting(t *testing.T) {
 
 			currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
 			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
+			currentHeaderExtra.CurrentBlockProposals = currentBlockProposals
+			currentHeaderExtra.CurrentBlockDeclares = currentBlockDeclares
 			currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
 			if err != nil {
 				t.Errorf("test %d: failed to rlp encode to bytes: %v", i, err)
@@ -763,7 +999,7 @@ func TestVoting(t *testing.T) {
 			accounts.sign(headers[j], accounts.name(signer))
 
 			// Pass all the headers through alien and ensure tallying succeeds
-			_, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes, uint64(tt.lcrs))
+			snap, err = alien.snapshot(&testerChainReader{db: db}, headers[j].Number.Uint64(), headers[j].Hash(), headers[:j+1], genesisVotes, uint64(tt.lcrs))
 			genesisVotes = []*Vote{}
 			if err != nil {
 				t.Errorf("test %d: failed to create voting snapshot: %v", i, err)

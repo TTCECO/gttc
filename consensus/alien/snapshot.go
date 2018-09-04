@@ -39,12 +39,14 @@ const (
 	defaultFullCredit               = 1000 // no punished
 	missingPublishCredit            = 100  // punished for missing one block seal
 	signRewardCredit                = 10   // seal one block
+	autoRewardCredit                = 1    // credit auto recover for each block
 	minCalSignerQueueCredit         = 300  // when calculate the signerQueue
 	defaultOfficialMaxSignerCount   = 21   // official max signer count
 	defaultOfficialFirstLevelCount  = 10   // official first level , 100% in signer queue
 	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
+	candidateNormal = 1
 )
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -60,9 +62,11 @@ type Snapshot struct {
 	Signers         []*common.Address            `json:"signers"`         // Signers queue in current header
 	Votes           map[common.Address]*Vote     `json:"votes"`           // All validate votes from genesis block
 	Tally           map[common.Address]*big.Int  `json:"tally"`           // Stake for each candidate address
-	Voters          map[common.Address]*big.Int  `json:"voters"`          // block number for each voter address
+	Voters          map[common.Address]*big.Int  `json:"voters"`          // Block number for each voter address
+	Candidates      map[common.Address]uint64    `json:"candidates"`      // Candidates for Signers (0- adding procedure 1- normal 2- removing procedure)
 	Punished        map[common.Address]uint64    `json:"punished"`        // The signer be punished count cause of missing seal
 	Confirmations   map[uint64][]*common.Address `json:"confirms"`        // The signer confirm given block number
+	Proposals       map[common.Hash]*Proposal    `json:"proposals"`       // The Proposals going or success (failed proposal will be removed)
 	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
 	LoopStartTime   uint64                       `json:"loopStartTime"`   // Start Time of the current loop
 }
@@ -84,7 +88,9 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Tally:           make(map[common.Address]*big.Int),
 		Voters:          make(map[common.Address]*big.Int),
 		Punished:        make(map[common.Address]uint64),
+		Candidates:      make(map[common.Address]uint64),
 		Confirmations:   make(map[uint64][]*common.Address),
+		Proposals:       make(map[common.Hash]*Proposal),
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 	}
@@ -102,6 +108,8 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		snap.Tally[vote.Candidate].Add(snap.Tally[vote.Candidate], vote.Stake)
 		// init Voters
 		snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
+		// init Candidates
+		snap.Candidates[vote.Voter] = candidateNormal
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
@@ -150,7 +158,9 @@ func (s *Snapshot) copy() *Snapshot {
 		Votes:         make(map[common.Address]*Vote),
 		Tally:         make(map[common.Address]*big.Int),
 		Voters:        make(map[common.Address]*big.Int),
+		Candidates:    make(map[common.Address]uint64),
 		Punished:      make(map[common.Address]uint64),
+		Proposals:     make(map[common.Hash]*Proposal),
 		Confirmations: make(map[uint64][]*common.Address),
 
 		HeaderTime:    s.HeaderTime,
@@ -171,12 +181,18 @@ func (s *Snapshot) copy() *Snapshot {
 	for voter, number := range s.Voters {
 		cpy.Voters[voter] = number
 	}
+	for candidate, state := range s.Candidates {
+		cpy.Candidates[candidate] = state
+	}
 	for signer, cnt := range s.Punished {
 		cpy.Punished[signer] = cnt
 	}
 	for blockNumber, confirmers := range s.Confirmations {
 		cpy.Confirmations[blockNumber] = make([]*common.Address, len(confirmers))
 		copy(cpy.Confirmations[blockNumber], confirmers)
+	}
+	for txHash, proposal := range s.Proposals {
+		cpy.Proposals[txHash] = proposal.copy()
 	}
 
 	return cpy
@@ -351,6 +367,69 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 				delete(snap.Punished, header.Coinbase)
 			}
 		}
+		// reduce the punish for all punished
+		for signerEach := range snap.Punished {
+			snap.Punished[signerEach] -= autoRewardCredit
+		}
+		// deal proposals
+		for _, proposal := range headerExtra.CurrentBlockProposals {
+			proposal.ReceivedNumber = new(big.Int).Set(header.Number)
+			snap.Proposals[proposal.Hash] = &proposal
+		}
+		// deal declares decisionTypeImmediately
+		for _, declare := range headerExtra.CurrentBlockDeclares {
+			if proposal, ok := snap.Proposals[declare.ProposalHash]; ok {
+				// check the proposal enable status and valid block number
+				if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*snap.config.MaxSignerCount < header.Number.Uint64() || proposal.Enable || !s.isCandidate(declare.Declarer) {
+					continue
+				}
+				// check if this signer already declare on this proposal
+				alreadyDeclare := false
+				for _, v := range proposal.Declares {
+					if v.Declarer.Str() == declare.Declarer.Str() {
+						// this declarer already declare for this proposal
+						alreadyDeclare = true
+						break
+					}
+				}
+				if alreadyDeclare {
+					continue
+				}
+				// add declare to proposal
+				snap.Proposals[declare.ProposalHash].Declares = append(snap.Proposals[declare.ProposalHash].Declares,
+					&Declare{declare.ProposalHash, declare.Declarer, declare.Decision})
+
+				// calculate the current stake of this proposal
+				judegmentStake := big.NewInt(0)
+				for _, tally := range snap.Tally {
+					judegmentStake.Add(judegmentStake, tally)
+				}
+				judegmentStake.Mul(judegmentStake, big.NewInt(2))
+				judegmentStake.Div(judegmentStake, big.NewInt(3))
+				// calculate declare stake
+				yesDeclareStake := big.NewInt(0)
+				for _, declare := range proposal.Declares {
+					if declare.Decision {
+						yesDeclareStake.Add(yesDeclareStake, snap.Tally[declare.Declarer])
+					}
+				}
+				if yesDeclareStake.Cmp(judegmentStake) > 0 {
+					snap.Proposals[declare.ProposalHash].Enable = true
+					// process add candidate
+					switch proposal.ProposalType {
+					case proposalTypeCandidateAdd:
+						snap.Candidates[snap.Proposals[declare.ProposalHash].Candidate] = candidateNormal
+					case proposalTypeCandidateRemove:
+						if _, ok := snap.Candidates[proposal.Candidate]; ok {
+							delete(snap.Candidates, proposal.Candidate)
+						}
+						// todo :case proposalTypeMinerRewardDistributionModify:
+					}
+				}
+			}
+		}
+		// todo :deal declares decisionTypeWaitTillEnd
+
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
@@ -373,7 +452,7 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		}
 	}
 	// deal the expired confirmation
-	for blockNumber, _ := range snap.Confirmations {
+	for blockNumber := range snap.Confirmations {
 		if snap.Number-blockNumber > snap.config.MaxSignerCount {
 			delete(snap.Confirmations, blockNumber)
 		}
@@ -459,6 +538,7 @@ func (s *Snapshot) verifySignerQueue(signerQueue []common.Address) error {
 }
 
 func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
+
 	if (s.Number+1)%s.config.MaxSignerCount != 0 || s.Hash != s.HistoryHash[len(s.HistoryHash)-1] {
 		return nil, errCreateSignerQueueNotAllowed
 	}
@@ -467,20 +547,24 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 	var topStakeAddress []common.Address
 
 	if (s.Number+1)%(s.config.MaxSignerCount*s.LCRS) == 0 {
+		// before recalculate the signers, clear the candidate is not in snap.Candidates
+
 		// only recalculate signers from to tally per 10 loop,
 		// other loop end just reset the order of signers by block hash (nearly random)
 		var tallySlice TallySlice
 		for address, stake := range s.Tally {
-			if _, ok := s.Punished[address]; ok {
-				var creditWeight uint64
-				if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
-					creditWeight = minCalSignerQueueCredit
+			if s.isCandidate(address) {
+				if _, ok := s.Punished[address]; ok {
+					var creditWeight uint64
+					if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
+						creditWeight = minCalSignerQueueCredit
+					} else {
+						creditWeight = defaultFullCredit - s.Punished[address]
+					}
+					tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
 				} else {
-					creditWeight = defaultFullCredit - s.Punished[address]
+					tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 				}
-				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
-			} else {
-				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
 			}
 		}
 
@@ -545,6 +629,16 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 	return false
 }
 
+// check if address belong to candidate
+func (s *Snapshot) isCandidate(address common.Address) bool {
+	if !candidateFromPOA {
+		return true
+	} else if _, ok := s.Candidates[address]; ok {
+		return true
+	}
+	return false
+}
+
 // get last block number meet the confirm condition
 func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *big.Int {
 
@@ -582,4 +676,21 @@ func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *bi
 		}
 	}
 	return big.NewInt(int64(i))
+}
+
+func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
+
+	rewards := make(map[common.Address]*big.Int)
+	allStake := big.NewInt(0)
+	for voter, vote := range s.Votes {
+		if vote.Candidate.Str() == coinbase.Str() {
+			allStake.Add(allStake, vote.Stake)
+			rewards[voter] = new(big.Int).Set(vote.Stake)
+		}
+	}
+	for _, stake := range rewards {
+		stake.Mul(stake, votersReward)
+		stake.Div(stake, allStake)
+	}
+	return rewards
 }

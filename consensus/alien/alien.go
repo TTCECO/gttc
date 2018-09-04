@@ -21,8 +21,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -47,23 +45,6 @@ const (
 	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
 	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
 	checkpointInterval = 360             // About N hours if config.period is N
-
-	/*
-	 *  ufo:version:category:action/data
-	 */
-	ufoPrefix             = "ufo"
-	ufoVersion            = "1"
-	ufoCategoryEvent      = "event"
-	ufoCategoryLog        = "oplog"
-	ufoEventVote          = "vote"
-	ufoEventConfirm       = "confirm"
-	ufoMinSplitLen        = 3
-	posPrefix             = 0
-	posVersion            = 1
-	posCategory           = 2
-	posEventVote          = 3
-	posEventConfirm       = 3
-	posEventConfirmNumber = 4
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -78,6 +59,8 @@ var (
 	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	defaultDifficulty                = big.NewInt(1)            // Default difficulty
 	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
+	defaultMinerRewardPerThousand    = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
+	candidateFromPOA                 = true                     // If true, only declare by 2/3 signers could be validate candidates
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -131,36 +114,6 @@ var (
 	// errInvalidSignerQueue is returned if verify SignerQueue fail
 	errInvalidSignerQueue = errors.New("invalid signer queue")
 )
-
-// Vote :
-// vote come from custom tx which data like "ufo:1:event:vote"
-// Sender of tx is Voter, the tx.to is Candidate
-// Stake is the balance of Voter when create this vote
-type Vote struct {
-	Voter     common.Address
-	Candidate common.Address
-	Stake     *big.Int
-}
-
-// Confirmation :
-// confirmation come  from custom tx which data like "ufo:1:event:confirm:123"
-// 123 is the block number be confirmed
-// Sender of tx is Signer only if the signer in the SignerQueue for block number 123
-type Confirmation struct {
-	Signer      common.Address
-	BlockNumber *big.Int
-}
-
-// HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
-type HeaderExtra struct {
-	CurrentBlockConfirmations []Confirmation
-	CurrentBlockVotes         []Vote
-	ModifyPredecessorVotes    []Vote
-	LoopStartTime             uint64
-	SignerQueue               []common.Address
-	SignerMissing             []common.Address
-	ConfirmedBlockNumber      uint64
-}
 
 // TxRecord is the record of one transaction. The data save into MongoDB for browser
 type TxRecord struct {
@@ -499,11 +452,13 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
+			return err
 		}
 		currentHeaderExtra := HeaderExtra{}
 		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode header", "err", err)
+			return err
 		}
 		// verify signerqueue
 		if number%a.config.MaxSignerCount == 0 {
@@ -622,14 +577,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 	header.Extra = header.Extra[:extraVanity]
 
-	// calculate votes write into header.extra
-	currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, err := a.processCustomTx(chain, header, state, txs)
-	if err != nil {
-		return nil, err
-	}
-
 	// genesisVotes write direct into snapshot, which number is 1
 	var genesisVotes []*Vote
+	parentHeaderExtra := HeaderExtra{}
+	currentHeaderExtra := HeaderExtra{}
+
 	if number == 1 {
 		alreadyVote := make(map[common.Address]struct{})
 		for _, voter := range a.config.SelfVoteSigners {
@@ -643,19 +595,24 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 				alreadyVote[voter] = struct{}{}
 			}
 		}
+	} else {
+		// decode extra from last header.extra
+		err := rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		if err != nil {
+			log.Info("Fail to decode parent header", "err", err)
+			return nil, err
+		}
+		currentHeaderExtra.ConfirmedBlockNumber = parentHeaderExtra.ConfirmedBlockNumber
+		currentHeaderExtra.SignerQueue = parentHeaderExtra.SignerQueue
+		currentHeaderExtra.LoopStartTime = parentHeaderExtra.LoopStartTime
+		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
 	}
 
-	// decode extra from last header.extra
-	currentHeaderExtra := HeaderExtra{}
-	err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &currentHeaderExtra)
+	// calculate votes write into header.extra
+	currentHeaderExtra, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs)
 	if err != nil {
-		log.Info("Fail to decode parent header", "err", err)
+		return nil, err
 	}
-	// notice : the currentHeaderExtra contain the info of parent HeaderExtra
-	currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, currentHeaderExtra)
-	currentHeaderExtra.CurrentBlockVotes = currentBlockVotes
-	currentHeaderExtra.CurrentBlockConfirmations = currentBlockConfirmations
-	currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 
 	// Assemble the voting snapshot to check which votes make sense
 	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes, defaultLoopCntRecalculateSigners)
@@ -663,7 +620,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		return nil, err
 	}
 
-	currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentBlockConfirmations).Uint64()
+	currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentHeaderExtra.CurrentBlockConfirmations).Uint64()
 
 	// write signerQueue in first header, from self vote signers in genesis block
 	if number == 1 {
@@ -700,7 +657,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Difficulty = new(big.Int).Set(defaultDifficulty)
 
 	// Accumulate any block rewards and commit the final state root
-	accumulateRewards(chain.Config(), state, header)
+	accumulateRewards(chain.Config(), state, header, snap)
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
@@ -789,14 +746,24 @@ func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header) {
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot) {
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
+	minerReward := new(big.Int).Set(blockReward)
+	minerReward.Mul(minerReward, big.NewInt(int64(defaultMinerRewardPerThousand)))
+	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
+
+	votersReward := blockReward.Sub(blockReward, minerReward)
+
+	// rewards for the voters
+	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
+		state.AddBalance(voter, reward)
+	}
 	// rewards for the miner
-	state.AddBalance(header.Coinbase, blockReward)
+	state.AddBalance(header.Coinbase, minerReward)
 }
 
 // Get the signer missing from last signer till header.Coinbase
@@ -817,161 +784,4 @@ func getSignerMissing(lastSigner common.Address, currentSigner common.Address, e
 		}
 	}
 	return signerMissing
-}
-
-// Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) processCustomTx(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) ([]Vote, []Vote, []Confirmation, error) {
-	// if predecessor voter make transaction and vote in this block,
-	// just process as vote, do it in snapshot.apply
-	var (
-		currentBlockConfirmations []Confirmation
-		currentBlockVotes         []Vote
-		modifyPredecessorVotes    []Vote
-		snap                      *Snapshot
-		err                       error
-		number                    uint64
-	)
-	number = header.Number.Uint64()
-	if number > 1 {
-		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	}
-
-	for _, tx := range txs {
-		if len(string(tx.Data())) >= len(ufoPrefix) {
-			txData := string(tx.Data())
-			txDataInfo := strings.Split(txData, ":")
-			if len(txDataInfo) >= ufoMinSplitLen {
-				if txDataInfo[posPrefix] == ufoPrefix {
-					if txDataInfo[posVersion] == ufoVersion {
-						// process vote event
-						if txDataInfo[posCategory] == ufoCategoryEvent {
-							if len(txDataInfo) > ufoMinSplitLen {
-								// check is vote or not
-								if posEventVote >= ufoMinSplitLen && txDataInfo[posEventVote] == ufoEventVote {
-
-									currentBlockVotes = a.processEventVote(currentBlockVotes, state, tx)
-
-									if tx.Value().Cmp(big.NewInt(0)) == 0 {
-										// if value is not zero, this vote may influence the balance of tx.To()
-										continue
-									}
-								} else if posEventConfirm >= ufoMinSplitLen && txDataInfo[posEventConfirm] == ufoEventConfirm {
-									currentBlockConfirmations = a.processEventConfirm(currentBlockConfirmations, chain, txDataInfo, number, tx)
-									if tx.Value().Cmp(big.NewInt(0)) == 0 {
-										// if value is not zero, this vote may influence the balance of tx.To()
-										continue
-									}
-
-								} else {
-									//todo : other event not vote
-
-								}
-							} else {
-								// todo : something wrong, leave this transaction to process as normal transaction
-							}
-						} else if txDataInfo[posCategory] == ufoCategoryLog {
-							// todo :
-						}
-					}
-				}
-			}
-		}
-
-		if number > 1 {
-			modifyPredecessorVotes = a.processPredecessorVoter(modifyPredecessorVotes, state, tx, snap)
-		}
-
-	}
-
-	return currentBlockVotes, modifyPredecessorVotes, currentBlockConfirmations, nil
-}
-
-func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction) []Vote {
-	signer := types.NewEIP155Signer(tx.ChainId())
-	voter, _ := types.Sender(signer, tx)
-	if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
-
-		a.lock.RLock()
-		stake := state.GetBalance(voter)
-		a.lock.RUnlock()
-
-		currentBlockVotes = append(currentBlockVotes, Vote{
-			Voter:     voter,
-			Candidate: *tx.To(),
-			Stake:     stake,
-		})
-	}
-
-	return currentBlockVotes
-}
-
-func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction) []Confirmation {
-	if len(txDataInfo) >= posEventConfirmNumber {
-		confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
-		if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
-			return currentBlockConfirmations
-		}
-		signer := types.NewEIP155Signer(tx.ChainId())
-		confirmer, _ := types.Sender(signer, tx)
-		// check if the voter is in block
-		confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
-		if confirmedHeader == nil {
-			log.Info("Fail to get confirmedHeader")
-			return currentBlockConfirmations
-		}
-		confirmedHeaderExtra := HeaderExtra{}
-		if extraVanity+extraSeal > len(confirmedHeader.Extra) {
-			return currentBlockConfirmations
-		}
-		err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
-		if err != nil {
-			log.Info("Fail to decode parent header", "err", err)
-			return currentBlockConfirmations
-		}
-		for _, s := range confirmedHeaderExtra.SignerQueue {
-			if s == confirmer {
-				currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
-					Signer:      confirmer,
-					BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
-				})
-				break
-			}
-		}
-	}
-
-	return currentBlockConfirmations
-}
-
-func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, snap *Snapshot) []Vote {
-	// process normal transaction which relate to voter
-	if tx.Value().Cmp(big.NewInt(0)) > 0 {
-
-		signer := types.NewEIP155Signer(tx.ChainId())
-		voter, _ := types.Sender(signer, tx)
-		if snap.isVoter(voter) {
-			a.lock.RLock()
-			stake := state.GetBalance(voter)
-			a.lock.RUnlock()
-			modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
-				Voter:     voter,
-				Candidate: common.Address{},
-				Stake:     stake,
-			})
-		}
-		if snap.isVoter(*tx.To()) {
-			a.lock.RLock()
-			stake := state.GetBalance(*tx.To())
-			a.lock.RUnlock()
-			modifyPredecessorVotes = append(modifyPredecessorVotes, Vote{
-				Voter:     *tx.To(),
-				Candidate: common.Address{},
-				Stake:     stake,
-			})
-		}
-
-	}
-	return modifyPredecessorVotes
 }
