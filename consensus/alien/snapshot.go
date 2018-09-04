@@ -215,9 +215,12 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 	for _, header := range headers {
 		// Resolve the authorization key and check against signers
-		_, err := ecrecover(header, s.sigcache)
+		coinbase, err := ecrecover(header, s.sigcache)
 		if err != nil {
 			return nil, err
+		}
+		if coinbase.Str() != header.Coinbase.Str() {
+			return nil, errUnauthorized
 		}
 
 		headerExtra := HeaderExtra{}
