@@ -273,22 +273,6 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 			snap.Signers = append(snap.Signers, &headerExtra.SignerQueue[i])
 		}
 
-		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
-		if snap.config.BrowserDB != nil {
-			if snap.config.BrowserDB.GetDriver() == browserdb.MYSQL_DRIVER {
-				snap.config.BrowserDB.MysqlExec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
-			} else if snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
-				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
-				if err != nil {
-					return nil, err
-				}
-				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
-				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
-				err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
-
-			}
-		}
-
 		if len(snap.HistoryHash) >= int(s.config.MaxSignerCount)*2 {
 			snap.HistoryHash = snap.HistoryHash[:int(s.config.MaxSignerCount)*2-1]
 		}
@@ -312,6 +296,22 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		// deal declares decisionTypeImmediately
 		updateSnapshotByDeclares(snap, headerExtra.CurrentBlockDeclares, header.Number)
 		// todo :deal declares decisionTypeWaitTillEnd
+
+		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
+		if snap.config.BrowserDB != nil {
+			if snap.config.BrowserDB.GetDriver() == browserdb.MYSQL_DRIVER {
+				snap.config.BrowserDB.MysqlExec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
+			} else if snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
+				if err != nil {
+					return nil, err
+				}
+				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
+				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
+				err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
+
+			}
+		}
 
 	}
 	snap.Number += uint64(len(headers))
