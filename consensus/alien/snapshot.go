@@ -219,6 +219,31 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 	}
 	cpy["votes"] = cpyVotes
 
+	cpyProposals := make(map[string]map[string]interface{})
+	for tx, proposal := range s.Proposals {
+		var declares []interface{}
+		for _, d := range proposal.Declares {
+			declares = append(declares, map[string]interface{}{
+				"declarer": d.Declarer.Hex(),
+				"decision": d.Decision,
+			})
+		}
+
+		cpyProposals[tx.Hex()] = map[string]interface{}{
+			"validationLoopCnt":      proposal.ValidationLoopCnt,
+			"implementNumber":        proposal.ImplementNumber,
+			"decisionType":           proposal.DecisionType,
+			"proposalType":           proposal.ProposalType,
+			"proposer":               proposal.Proposer.Hex(),
+			"candidate":              proposal.Candidate.Hex(),
+			"minerRewardPerThousand": proposal.MinerRewardPerThousand,
+			"enable":                 proposal.Enable,
+			"receivedNumber":         proposal.ReceivedNumber.String(),
+			"declares":               declares,
+		}
+	}
+	cpy["proposals"] = cpyProposals
+
 	cpySigners := make([]string, len(s.Signers))
 	for i, signer := range s.Signers {
 		cpySigners[i] = signer.Hex()
