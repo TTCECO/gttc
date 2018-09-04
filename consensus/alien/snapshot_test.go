@@ -669,13 +669,15 @@ func TestVoting(t *testing.T) {
 		genesis.Commit(db)
 
 		// Create new alien
-		alien := New(&params.AlienConfig{
+		alienConfig := params.AlienConfig{
 			Period:          tt.period,
 			Epoch:           tt.epoch,
 			MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
 			MaxSignerCount:  tt.maxSignerCount,
 			SelfVoteSigners: selfVoteSigners,
-		}, db)
+		}
+		params.AllAlienProtocolChanges.Alien = &alienConfig
+		alien := New(&alienConfig, db)
 
 		// Assemble a chain of headers from the cast votes
 		headers := make([]*types.Header, len(tt.txHeaders))
