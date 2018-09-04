@@ -43,18 +43,18 @@ func TestQueue(t *testing.T) {
 	}{
 		{
 			/* 	Case 0:
-			*
+			*   new loop signer queue is create at blocknumber 2, the new signerQueue is order by history hash
 			*
 			 */
-			addrNames:      []string{"A", "B"},
-			signers:        []string{"A", "B"},
-			number:         3,
-			maxSignerCount: 4,
-			hash:           "d",
-			historyHash:    []string{"a", "b", "c", "d"},
-			tally:          map[string]uint64{"A": 30, "B": 20},
-			punished:       map[string]uint64{"A": 1, "B": 2},
-			result:         []string{"A", "B", "A", "B"},
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			hash:           "c",
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 20, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"A", "B", "C"},
 		},
 	}
 
@@ -82,10 +82,11 @@ func TestQueue(t *testing.T) {
 			Tally:    make(map[common.Address]*big.Int),
 			Punished: make(map[common.Address]uint64),
 		}
-		snap.Hash.UnmarshalText([]byte(tt.hash))
+
+		snap.Hash.SetString(tt.hash)
 		for _, hash := range tt.historyHash {
 			var hh common.Hash
-			hh.UnmarshalText([]byte(hash))
+			hh.SetString(hash)
 			snap.HistoryHash = append(snap.HistoryHash, hh)
 		}
 
