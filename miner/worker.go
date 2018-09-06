@@ -17,12 +17,12 @@
 package miner
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
-	"errors"
 
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/consensus"
@@ -120,6 +120,8 @@ type worker struct {
 	snapshotMu    sync.RWMutex
 	snapshotBlock *types.Block
 	snapshotState *state.StateDB
+
+	receiveBlockMu sync.Mutex
 
 	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.Block
@@ -291,7 +293,9 @@ func (self *worker) update() {
 		case <-time.After(alienDelay):
 			// try to seal block in each period, even no new block received in dpos
 			if self.config.Alien != nil && self.config.Alien.Period > 0 {
+				self.receiveBlockMu.Lock()
 				self.commitNewWork()
+				self.receiveBlockMu.Unlock()
 			}
 
 		// System stopped
@@ -305,56 +309,65 @@ func (self *worker) update() {
 	}
 }
 
+func (self *worker) receiveBlock(mustCommitNewWork bool, result *Result) bool {
+	self.receiveBlockMu.Lock()
+	defer self.receiveBlockMu.Unlock()
+
+	atomic.AddInt32(&self.atWork, -1)
+
+	if result == nil {
+		return mustCommitNewWork
+	}
+	block := result.Block
+	work := result.Work
+
+	// Update the block hash in all logs since it is now available and not when the
+	// receipt/log of individual transactions were created.
+	for _, r := range work.receipts {
+		for _, l := range r.Logs {
+			l.BlockHash = block.Hash()
+		}
+	}
+	for _, log := range work.state.Logs() {
+		log.BlockHash = block.Hash()
+	}
+	stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
+	if err != nil {
+		log.Error("Failed writing block to chain", "err", err)
+		return mustCommitNewWork
+	}
+	// check if canon block and write transactions
+	if stat == core.CanonStatTy {
+		// implicit by posting ChainHeadEvent
+		mustCommitNewWork = false
+	}
+	// Broadcast the block and announce chain insertion event
+	self.mux.Post(core.NewMinedBlockEvent{Block: block})
+	var (
+		events []interface{}
+		logs   = work.state.Logs()
+	)
+	events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
+	if stat == core.CanonStatTy {
+		events = append(events, core.ChainHeadEvent{Block: block})
+	}
+	self.chain.PostChainEvents(events, logs)
+
+	// Insert the block into the set of pending ones to wait for confirmations
+	self.unconfirmed.Insert(block.NumberU64(), block.Hash())
+
+	if mustCommitNewWork {
+		self.commitNewWork()
+	}
+
+	return mustCommitNewWork
+}
+
 func (self *worker) wait() {
 	for {
 		mustCommitNewWork := true
 		for result := range self.recv {
-			atomic.AddInt32(&self.atWork, -1)
-
-			if result == nil {
-				continue
-			}
-			block := result.Block
-			work := result.Work
-
-			// Update the block hash in all logs since it is now available and not when the
-			// receipt/log of individual transactions were created.
-			for _, r := range work.receipts {
-				for _, l := range r.Logs {
-					l.BlockHash = block.Hash()
-				}
-			}
-			for _, log := range work.state.Logs() {
-				log.BlockHash = block.Hash()
-			}
-			stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
-			if err != nil {
-				log.Error("Failed writing block to chain", "err", err)
-				continue
-			}
-			// check if canon block and write transactions
-			if stat == core.CanonStatTy {
-				// implicit by posting ChainHeadEvent
-				mustCommitNewWork = false
-			}
-			// Broadcast the block and announce chain insertion event
-			self.mux.Post(core.NewMinedBlockEvent{Block: block})
-			var (
-				events []interface{}
-				logs   = work.state.Logs()
-			)
-			events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
-			if stat == core.CanonStatTy {
-				events = append(events, core.ChainHeadEvent{Block: block})
-			}
-			self.chain.PostChainEvents(events, logs)
-
-			// Insert the block into the set of pending ones to wait for confirmations
-			self.unconfirmed.Insert(block.NumberU64(), block.Hash())
-
-			if mustCommitNewWork {
-				self.commitNewWork()
-			}
+			mustCommitNewWork = self.receiveBlock(mustCommitNewWork, result)
 		}
 	}
 }
@@ -503,6 +516,7 @@ func (self *worker) commitNewWork() {
 	}
 
 }
+
 // For PBFT of alien consensus, the follow code may move later
 // After confirm a new block, the miner send a custom transaction to self, which value is 0
 // and data like "ufo:1:event:confirm:123" (ufo is prefix, 1 is version, 123 is block number
@@ -516,8 +530,8 @@ func (self *worker) sendConfirmTx(blockNumber *big.Int) error {
 	for _, wallet := range wallets {
 		if len(wallet.Accounts()) == 0 {
 			continue
-		}else{
-			for _, account := range wallet.Accounts(){
+		} else {
+			for _, account := range wallet.Accounts() {
 				if account.Address == self.coinbase {
 					// coinbase account found
 					// send custom tx
@@ -537,11 +551,9 @@ func (self *worker) sendConfirmTx(blockNumber *big.Int) error {
 			}
 		}
 
-
 	}
 	return nil
 }
-
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 	hash := uncle.Hash()
