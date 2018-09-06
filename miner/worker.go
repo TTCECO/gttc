@@ -293,9 +293,7 @@ func (self *worker) update() {
 		case <-time.After(alienDelay):
 			// try to seal block in each period, even no new block received in dpos
 			if self.config.Alien != nil && self.config.Alien.Period > 0 {
-				self.receiveBlockMu.Lock()
 				self.commitNewWork()
-				self.receiveBlockMu.Unlock()
 			}
 
 		// System stopped
@@ -418,6 +416,8 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 }
 
 func (self *worker) commitNewWork() {
+	self.receiveBlockMu.Lock()
+	defer self.receiveBlockMu.Unlock()
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	self.uncleMu.Lock()
