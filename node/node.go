@@ -420,13 +420,19 @@ func (n *Node) stopBrowserDBConn() {
 
 func (n *Node) SetBrowserWeb(web web.Web) {
 	n.browserWeb = &web
+	go n.startWeb()
 }
 
-func (n *Node) startWeb() {
+func (n *Node) startWeb() error {
 	if n.browserWeb != nil {
 		browserWeb := *n.browserWeb
-		go browserWeb.Start()
+		if err := browserWeb.Start(); err != nil {
+			n.log.Error("can't start web page", "err", err)
+		} else {
+			n.log.Info("web page started")
+		}
 	}
+	return nil
 }
 
 // Stop terminates a running node along with all it's services. In the node was

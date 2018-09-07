@@ -18,25 +18,35 @@ package tbweb
 
 import (
 	"fmt"
-
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
+	"net/http"
 )
 
 type TTCBrowserWeb struct {
 	port uint64
-	echo *echo.Echo
+	e    *echo.Echo
+}
+
+func getIndex(c echo.Context) error {
+	return c.HTML(http.StatusOK, "<b>Hellow World!</b>")
 }
 
 func (t *TTCBrowserWeb) New(port uint64) {
-	if t.echo == nil {
-		t.echo = echo.New()
+	if t.e == nil {
+		t.e = echo.New()
 		t.port = port
+
+		t.e.GET("/", getIndex)
+		t.e.Use(middleware.Gzip())
+		t.e.Use(middleware.Recover())
+
 	}
 }
 func (t *TTCBrowserWeb) Use(params ...interface{}) {
 	if len(params) > 0 {
 		f := params[0].(echo.MiddlewareFunc)
-		t.echo.Use(f)
+		t.e.Use(f)
 	}
 }
 
@@ -49,7 +59,7 @@ func (t *TTCBrowserWeb) GET(params ...interface{}) {
 			m[i] = item.(echo.MiddlewareFunc)
 		}
 
-		t.echo.GET(path, h, m...)
+		t.e.GET(path, h, m...)
 	}
 
 }
@@ -62,11 +72,11 @@ func (t *TTCBrowserWeb) POST(params ...interface{}) {
 			m[i] = item.(echo.MiddlewareFunc)
 		}
 
-		t.echo.POST(path, h, m...)
+		t.e.POST(path, h, m...)
 	}
 }
 
 func (t *TTCBrowserWeb) Start() error {
-	return t.echo.Start(fmt.Sprintf(":%d", t.port))
-
+	t.e.Logger.Fatal(t.e.Start(fmt.Sprintf(":%d", t.port)))
+	return nil
 }
