@@ -30,6 +30,7 @@ import (
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/event"
 	"github.com/TTCECO/gttc/extra/browserdb"
+	"github.com/TTCECO/gttc/extra/web"
 	"github.com/TTCECO/gttc/internal/debug"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/p2p"
@@ -70,8 +71,9 @@ type Node struct {
 
 	stop chan struct{} // Channel to wait for termination notifications
 
-	browserDB *browserdb.BrowserDB // DB conn to store info for browser
-	lock      sync.RWMutex
+	browserDB  *browserdb.BrowserDB // DB conn to store info for browser
+	browserWeb *web.Web
+	lock       sync.RWMutex
 
 	log log.Logger
 }
@@ -413,6 +415,17 @@ func (n *Node) stopBrowserDBConn() {
 			n.log.Info("Connection to browser database closed")
 		}
 
+	}
+}
+
+func (n *Node) SetBrowserWeb(web web.Web) {
+	n.browserWeb = &web
+}
+
+func (n *Node) startWeb() {
+	if n.browserWeb != nil {
+		browserWeb := *n.browserWeb
+		go browserWeb.Start()
 	}
 }
 
