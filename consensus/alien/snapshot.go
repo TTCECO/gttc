@@ -299,7 +299,7 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		}
 
 		if len(snap.HistoryHash) >= int(s.config.MaxSignerCount)*2 {
-			snap.HistoryHash = snap.HistoryHash[:int(s.config.MaxSignerCount)*2-1]
+			snap.HistoryHash = snap.HistoryHash[1 : int(s.config.MaxSignerCount)*2]
 		}
 		snap.HistoryHash = append(snap.HistoryHash, header.Hash())
 
