@@ -232,6 +232,8 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.BrowserDBNameFlag,
 			utils.BrowserDBUserFlag,
 			utils.BrowserDBPassFlag,
+			utils.BrowserWebEnabledFlag,
+			utils.BrowserWebPortFlag,
 		},
 	},
 	{

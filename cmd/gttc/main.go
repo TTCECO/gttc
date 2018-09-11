@@ -33,6 +33,7 @@ import (
 	"github.com/TTCECO/gttc/eth"
 	"github.com/TTCECO/gttc/ethclient"
 	"github.com/TTCECO/gttc/extra/browserdb/tbdb"
+	"github.com/TTCECO/gttc/extra/web/tbweb"
 	"github.com/TTCECO/gttc/internal/debug"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/metrics"
@@ -151,6 +152,8 @@ var (
 		utils.BrowserDBNameFlag,
 		utils.BrowserDBUserFlag,
 		utils.BrowserDBPassFlag,
+		utils.BrowserWebEnabledFlag,
+		utils.BrowserWebPortFlag,
 	}
 )
 
@@ -329,6 +332,14 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				}
 				ethereum.BlockChain().Config().Alien.BrowserDB = ttcBrowserDB
 				stack.SetBrowserDBConn(ttcBrowserDB)
+
+				web := ctx.GlobalBool(utils.BrowserWebEnabledFlag.Name)
+				if web {
+					webPort := ctx.GlobalInt(utils.BrowserWebPortFlag.Name)
+					ttcWeb := &tbweb.TTCBrowserWeb{}
+					ttcWeb.New(uint64(webPort))
+					stack.SetBrowserWeb(ttcWeb)
+				}
 			}
 		}
 

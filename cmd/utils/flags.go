@@ -568,6 +568,15 @@ var (
 		Usage: "Browser database password",
 		Value: "",
 	}
+	BrowserWebEnabledFlag = cli.BoolFlag{
+		Name:  "bm.web",
+		Usage: "Enable browser web",
+	}
+	BrowserWebPortFlag = cli.IntFlag{
+		Name:  "bm.webport",
+		Usage: "Enable browser web port",
+		Value: 80,
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating

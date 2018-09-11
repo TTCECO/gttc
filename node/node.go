@@ -30,6 +30,7 @@ import (
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/event"
 	"github.com/TTCECO/gttc/extra/browserdb"
+	"github.com/TTCECO/gttc/extra/web"
 	"github.com/TTCECO/gttc/internal/debug"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/p2p"
@@ -70,8 +71,9 @@ type Node struct {
 
 	stop chan struct{} // Channel to wait for termination notifications
 
-	browserDB *browserdb.BrowserDB // DB conn to store info for browser
-	lock      sync.RWMutex
+	browserDB  *browserdb.BrowserDB // DB conn to store info for browser
+	browserWeb *web.Web
+	lock       sync.RWMutex
 
 	log log.Logger
 }
@@ -414,6 +416,23 @@ func (n *Node) stopBrowserDBConn() {
 		}
 
 	}
+}
+
+func (n *Node) SetBrowserWeb(web web.Web) {
+	n.browserWeb = &web
+	go n.startWeb()
+}
+
+func (n *Node) startWeb() error {
+	if n.browserWeb != nil {
+		browserWeb := *n.browserWeb
+		if err := browserWeb.Start(); err != nil {
+			n.log.Error("can't start web page", "err", err)
+		} else {
+			n.log.Info("web page started")
+		}
+	}
+	return nil
 }
 
 // Stop terminates a running node along with all it's services. In the node was
