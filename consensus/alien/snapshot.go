@@ -172,10 +172,10 @@ func (s *Snapshot) copy() *Snapshot {
 		}
 	}
 	for candidate, tally := range s.Tally {
-		cpy.Tally[candidate] = tally
+		cpy.Tally[candidate] = new(big.Int).Set(tally)
 	}
 	for voter, number := range s.Voters {
-		cpy.Voters[voter] = number
+		cpy.Voters[voter] = new(big.Int).Set(number)
 	}
 	for candidate, state := range s.Candidates {
 		cpy.Candidates[candidate] = state
