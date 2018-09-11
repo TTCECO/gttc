@@ -174,10 +174,10 @@ func (s *Snapshot) copy() *Snapshot {
 		}
 	}
 	for candidate, tally := range s.Tally {
-		cpy.Tally[candidate] = tally
+		cpy.Tally[candidate] = new(big.Int).Set(tally)
 	}
 	for voter, number := range s.Voters {
-		cpy.Voters[voter] = number
+		cpy.Voters[voter] = new(big.Int).Set(number)
 	}
 	for candidate, state := range s.Candidates {
 		cpy.Candidates[candidate] = state
@@ -299,7 +299,7 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		}
 
 		if len(snap.HistoryHash) >= int(s.config.MaxSignerCount)*2 {
-			snap.HistoryHash = snap.HistoryHash[:int(s.config.MaxSignerCount)*2-1]
+			snap.HistoryHash = snap.HistoryHash[1 : int(s.config.MaxSignerCount)*2]
 		}
 		snap.HistoryHash = append(snap.HistoryHash, header.Hash())
 
@@ -409,23 +409,29 @@ func (s *Snapshot) updateSnapshotByProposals(proposals []Proposal, headerNumber 
 }
 
 func (s *Snapshot) updateSnapshotForExpired() {
+
 	// deal the expired vote
+	var expiredVotes []*Vote
 	for voterAddress, voteNumber := range s.Voters {
-		if len(s.Voters) <= int(s.config.MaxSignerCount) || len(s.Tally) <= int(s.config.MaxSignerCount) {
-			break
-		}
 		if s.Number-voteNumber.Uint64() > s.config.Epoch {
 			// clear the vote
 			if expiredVote, ok := s.Votes[voterAddress]; ok {
-				s.Tally[expiredVote.Candidate].Sub(s.Tally[expiredVote.Candidate], expiredVote.Stake)
-				if s.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
-					delete(s.Tally, expiredVote.Candidate)
-				}
-				delete(s.Votes, expiredVote.Voter)
-				delete(s.Voters, expiredVote.Voter)
+				expiredVotes = append(expiredVotes, expiredVote)
 			}
 		}
 	}
+	// remove expiredVotes only enough voters left
+	if uint64(len(s.Voters)-len(expiredVotes)) >= s.config.MaxSignerCount {
+		for _, expiredVote := range expiredVotes {
+			s.Tally[expiredVote.Candidate].Sub(s.Tally[expiredVote.Candidate], expiredVote.Stake)
+			if s.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
+				delete(s.Tally, expiredVote.Candidate)
+			}
+			delete(s.Votes, expiredVote.Voter)
+			delete(s.Voters, expiredVote.Voter)
+		}
+	}
+
 	// deal the expired confirmation
 	for blockNumber := range s.Confirmations {
 		if s.Number-blockNumber > s.config.MaxSignerCount {

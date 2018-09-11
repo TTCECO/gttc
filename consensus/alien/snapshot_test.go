@@ -392,8 +392,9 @@ func TestVoting(t *testing.T) {
 			* 	C vote D , J vote K, H vote I  to be signer in block 3
 			*   E vote F in block 4
 			* 	B vote B in block 5
-			* 	The signers in the next loop is B, D,F,I,K
-			*	current number - The block number of vote for A > epoch AND tally > maxSignerCount
+			* 	The signers in the next loop is A, B, D,F,I,K
+			*	current number - The block number of vote for A > epoch expired
+			*
 			 */
 			addrNames:        []string{"A", "B", "C", "D", "E", "F", "H", "I", "J", "K"},
 			period:           uint64(3),
@@ -406,21 +407,25 @@ func TestVoting(t *testing.T) {
 			txHeaders: []testerSingleHeader{
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 110, isVote: true}, {from: "J", to: "K", balance: 80, isVote: true}, {from: "H", to: "I", balance: 160, isVote: true}}},
 				{[]testerTransaction{{from: "E", to: "F", balance: 130, isVote: true}}},
 				{[]testerTransaction{{from: "B", to: "B", balance: 200, isVote: true}}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
-				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
 			},
 			result: testerSnapshot{
 				Signers: []string{"B", "D", "F", "I", "K"},
 				Tally:   map[string]int{"B": 200, "D": 110, "I": 160, "F": 130, "K": 80},
-				Voters:  map[string]int{"B": 5, "C": 3, "H": 3, "J": 3, "E": 4},
+				Voters:  map[string]int{"B": 14, "C": 12, "H": 12, "J": 12, "E": 13},
 				Votes: map[string]*testerVote{
 					"B": {"B", "B", 200},
 					"C": {"C", "D", 110},
