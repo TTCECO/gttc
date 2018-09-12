@@ -296,57 +296,60 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		}
 	}()
 	// Start auxiliary services if enabled
-	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
-		// Mining only makes sense if a full Ethereum node is running
-		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
-			utils.Fatalf("Light clients do not support mining")
-		}
+	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) || ctx.GlobalBool(utils.BrowserEnabledFlag.Name) {
+
 		var ethereum *eth.Ethereum
 		if err := stack.Service(&ethereum); err != nil {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
-		// Use a reduced number of threads if requested
-		if threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name); threads > 0 {
-			type threaded interface {
-				SetThreads(threads int)
-			}
-			if th, ok := ethereum.Engine().(threaded); ok {
-				th.SetThreads(threads)
-			}
-		}
 
-		if ethereum.BlockChain().Config().Alien != nil {
-
-			if ctx.GlobalBool(utils.BrowserEnabledFlag.Name) {
-				// connect browser database
-				driver := ctx.GlobalString(utils.BrowserDriverFlag.Name)
-				ip := ctx.GlobalString(utils.BrowserDBIPFlag.Name)
-				port := ctx.GlobalInt(utils.BrowserDBPortFlag.Name)
-				user := ctx.GlobalString(utils.BrowserDBUserFlag.Name)
-				pass := ctx.GlobalString(utils.BrowserDBPassFlag.Name)
-				DBName := ctx.GlobalString(utils.BrowserDBNameFlag.Name)
-				ttcBrowserDB := &tbdb.TTCBrowserDB{}
-				err := ttcBrowserDB.Open(driver, ip, port, user, pass, DBName)
-				if err != nil {
-					utils.Fatalf("database connect fail: %s", err)
+		if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
+			// Mining only makes sense if a full Ethereum node is running
+			if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+				utils.Fatalf("Light clients do not support mining")
+			}
+			// Use a reduced number of threads if requested
+			if threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name); threads > 0 {
+				type threaded interface {
+					SetThreads(threads int)
 				}
-				ethereum.BlockChain().Config().Alien.BrowserDB = ttcBrowserDB
-				stack.SetBrowserDBConn(ttcBrowserDB)
-
-				web := ctx.GlobalBool(utils.BrowserWebEnabledFlag.Name)
-				if web {
-					webPort := ctx.GlobalInt(utils.BrowserWebPortFlag.Name)
-					ttcWeb := &tbweb.TTCBrowserWeb{}
-					ttcWeb.New(uint64(webPort))
-					stack.SetBrowserWeb(ttcWeb)
+				if th, ok := ethereum.Engine().(threaded); ok {
+					th.SetThreads(threads)
 				}
 			}
 		}
 
-		// Set the gas price to the limits from the CLI and start mining
-		ethereum.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
-		if err := ethereum.StartMining(true); err != nil {
-			utils.Fatalf("Failed to start mining: %v", err)
+		if ethereum.BlockChain().Config().Alien != nil && ctx.GlobalBool(utils.BrowserEnabledFlag.Name) {
+			// connect browser database
+			driver := ctx.GlobalString(utils.BrowserDriverFlag.Name)
+			ip := ctx.GlobalString(utils.BrowserDBIPFlag.Name)
+			port := ctx.GlobalInt(utils.BrowserDBPortFlag.Name)
+			user := ctx.GlobalString(utils.BrowserDBUserFlag.Name)
+			pass := ctx.GlobalString(utils.BrowserDBPassFlag.Name)
+			DBName := ctx.GlobalString(utils.BrowserDBNameFlag.Name)
+			ttcBrowserDB := &tbdb.TTCBrowserDB{}
+			err := ttcBrowserDB.Open(driver, ip, port, user, pass, DBName)
+			if err != nil {
+				utils.Fatalf("database connect fail: %s", err)
+			}
+			ethereum.BlockChain().Config().Alien.BrowserDB = ttcBrowserDB
+			stack.SetBrowserDBConn(ttcBrowserDB)
+
+			web := ctx.GlobalBool(utils.BrowserWebEnabledFlag.Name)
+			if web {
+				webPort := ctx.GlobalInt(utils.BrowserWebPortFlag.Name)
+				ttcWeb := &tbweb.TTCBrowserWeb{}
+				ttcWeb.New(uint64(webPort))
+				stack.SetBrowserWeb(ttcWeb)
+			}
+
+		}
+		if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
+			// Set the gas price to the limits from the CLI and start mining
+			ethereum.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
+			if err := ethereum.StartMining(true); err != nil {
+				utils.Fatalf("Failed to start mining: %v", err)
+			}
 		}
 	}
 }
