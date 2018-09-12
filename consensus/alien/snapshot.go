@@ -20,6 +20,7 @@ package alien
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
 	"time"
 
@@ -45,6 +46,10 @@ const (
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
 	candidateNormal = 1
+)
+
+var (
+	errIncorrectTallyCount = errors.New("incorrect tally count")
 )
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -343,8 +348,33 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 	snap.Hash = headers[len(headers)-1].Hash()
 
 	snap.updateSnapshotForExpired()
-
+	err := snap.verifyTallyCnt()
+	if err != nil {
+		return nil, err
+	}
 	return snap, nil
+}
+
+func (s *Snapshot) verifyTallyCnt() error {
+
+	tallyTarget := make(map[common.Address]*big.Int)
+	for _, v := range s.Votes {
+		if _, ok := tallyTarget[v.Candidate]; ok {
+			tallyTarget[v.Candidate].Add(tallyTarget[v.Candidate], v.Stake)
+		} else {
+			tallyTarget[v.Candidate] = new(big.Int).Set(v.Stake)
+		}
+	}
+
+	for address, tally := range s.Tally {
+		if targetTally, ok := tallyTarget[address]; ok && targetTally.Cmp(tally) == 0 {
+			continue
+		} else {
+			return errIncorrectTallyCount
+		}
+	}
+
+	return nil
 }
 
 func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *big.Int) {
