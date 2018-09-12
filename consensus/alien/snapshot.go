@@ -530,15 +530,17 @@ func (s *Snapshot) updateSnapshotByMPVotes(votes []Vote) {
 
 func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, headerNumber *big.Int, coinbase common.Address) {
 	// set punished count to half of origin in Epoch
-	if headerNumber.Uint64()%s.config.Epoch == 0 {
-		for bePublished := range s.Punished {
-			if count := s.Punished[bePublished] / 2; count > 0 {
-				s.Punished[bePublished] = count
-			} else {
-				delete(s.Punished, bePublished)
+	/*
+		if headerNumber.Uint64()%s.config.Epoch == 0 {
+			for bePublished := range s.Punished {
+				if count := s.Punished[bePublished] / 2; count > 0 {
+					s.Punished[bePublished] = count
+				} else {
+					delete(s.Punished, bePublished)
+				}
 			}
 		}
-	}
+	*/
 	// punish the missing signer
 	for _, signerMissing := range signerMissing {
 		if _, ok := s.Punished[signerMissing]; ok {
@@ -558,7 +560,11 @@ func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, heade
 	}
 	// reduce the punish for all punished
 	for signerEach := range s.Punished {
-		s.Punished[signerEach] -= autoRewardCredit
+		if s.Punished[signerEach] > autoRewardCredit {
+			s.Punished[signerEach] -= autoRewardCredit
+		} else {
+			delete(s.Punished, signerEach)
+		}
 	}
 }
 
