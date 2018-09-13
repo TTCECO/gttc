@@ -230,7 +230,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
 		Candidate:              common.Address{},
-		MinerRewardPerThousand: defaultMinerRewardPerThousand,
+		MinerRewardPerThousand: minerRewardPerThousand,
 		Enable:                 false,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),

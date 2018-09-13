@@ -916,7 +916,7 @@ func TestVoting(t *testing.T) {
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
 							Candidate:              accounts.address(trans.candidate),
-							MinerRewardPerThousand: defaultMinerRewardPerThousand,
+							MinerRewardPerThousand: minerRewardPerThousand,
 							Enable:                 false,
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
