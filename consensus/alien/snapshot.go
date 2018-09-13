@@ -340,7 +340,7 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 				if err != nil {
 					return nil, err
 				}
-				updateCondition := map[string]interface{}{"hash": snap.Hash.Hex()}
+				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
 				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
 				err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
 
