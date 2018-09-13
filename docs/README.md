@@ -13,15 +13,18 @@ gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum),
 Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 files in [consensus/alien](../consensus/alien/):
 
 * **alien.go**    : Implement the consensus interface
+* **custom_tx.go** : Process the custom transaction such as vote,proposal,declare and so on...
 * **snapshot.go** : Keep the snapshot of vote and confirm status for each block
 * **snapshot_test.go** : test for snapshot
+* **signer_queue.go**  : calculate the order of signer queue
+* **signer_queue_test.go** : test for signer_queue
 * **api.go**      : API
 
-If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole blockchain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
+If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
 
 All the code & documents in this directory is in http://github.com/TTCECO/gttc and will be update there, but it's a private repository, so if you need the access right, please contact us.
 
-gttc-release-v0.0.3.zip in this folder is the latest version of release.
+Current test chain is deploy the code of branch v0.0.4
 
 #### Documents List
 
@@ -42,21 +45,11 @@ gttc-release-v0.0.3.zip in this folder is the latest version of release.
 
 gttc --datedir node1/ init genesis.json
 
-gttc --datadir node1/ --syncmode 'full' --rpcapi 'personal,db,eth,net,web3,txpool,miner,net' --bootnodes 'enode://65fb31ebbc15eb9370dad7696416786492b504492f8e0b854015a9f543ca8f630b9f2d74dfefce15b4027a6977765a9a4941c105cf5bb8f87c706726287ecb39@39.106.104.30:30312' --networkid 1084
+gttc --datadir node1/ --syncmode 'full' --rpcapi 'enode://f98bd1311c937f4314adacf2a258f88a470c0b0b199c1b2098d5e4c4ec91797a95525d1f62bdb09c251aa3b0aa0f92b212111cbc62b6dce732f10eca10d22f0e@47.105.142.208:30339,enode://bef0466f865d1abbe8e9090805fa30250c013b9d41ad15353bc6e5d58591fb15af1ac6709ac08f8c7f422939617454b207ab4696ac28c8cd4c33eb5d52136912@47.105.140.129:30331,enode://25a64b450d0d23d36f8326e2ee79b9a4f072bc6518981f19c761164840dcec8497b7bfa2ed5dfbe189ad05a6bfc1e69cdb05528d15b9a06f1d923ce8d16ad560@47.105.131.192:30325,enode://30d66152c08d7fdb50269ae2af0f2d39b98a081564662b9ca9267e8cba6c43a61262bdd6435657791ff897a23b4e9f1a43ca3f31c2d517f09f735955b0061666@47.105.78.210:30319' --networkid 8434
 
 ```
 
-You can test, attack or do anything to this testnet, it is just for test.
-
-#### Test account
-
-The test account we provide on testnet is "0xaafeaaf6111762fea733ff7b4c8b59ac69316385", the current balance of this account is: 7.13623846352979940529142984724747568191373312e+44 . The detail of this address is:
-
-```
-Address:        0xAafEAAf6111762fEA733fF7B4C8B59ac69316385
-Public key:     046074b72df5d4eccb492e0cc12b8144a446529a040b9aec2f57cb73c631c1ffa70df74f6055f6efdc4c6b9e65a2361360491d55913d9e3ad364ba1839d0c100d9
-Private key:    5e0ddf6900fee7e399bd4e258821ee4cacf1ed8ddc3cb11976311b895553c1a1
-```
+You can test, attack or do anything to this test chain, it is just for test.
 
 #### Contact
 
