@@ -258,6 +258,9 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 	cpy["coinbase"] = header.Coinbase.Hex()
 	cpy["gasLimit"] = header.GasLimit
 	cpy["gasUsed"] = header.GasUsed
+	cpy["headerTime"] = s.HeaderTime
+	cpy["loopStartTime"] = s.LoopStartTime
+	cpy["hash"] = s.Hash.Hex()
 	return cpy
 }
 
@@ -332,11 +335,12 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 			if snap.config.BrowserDB.GetDriver() == browserdb.MYSQL_DRIVER {
 				snap.config.BrowserDB.MysqlExec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
 			} else if snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+
 				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
 				if err != nil {
 					return nil, err
 				}
-				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
+				updateCondition := map[string]interface{}{"hash": snap.Hash.Hex()}
 				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
 				err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
 
