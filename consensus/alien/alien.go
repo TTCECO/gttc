@@ -713,7 +713,6 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
 	minerReward := new(big.Int).Set(blockReward)
-	log.Info("##############", "minerrewardperThousan", minerRewardPerThousand)
 	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
 	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
