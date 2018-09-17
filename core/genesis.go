@@ -35,7 +35,6 @@ import (
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
-	"strconv"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
