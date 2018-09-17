@@ -33,8 +33,8 @@ import (
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/common/fdlimit"
 	"github.com/TTCECO/gttc/consensus"
-	"github.com/TTCECO/gttc/consensus/clique"
 	"github.com/TTCECO/gttc/consensus/alien"
+	"github.com/TTCECO/gttc/consensus/clique"
 	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/state"
@@ -134,7 +134,7 @@ var (
 	}
 	TestnetFlag = cli.BoolFlag{
 		Name:  "testnet",
-		Usage: "Ropsten network: pre-configured proof-of-work test network",
+		Usage: "TTC test network: pre-configured delegate-proof-of-stake test network",
 	}
 	RinkebyFlag = cli.BoolFlag{
 		Name:  "rinkeby",
@@ -533,7 +533,6 @@ var (
 		Usage: "Minimum POW accepted",
 		Value: whisper.DefaultMinimumPoW,
 	}
-
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1077,7 +1076,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	switch {
 	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 3
+			cfg.NetworkId = 8434
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
 	case ctx.GlobalBool(RinkebyFlag.Name):
@@ -1225,7 +1224,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 	var engine consensus.Engine
 	if config.Clique != nil {
 		engine = clique.New(config.Clique, chainDb)
-	}else if config.Alien != nil{
+	} else if config.Alien != nil {
 		engine = alien.New(config.Alien, chainDb)
 
 	} else {

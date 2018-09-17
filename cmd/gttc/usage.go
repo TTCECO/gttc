@@ -33,7 +33,7 @@ import (
 var AppHelpTemplate = `NAME:
    {{.App.Name}} - {{.App.Usage}}
 
-   Copyright 2013-2018 The go-ethereum Authors
+   Copyright 2013-2018 The TTCECO Authors
 
 USAGE:
    {{.App.HelpName}} [options]{{if .App.Commands}} command [command options]{{end}} {{if .App.ArgsUsage}}{{.App.ArgsUsage}}{{else}}[arguments...]{{end}}
@@ -65,7 +65,7 @@ type flagGroup struct {
 // AppHelpFlagGroups is the application flags, grouped by functionality.
 var AppHelpFlagGroups = []flagGroup{
 	{
-		Name: "ETHEREUM",
+		Name: "GTTC",
 		Flags: []cli.Flag{
 			configFileFlag,
 			utils.DataDirFlag,
