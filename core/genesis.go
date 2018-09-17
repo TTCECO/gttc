@@ -353,7 +353,6 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	testnetAlloc := make(GenesisAlloc, 37)
 	for i := 0; i < 37; i++ {
 		balance := new(big.Int)
-
 		if i == 0 {
 			balance.SetString("31d450f18af132720000000", 16)
 		} else if i <= 10 {
@@ -361,7 +360,6 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		} else if i <= 20 {
 			balance.SetString("152d02c7e14af6800000", 16)
 		} else {
-
 			balance.SetString("21e19e0c9bab2400000", 16)
 		}
 		testnetAlloc[common.HexToAddress(testnetAllocAddressSlice[i])] = GenesisAccount{Balance: balance}
@@ -369,6 +367,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
+		Timestamp: 1536135874,
 		Nonce:      0,
 		ExtraData:  hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
 		GasLimit:   4700000,
