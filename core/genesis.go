@@ -353,17 +353,19 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	}
 	testnetAlloc := make(GenesisAlloc, 37)
 	for i := 0; i < 37; i++ {
-		var balance int64
-		balance, _ = strconv.ParseInt("0x21e19e0c9bab2400000", 0, 0)
+		balance := new(big.Int)
 
 		if i == 0 {
-			balance, _ = strconv.ParseInt("0x31d450f18af132720000000", 0, 0)
+			balance.SetString("31d450f18af132720000000", 16)
 		} else if i <= 10 {
-			balance, _ = strconv.ParseInt("0xd3c21bcecceda1000000", 0, 0)
+			balance.SetString("d3c21bcecceda1000000", 16)
 		} else if i <= 20 {
-			balance, _ = strconv.ParseInt("0x152d02c7e14af6800000", 0, 0)
+			balance.SetString("152d02c7e14af6800000", 16)
+		} else {
+
+			balance.SetString("21e19e0c9bab2400000", 16)
 		}
-		testnetAlloc[common.HexToAddress(testnetAllocAddressSlice[i])] = GenesisAccount{Balance: big.NewInt(balance)}
+		testnetAlloc[common.HexToAddress(testnetAllocAddressSlice[i])] = GenesisAccount{Balance: balance}
 	}
 
 	return &Genesis{

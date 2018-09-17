@@ -55,7 +55,7 @@ var (
 			Period:           1,
 			Epoch:            300,
 			MaxSignerCount:   21,
-			MinVoterBalance:  big.NewInt(100000000000000000000),
+			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
 			GenesisTimestamp: 1536136198,
 			SelfVoteSigners: []common.Address{
 				common.HexToAddress("0x393faea80893ba357db03c03ee73ad3e31257469"),
