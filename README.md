@@ -6,7 +6,7 @@ Golang implementation of the TTC protocol.
 
 gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part be modified is in [consensus](consensus/) directory. We add a new consensus algorithm named [alien](consensus/alien/) in it.
 
-Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 files in [consensus/alien](consensus/alien/):
+Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 7 files in [consensus/alien](consensus/alien/):
 
 * **alien.go**    : Implement the consensus interface
 * **custom_tx.go** : Process the custom transaction such as vote,proposal,declare and so on...
@@ -17,8 +17,6 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 4 file
 * **api.go**      : API
 
 If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
-
-All the code & documents in this directory is in http://github.com/TTCECO/gttc and will be update there, but it's a private repository, so if you need the access right, please contact us.
 
 Current test chain is deploy the code of branch v0.0.4
 
@@ -41,10 +39,9 @@ You can find some HOWTO docs in [docs/](docs/)
 
 ```
 gttc --testnet
-
 ```
 
-You can test, attack or do anything to this test chain, it is just for test.
+You can test on this test chain, it is just for test.
 
 #### Contact
 
