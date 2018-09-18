@@ -209,6 +209,11 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 		cpyTally[voter.Hex()] = tally.String()
 	}
 	cpy["tally"] = cpyTally
+	cpyPunished := make(map[string]uint64)
+	for signer, punished := range s.Punished {
+		cpyPunished[signer.Hex()] = punished
+	}
+	cpy["punished"] = cpyPunished
 	cpyVoters := make(map[string]uint64)
 	for voter, number := range s.Voters {
 		cpyVoters[voter.Hex()] = number.Uint64()

@@ -118,6 +118,17 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			queueLength = len(tallySlice)
 		}
 
+		if s.config.BrowserDB != nil {
+			updateCondition := map[string]interface{}{"number": s.Number + 1}
+			orderedTally := make([]interface{}, len(tallySlice))
+			for _, t := range tallySlice {
+				orderedTally = append(orderedTally, &map[string]interface{}{"address": t.addr.Hex(), "stake": new(big.Int).Set(t.stake)})
+			}
+			updateTallyData := map[string]interface{}{"$set": map[string][]interface{}{"tallyOrdered": orderedTally}}
+			s.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateTallyData)
+
+		}
+
 		if queueLength == defaultOfficialMaxSignerCount && len(tallySlice) > defaultOfficialThirdLevelCount {
 			for i, tallyItem := range tallySlice[:defaultOfficialFirstLevelCount] {
 				signerSlice = append(signerSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
