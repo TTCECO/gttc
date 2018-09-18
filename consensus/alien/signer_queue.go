@@ -24,6 +24,8 @@ import (
 	"sort"
 
 	"github.com/TTCECO/gttc/common"
+	"github.com/TTCECO/gttc/extra/browserdb"
+	"github.com/TTCECO/gttc/log"
 )
 
 type TallyItem struct {
@@ -118,14 +120,20 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			queueLength = len(tallySlice)
 		}
 
-		if s.config.BrowserDB != nil {
-			updateCondition := map[string]interface{}{"number": s.Number + 1}
+		if s.config.BrowserDB != nil && s.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
 			orderedTally := make([]interface{}, len(tallySlice))
-			for _, t := range tallySlice {
-				orderedTally = append(orderedTally, &map[string]interface{}{"address": t.addr.Hex(), "stake": new(big.Int).Set(t.stake)})
+			for i, t := range tallySlice {
+				orderedTally[i] = map[string]string{"address": t.addr.Hex(), "stake": new(big.Int).Set(t.stake).String()}
 			}
-			updateTallyData := map[string]interface{}{"$set": map[string][]interface{}{"tallyOrdered": orderedTally}}
-			s.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateTallyData)
+			tallyData := map[string]interface{}{"nextTallyOrder": []interface{}{orderedTally}, "number": s.Number + 1}
+			conditionData := map[string]interface{}{"number": s.Number + 1}
+
+			if !s.config.BrowserDB.MongoExist("tally", conditionData) {
+				_, err := s.config.BrowserDB.MongoUpsert("tally", conditionData, tallyData)
+				if err != nil {
+					log.Error("db err", "err", err)
+				}
+			}
 
 		}
 

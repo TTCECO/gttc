@@ -98,3 +98,16 @@ func (b *TTCBrowserDB) MongoSave(collection string, data ...interface{}) error {
 func (b *TTCBrowserDB) MongoUpdate(collection string, condition bson.M, data bson.M) error {
 	return b.mongoDB.C(collection).Update(condition, data)
 }
+
+func (b *TTCBrowserDB) MongoUpsert(collection string, condition bson.M, data bson.M) (*mgo.ChangeInfo, error) {
+	return b.mongoDB.C(collection).Upsert(condition, data)
+}
+
+func (b *TTCBrowserDB) MongoExist(collection string, condition bson.M) bool {
+	var res bson.M
+	err := b.mongoDB.C(collection).Find(condition).One(&res)
+	if err != nil || res == nil {
+		return false
+	}
+	return true
+}
