@@ -311,13 +311,68 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
+	testnetAllocAddressSlice := []string{
+		"0xcbfc29c31a31c869f9eb59a084d9019965978a7e",
+		"0x393faea80893ba357db03c03ee73ad3e31257469",
+		"0x30d342865deef24ac6b3ec2f3f8dba5109351571",
+		"0xd410f95ede1d2da66b1870ac671cc18b66a97778",
+		"0xa25dc63609ea7ea999033e062f2ace42231c0b69",
+		"0xf392f41e14263330749b44edfdd6e286f8d5e4f2",
+		"0x56df54b4e9603a9ad094077b645f836602bdee4e",
+		"0x42eecb2947c05e031f183488cb51cde6132c8b93",
+		"0xf955da6fdf358eff8bf151e8549b7720d9a1781b",
+		"0x87aa4937c48cf1b152d451decfd29ead6547f3a0",
+		"0x7b1fbfe29a990dd19cf77deb2be6ae3bf9d96f89",
+		"0x6d5d0905ca8a3d2a2da3416be78dc1043c351493",
+		"0xd4a93c23439ca111f4099287fecb92f7c86674a4",
+		"0xa6ca9600357cbb06c6740b0b6d0e6a4027304b4d",
+		"0x5d1dad69c8cdc1e4837c8ded56c90e9caa2b7bd9",
+		"0x82cbed25c8cf0227a6dab6154f999adace2090c0",
+		"0x101f77ffbc00b2187baa790ccd00dd504e7341ec",
+		"0x10a516d26811c393511d782c5e695f52172fbb58",
+		"0x077451d856e45c96e59f25dd58b2b8318a6fe605",
+		"0xf2572a1b9d61493ce09d53777c4ca9bc0956eee8",
+		"0x2e867a39b139913c1f1d31c48a43492c19aa19d5",
+		"0x04ab5deebb6115a7915b395fec78047a9675814f",
+		"0x0b473b88e0e7dc8fc68fd07169f71c0394374c0d",
+		"0x21302441f9b0f3ca66d9b6d65ef95c1e79214c31",
+		"0x852a3c718117a7bb36f6f146fca5071824630df6",
+		"0x6629473f74062817358f9d59ac42b855b1de9097",
+		"0xc866a8357cd68f6b123530da8bb0e44403d8bab4",
+		"0x4cbca765bb93714cd328dd8799df7fc415348100",
+		"0x0f8ae8fb6a47c208103e75adc65a63fa24dd0ae5",
+		"0x87a4a6e44d749179374723ea5ebfbddc74bcd1bc",
+		"0xccd5cc1eca26f75ade6753439e2e94855ffefa9f",
+		"0xafd94afa2d9c991f4ac89ff3422324beefbfe034",
+		"0x6b57bd2b885282d33bcd6f0d550b6876f66772b0",
+		"0x8b237be168f7d74a27bfd4564c156546f5e0be25",
+		"0x3d2ce5022e3fef304ba0605bdb9b2e977e1f058c",
+		"0x1c3710e914ae548ac128a86ab1363f8ecab7ed78",
+		"0x1ac96e716a1b0636f93ec7b1eaa0becb3eeeaa60",
+	}
+	testnetAlloc := make(GenesisAlloc, 37)
+	for i := 0; i < 37; i++ {
+		balance := new(big.Int)
+		if i == 0 {
+			balance.SetString("31d450f18af132720000000", 16)
+		} else if i <= 10 {
+			balance.SetString("d3c21bcecceda1000000", 16)
+		} else if i <= 20 {
+			balance.SetString("152d02c7e14af6800000", 16)
+		} else {
+			balance.SetString("21e19e0c9bab2400000", 16)
+		}
+		testnetAlloc[common.HexToAddress(testnetAllocAddressSlice[i])] = GenesisAccount{Balance: balance}
+	}
+
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
-		Alloc:      decodePrealloc(testnetAllocData),
+		Timestamp: 1536135874,
+		Nonce:      0,
+		ExtraData:  hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
+		GasLimit:   4700000,
+		Difficulty: big.NewInt(1),
+		Alloc:      testnetAlloc,
 	}
 }
 

@@ -433,7 +433,9 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 					if _, ok := s.Candidates[proposal.Candidate]; ok {
 						delete(s.Candidates, proposal.Candidate)
 					}
-					// todo :case proposalTypeMinerRewardDistributionModify:
+				case proposalTypeMinerRewardDistributionModify:
+					minerRewardPerThousand = s.Proposals[declare.ProposalHash].MinerRewardPerThousand
+
 				}
 			}
 		}

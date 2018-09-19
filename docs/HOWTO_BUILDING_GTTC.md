@@ -8,7 +8,7 @@ You can find instruction docs in [https://github.com/ethereum/go-ethereum/wiki/B
 #### Quick Instruction to build gttc
 
 ```
-unzip gttc-release-v0.0.3.zip
+unzip gttc-release-v0.0.4.zip
 
 mv gttc your_go_path/src/github.com/TTCECO/gttc
 
