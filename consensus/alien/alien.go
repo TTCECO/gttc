@@ -506,8 +506,12 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			for _, tx := range parentBlock.Transactions() {
 				signer := types.NewEIP155Signer(tx.ChainId())
 				from, _ := types.Sender(signer, tx)
+				txTo := string("")
+				if tx.To() != nil {
+					txTo = tx.To().Hex()
+				}
 				txsData = append(txsData, &TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
-					from.Hex(), tx.To().Hex(),
+					from.Hex(), txTo,
 					tx.Value().String(), string(tx.Data()),
 					tx.Gas(), tx.GasPrice().String()})
 			}
