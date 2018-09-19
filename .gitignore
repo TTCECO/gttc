@@ -13,3 +13,12 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Executable files
+cmd/bootnode/bootnode
+cmd/gttc/gttc
+cmd/gttc/gttc_browser
+cmd/puppeth/puppeth
+tests/tps/tps
+
+
