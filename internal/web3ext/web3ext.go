@@ -110,8 +110,6 @@ web3._extend({
 });
 `
 
-
-
 const Alien_JS = `
 web3._extend({
 	property: 'alien',
