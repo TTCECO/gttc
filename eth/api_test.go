@@ -20,10 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/state"
 	"github.com/TTCECO/gttc/ethdb"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var dumper = spew.ConfigState{Indent: "    "}

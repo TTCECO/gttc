@@ -30,12 +30,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/crypto/ecies"
 	"github.com/TTCECO/gttc/crypto/sha3"
 	"github.com/TTCECO/gttc/p2p/discover"
 	"github.com/TTCECO/gttc/rlp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestSharedSecret(t *testing.T) {

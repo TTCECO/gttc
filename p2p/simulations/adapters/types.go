@@ -24,12 +24,12 @@ import (
 	"net"
 	"os"
 
-	"github.com/docker/docker/pkg/reexec"
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/node"
 	"github.com/TTCECO/gttc/p2p"
 	"github.com/TTCECO/gttc/p2p/discover"
 	"github.com/TTCECO/gttc/rpc"
+	"github.com/docker/docker/pkg/reexec"
 )
 
 // Node represents a node in a simulation network which is created by a

@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/state"
@@ -30,6 +29,7 @@ import (
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/trie"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNodeIterator(t *testing.T) {

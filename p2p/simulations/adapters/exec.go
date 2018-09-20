@@ -33,12 +33,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/pkg/reexec"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/node"
 	"github.com/TTCECO/gttc/p2p"
 	"github.com/TTCECO/gttc/p2p/discover"
 	"github.com/TTCECO/gttc/rpc"
+	"github.com/docker/docker/pkg/reexec"
 	"golang.org/x/net/websocket"
 )
 

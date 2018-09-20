@@ -32,12 +32,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/elastic/gosigar"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/metrics"
 	"github.com/TTCECO/gttc/p2p"
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rpc"
+	"github.com/elastic/gosigar"
 	"golang.org/x/net/websocket"
 )
 
