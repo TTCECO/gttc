@@ -2,6 +2,9 @@
 
 Golang implementation of the TTC protocol.
 
+[![GoDoc](http://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/TTCECO/gttc)
+[![GoReport](http://img.shields.io/badge/go report-A+-green.svg)](https://goreportcard.com/report/github.com/TTCECO/gttc)
+
 #### About gttc
 
 gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part be modified is in [consensus](consensus/) directory. We add a new consensus algorithm named [alien](consensus/alien/) in it.
