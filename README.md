@@ -2,8 +2,8 @@
 
 Golang implementation of the TTC protocol.
 
-[![GoDoc](http://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/TTCECO/gttc)
-[![GoReport](http://img.shields.io/badge/go report-A+-green.svg)](https://goreportcard.com/report/github.com/TTCECO/gttc)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/TTCECO/gttc)
+[![GoReport](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/TTCECO/gttc)
 
 #### About gttc
 
