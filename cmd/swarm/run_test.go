@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/pkg/reexec"
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/accounts/keystore"
 	"github.com/TTCECO/gttc/internal/cmdtest"
@@ -34,6 +33,7 @@ import (
 	"github.com/TTCECO/gttc/p2p"
 	"github.com/TTCECO/gttc/rpc"
 	"github.com/TTCECO/gttc/swarm"
+	"github.com/docker/docker/pkg/reexec"
 )
 
 func init() {

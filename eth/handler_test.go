@@ -443,4 +443,3 @@ func testGetReceipt(t *testing.T, protocol int) {
 		t.Errorf("receipts mismatch: %v", err)
 	}
 }
-

@@ -10,11 +10,12 @@ You can find instruction docs in [https://github.com/ethereum/go-ethereum/wiki/B
 ```
 unzip gttc-release-v0.0.4.zip
 
-mv gttc your_go_path/src/github.com/TTCECO/gttc
+mv gttc $HOME/go/src/github.com/TTCECO/gttc
 
-cd your_go_path/src/github.com/TTCECO/gttc/cmd/gttc
+cd $HOME/go/src/github.com/TTCECO/gttc/cmd/gttc
 
 go build
 
 ```
 
+**$HOME/go/** is the default directory when you install golang, if you use a different workspace directory, you will need to replace **$HOME/go/** by **$GOPATH**.

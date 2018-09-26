@@ -29,8 +29,8 @@ import (
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/consensus"
-	"github.com/TTCECO/gttc/consensus/clique"
 	"github.com/TTCECO/gttc/consensus/alien"
+	"github.com/TTCECO/gttc/consensus/clique"
 	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/core/bloombits"
@@ -214,7 +214,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// If proof-of-authority is requested, set it up
 	if chainConfig.Clique != nil {
 		return clique.New(chainConfig.Clique, db)
-	}else if chainConfig.Alien != nil {
+	} else if chainConfig.Alien != nil {
 		return alien.New(chainConfig.Alien, db)
 	}
 	// Otherwise assume proof-of-work

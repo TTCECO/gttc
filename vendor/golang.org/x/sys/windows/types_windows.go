@@ -94,16 +94,29 @@ const (
 	FILE_APPEND_DATA      = 0x00000004
 	FILE_WRITE_ATTRIBUTES = 0x00000100
 
-	FILE_SHARE_READ              = 0x00000001
-	FILE_SHARE_WRITE             = 0x00000002
-	FILE_SHARE_DELETE            = 0x00000004
-	FILE_ATTRIBUTE_READONLY      = 0x00000001
-	FILE_ATTRIBUTE_HIDDEN        = 0x00000002
-	FILE_ATTRIBUTE_SYSTEM        = 0x00000004
-	FILE_ATTRIBUTE_DIRECTORY     = 0x00000010
-	FILE_ATTRIBUTE_ARCHIVE       = 0x00000020
-	FILE_ATTRIBUTE_NORMAL        = 0x00000080
-	FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400
+	FILE_SHARE_READ   = 0x00000001
+	FILE_SHARE_WRITE  = 0x00000002
+	FILE_SHARE_DELETE = 0x00000004
+
+	FILE_ATTRIBUTE_READONLY              = 0x00000001
+	FILE_ATTRIBUTE_HIDDEN                = 0x00000002
+	FILE_ATTRIBUTE_SYSTEM                = 0x00000004
+	FILE_ATTRIBUTE_DIRECTORY             = 0x00000010
+	FILE_ATTRIBUTE_ARCHIVE               = 0x00000020
+	FILE_ATTRIBUTE_DEVICE                = 0x00000040
+	FILE_ATTRIBUTE_NORMAL                = 0x00000080
+	FILE_ATTRIBUTE_TEMPORARY             = 0x00000100
+	FILE_ATTRIBUTE_SPARSE_FILE           = 0x00000200
+	FILE_ATTRIBUTE_REPARSE_POINT         = 0x00000400
+	FILE_ATTRIBUTE_COMPRESSED            = 0x00000800
+	FILE_ATTRIBUTE_OFFLINE               = 0x00001000
+	FILE_ATTRIBUTE_NOT_CONTENT_INDEXED   = 0x00002000
+	FILE_ATTRIBUTE_ENCRYPTED             = 0x00004000
+	FILE_ATTRIBUTE_INTEGRITY_STREAM      = 0x00008000
+	FILE_ATTRIBUTE_VIRTUAL               = 0x00010000
+	FILE_ATTRIBUTE_NO_SCRUB_DATA         = 0x00020000
+	FILE_ATTRIBUTE_RECALL_ON_OPEN        = 0x00040000
+	FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS = 0x00400000
 
 	INVALID_FILE_ATTRIBUTES = 0xffffffff
 
@@ -159,9 +172,6 @@ const (
 	WAIT_OBJECT_0  = 0x00000000
 	WAIT_FAILED    = 0xFFFFFFFF
 
-	CREATE_NEW_PROCESS_GROUP   = 0x00000200
-	CREATE_UNICODE_ENVIRONMENT = 0x00000400
-
 	PROCESS_TERMINATE         = 1
 	PROCESS_QUERY_INFORMATION = 0x00000400
 	SYNCHRONIZE               = 0x00100000
@@ -176,6 +186,26 @@ const (
 
 	// Windows reserves errors >= 1<<29 for application use.
 	APPLICATION_ERROR = 1 << 29
+)
+
+const (
+	// Process creation flags.
+	CREATE_BREAKAWAY_FROM_JOB        = 0x01000000
+	CREATE_DEFAULT_ERROR_MODE        = 0x04000000
+	CREATE_NEW_CONSOLE               = 0x00000010
+	CREATE_NEW_PROCESS_GROUP         = 0x00000200
+	CREATE_NO_WINDOW                 = 0x08000000
+	CREATE_PROTECTED_PROCESS         = 0x00040000
+	CREATE_PRESERVE_CODE_AUTHZ_LEVEL = 0x02000000
+	CREATE_SEPARATE_WOW_VDM          = 0x00000800
+	CREATE_SHARED_WOW_VDM            = 0x00001000
+	CREATE_SUSPENDED                 = 0x00000004
+	CREATE_UNICODE_ENVIRONMENT       = 0x00000400
+	DEBUG_ONLY_THIS_PROCESS          = 0x00000002
+	DEBUG_PROCESS                    = 0x00000001
+	DETACHED_PROCESS                 = 0x00000008
+	EXTENDED_STARTUPINFO_PRESENT     = 0x00080000
+	INHERIT_PARENT_AFFINITY          = 0x00010000
 )
 
 const (
@@ -294,6 +324,14 @@ var (
 	OID_SERVER_GATED_CRYPTO = []byte("1.3.6.1.4.1.311.10.3.3\x00")
 	OID_SGC_NETSCAPE        = []byte("2.16.840.1.113730.4.1\x00")
 )
+
+// Pointer represents a pointer to an arbitrary Windows type.
+//
+// Pointer-typed fields may point to one of many different types. It's
+// up to the caller to provide a pointer to the appropriate type, cast
+// to Pointer. The caller must obey the unsafe.Pointer rules while
+// doing so.
+type Pointer *struct{}
 
 // Invented values to support what package os expects.
 type Timeval struct {
@@ -863,11 +901,15 @@ type MibIfRow struct {
 	Descr           [MAXLEN_IFDESCR]byte
 }
 
+type CertInfo struct {
+	// Not implemented
+}
+
 type CertContext struct {
 	EncodingType uint32
 	EncodedCert  *byte
 	Length       uint32
-	CertInfo     uintptr
+	CertInfo     *CertInfo
 	Store        Handle
 }
 
@@ -882,12 +924,16 @@ type CertChainContext struct {
 	RevocationFreshnessTime    uint32
 }
 
+type CertTrustListInfo struct {
+	// Not implemented
+}
+
 type CertSimpleChain struct {
 	Size                       uint32
 	TrustStatus                CertTrustStatus
 	NumElements                uint32
 	Elements                   **CertChainElement
-	TrustListInfo              uintptr
+	TrustListInfo              *CertTrustListInfo
 	HasRevocationFreshnessTime uint32
 	RevocationFreshnessTime    uint32
 }
@@ -902,14 +948,18 @@ type CertChainElement struct {
 	ExtendedErrorInfo *uint16
 }
 
+type CertRevocationCrlInfo struct {
+	// Not implemented
+}
+
 type CertRevocationInfo struct {
 	Size             uint32
 	RevocationResult uint32
 	RevocationOid    *byte
-	OidSpecificInfo  uintptr
+	OidSpecificInfo  Pointer
 	HasFreshnessTime uint32
 	FreshnessTime    uint32
-	CrlInfo          uintptr // *CertRevocationCrlInfo
+	CrlInfo          *CertRevocationCrlInfo
 }
 
 type CertTrustStatus struct {
@@ -940,7 +990,7 @@ type CertChainPara struct {
 type CertChainPolicyPara struct {
 	Size            uint32
 	Flags           uint32
-	ExtraPolicyPara uintptr
+	ExtraPolicyPara Pointer
 }
 
 type SSLExtraCertChainPolicyPara struct {
@@ -955,7 +1005,7 @@ type CertChainPolicyStatus struct {
 	Error             uint32
 	ChainIndex        uint32
 	ElementIndex      uint32
-	ExtraPolicyStatus uintptr
+	ExtraPolicyStatus Pointer
 }
 
 const (
