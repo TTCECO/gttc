@@ -516,16 +516,19 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 				txData := string(tx.Data())
 				txDataInfo := strings.Split(txData, ":")
 				txCategory := uint64(0)
-
 				if len(txDataInfo) > ufoMinSplitLen {
-					if txDataInfo[posEventVote] == ufoEventVote {
-						txCategory = 1
-					} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
-						txCategory = 2
-					} else if txDataInfo[posEventProposal] == ufoEventPorposal {
-						txCategory = 3
-					} else if txDataInfo[posEventDeclare] == ufoEventDeclare {
-						txCategory = 4
+					if txDataInfo[posCategory] == ufoCategoryLog {
+						txCategory = 5
+					} else if txDataInfo[posCategory] == ufoCategoryEvent {
+						if txDataInfo[posEventVote] == ufoEventVote {
+							txCategory = 1
+						} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
+							txCategory = 2
+						} else if txDataInfo[posEventProposal] == ufoEventPorposal {
+							txCategory = 3
+						} else if txDataInfo[posEventDeclare] == ufoEventDeclare {
+							txCategory = 4
+						}
 					}
 				}
 				txRecord := TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
