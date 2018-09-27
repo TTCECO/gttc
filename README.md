@@ -24,10 +24,21 @@ If you familiar with clique, you will find alien like that very much. We also us
 
 Current test chain is deploy the code of branch v0.0.4
 
-#### Documents List
+#### Minimum requirements
+
+Requirement|Notes
+---|---
+Go version | Go1.9 or higher
+
+#### Install
+
+See the [install instructions](/docs/HOWTO_INSTALL.md)
+
+#### Other Documents List
 
 You can find some HOWTO docs in [docs/](docs/)
 
+* [HOWTO_INSTALL.md](/docs/HOWTO_INSTALL.md): `install instructions`
 * [DPOS_CONSENSUS_ALGORITHM.md](docs/DPOS_CONSENSUS_ALGORITHM.md): `description of DPOS algorithm`
 * [PBFT_CONSENSUS_ALGORITHM.md](docs/PBFT_CONSENSUS_ALGORITHM.md): `description of PBFT algorithm`
 * [HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN.md](docs/HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN.md): `details about how we implement dpos and pbft`
