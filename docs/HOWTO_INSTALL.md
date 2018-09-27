@@ -1,10 +1,8 @@
-# Install gttc
-
-## From Source
+## Install gttc
 
 You'll need `go` [installed](https://golang.org/doc/install)
 
-### Get Source Code
+#### Get Source Code
 
 ```
 mkdir -p $GOPATH/src/github.com/TTCECO
@@ -13,13 +11,13 @@ git clone https://github.com/TTCECO/gttc.git
 cd gttc
 ```
 
-### Compile
+#### Compile
 
 ```
 go run build/ci.go install
 ```
 
-## Run
+#### Run
 
 To start a node connect to testnet
 
@@ -29,4 +27,4 @@ gttc --testnet
 
 Or
 
-[HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md](HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md)
+[deploy your TestNet](HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md)
