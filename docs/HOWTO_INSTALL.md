@@ -22,7 +22,7 @@ go run build/ci.go install
 To start a node connect to testnet
 
 ```
-gttc --testnet
+build/bin/gttc --testnet
 ```
 
 Or
