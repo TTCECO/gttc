@@ -24,7 +24,6 @@ import (
 	"math/big"
 	"time"
 
-	"fmt"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
@@ -336,20 +335,16 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		// todo :deal declares decisionTypeWaitTillEnd
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
-		if snap.config.BrowserDB != nil {
-			if snap.config.BrowserDB.GetDriver() == browserdb.MYSQL_DRIVER {
-				snap.config.BrowserDB.MysqlExec(fmt.Sprintf("insert into snapshot (number) values (%d)", snap.ConfirmedNumber))
-			} else if snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
-
+		if snap.config.BrowserDB != nil && snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+			if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
 				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
 				if err != nil {
-					return nil, err
+					// todo
 				}
-				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
-				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
-				err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
-
 			}
+			updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
+			updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
+			err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
 		}
 
 	}

@@ -503,7 +503,8 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			parent = chain.GetHeader(header.ParentHash, number-1)
 		}
 		parentBlock := chain.GetBlock(parent.Hash(), parent.Number.Uint64())
-		if parentBlock != nil {
+		// check hash if exist in snapshot table
+		if parentBlock != nil && !chain.Config().Alien.BrowserDB.MongoExist("txs", map[string]interface{}{"number": parent.Number.Uint64()}) {
 			var txsData []interface{}
 			for _, tx := range parentBlock.Transactions() {
 				signer := types.NewEIP155Signer(tx.ChainId())
