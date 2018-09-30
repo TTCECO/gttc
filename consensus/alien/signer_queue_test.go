@@ -35,7 +35,6 @@ func TestQueue(t *testing.T) {
 		signers        []string
 		number         uint64
 		maxSignerCount uint64
-		hash           string
 		historyHash    []string
 		tally          map[string]uint64
 		punished       map[string]uint64
@@ -43,18 +42,88 @@ func TestQueue(t *testing.T) {
 	}{
 		{
 			/* 	Case 0:
-			*   new loop signer queue is create at blocknumber 2, the new signerQueue is order by history hash
+			*   new loop signer queue is create at blocknumber 2,
+			*   the new signerQueue is selected by tally, and random order depends on history hash
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> A, B, C
+			*   step 2: the top 3 signer is map to historyHash A->c, B->b, C->a
+			*   step 3: the result order is set by historyHash decrease -> A, B, C
+			 */
+			addrNames:      []string{"A", "B", "C", "D"},
+			signers:        []string{"A", "B", "C", "D"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"D": 5, "A": 30, "B": 20, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"A", "B", "C"},
+		},
+		{
+			/* 	Case 1:
+			*   follow test case 0. the tally is same but history hash is x,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> A, B, C
+			*   step 2: the top 3 signer is map to historyHash A->c, B->b, C->x
+			*   step 3: the result order is set by historyHash decrease -> C, A, B
 			*
 			 */
 			addrNames:      []string{"A", "B", "C"},
 			signers:        []string{"A", "B", "C"},
 			number:         2,
 			maxSignerCount: 3,
-			hash:           "c",
-			historyHash:    []string{"a", "b", "c"},
+			historyHash:    []string{"x", "b", "c"},
 			tally:          map[string]uint64{"A": 30, "B": 20, "C": 10},
 			punished:       map[string]uint64{},
-			result:         []string{"A", "B", "C"},
+			result:         []string{"C", "A", "B"},
+		},
+		{
+			/* 	Case 2:
+			*   fllow test case 0. the tally is same but history hash is a,x,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> A, B, C
+			*   step 2: the top 3 signer is map to historyHash A->c, B->x, C->a
+			*   step 3: the result order is set by historyHash decrease -> B, A, C
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "x", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 20, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"B", "A", "C"},
+		},
+		{
+			/* 	Case 3:
+			*   fllow test case 0. the tally is changed and history hash is a,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> B, A, C
+			*   step 2: the top 3 signer is map to historyHash B->c, A->b, C->a
+			*   step 3: the result order is set by historyHash decrease -> B, A, C
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 40, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"B", "A", "C"},
+		},
+		{
+			/* 	Case 4:
+			*   fllow test case 0. the tally is changed and history hash is x,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> B, A, C
+			*   step 2: the top 3 signer is map to historyHash B->c, A->b, C->x
+			*   step 3: the result order is set by historyHash decrease -> C, B, A
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"x", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 40, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"C", "B", "A"},
 		},
 	}
 
@@ -83,7 +152,7 @@ func TestQueue(t *testing.T) {
 			Punished: make(map[common.Address]uint64),
 		}
 
-		snap.Hash.SetString(tt.hash)
+		snap.Hash.SetString(tt.historyHash[len(tt.historyHash)-1])
 		for _, hash := range tt.historyHash {
 			var hh common.Hash
 			hh.SetString(hash)
