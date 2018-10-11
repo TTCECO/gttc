@@ -143,6 +143,24 @@ func TestQueue(t *testing.T) {
 			punished:       map[string]uint64{},
 			result:         []string{}, // If tally(punished include) is same, then result order by their address
 		},
+		{
+			/* 	Case 6:
+			*   fllow test case 0. the tally is changed and history hash is x,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> same tally
+			*   step 2: consider the punished for each account, result order -> A, B, C
+			*   step 3: the top 3 signer is map to historyHash A->c, B->b, C->x
+			*   step 4: the result order is set by historyHash decrease -> C, A, B
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"x", "b", "c"},
+			tally:          map[string]uint64{"A": 300, "B": 300, "C": 300},
+			punished:       map[string]uint64{"A": 500, "B": 600, "C": 800},
+			result:         []string{"C", "A", "B"},
+		},
 	}
 
 	// Run through the scenarios and test them
