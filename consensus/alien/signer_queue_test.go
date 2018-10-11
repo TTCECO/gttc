@@ -125,6 +125,24 @@ func TestQueue(t *testing.T) {
 			punished:       map[string]uint64{},
 			result:         []string{"C", "B", "A"},
 		},
+		{
+			/* 	Case 5:
+			*   fllow test case 0. the tally is changed and history hash is a,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> but same t ally
+			*   step 2: order by address (NOT A, B, C , address is [20]byte) desc, different by each test.
+			*   step 3: the top 3 signer is map to historyHash
+			*   step 4: the result order is set by historyHash decrease
+			*   The result will be checked if order by address desc if result if empty
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 30, "C": 30},
+			punished:       map[string]uint64{},
+			result:         []string{}, // If tally(punished include) is same, then result order by their address
+		},
 	}
 
 	// Run through the scenarios and test them
@@ -172,14 +190,23 @@ func TestQueue(t *testing.T) {
 			t.Errorf("test %d: create signer queue fail , err = %s", i, err)
 			continue
 		}
-		if len(signerQueue) != len(tt.result) {
-			t.Errorf("test %d: length of result is not correct. len(signerQueue) is %d, but len(tt.result) is %d", i, len(signerQueue), len(tt.result))
-			continue
-		}
-		for j, signer := range signerQueue {
-			if signer.Hex() != accounts.address(tt.result[j]).Hex() {
-				t.Errorf("test %d: result is not correct signerQueue(%d) is %s, but result(%d) is %s", i, j, signer.Hex(), j, accounts.address(tt.result[j]).Hex())
+		if len(tt.result) == 0 {
+			for j, signer := range signerQueue {
+				if j >= 1 && signerQueue[j-1].Hex() < signerQueue[j].Hex() {
+					t.Errorf("test %d: result is not correct, signerQueue(%d) %s larger than signerQueue(%d) %s ", i, j, signer.Hex(), j-1, signerQueue[j-1].Hex())
+				}
+			}
+		} else {
+			if len(signerQueue) != len(tt.result) {
+				t.Errorf("test %d: length of result is not correct. len(signerQueue) is %d, but len(tt.result) is %d", i, len(signerQueue), len(tt.result))
+				continue
+			}
+			for j, signer := range signerQueue {
+				if signer.Hex() != accounts.address(tt.result[j]).Hex() {
+					t.Errorf("test %d: result is not correct signerQueue(%d) is %s, but result(%d) is %s", i, j, signer.Hex(), j, accounts.address(tt.result[j]).Hex())
+				}
 			}
 		}
+
 	}
 }
