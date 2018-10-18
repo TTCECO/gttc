@@ -36,17 +36,16 @@ See the [install instructions](/docs/HOWTO_INSTALL.md)
 
 #### Other Documents List
 
-You can find some HOWTO docs in [docs/](docs/)
+You can find some HOWTO docs in our [wiki](https://github.com/TTCECO/gttc/wiki/)
 
-* [HOWTO_INSTALL.md](/docs/HOWTO_INSTALL.md): `install instructions`
-* [DPOS_CONSENSUS_ALGORITHM.md](docs/DPOS_CONSENSUS_ALGORITHM.md): `description of DPOS algorithm`
-* [PBFT_CONSENSUS_ALGORITHM.md](docs/PBFT_CONSENSUS_ALGORITHM.md): `description of PBFT algorithm`
-* [HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN.md](docs/HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN.md): `details about how we implement dpos and pbft`
-* [genesis.json](docs/genesis.json)  : `genesis.json file for the testnet we deploy`
-* [HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md](docs/HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK.md) : `The instruction of deploy your own testnet`
-* [HOWTO_VOTE_ON_GTTC.md](docs/HOWTO_VOTE_ON_GTTC.md)  : `how to vote on alien testnet and view snapshot through API`
-* [GENESIS_JSON_SAMPLE.md](docs/GENESIS_JSON_SAMPLE.md) : `genesis.json sample`
-* [HOWTO_BUILDING_GTTC.md](docs/HOWTO_BUILDING_GTTC.md) : `a link to how to build geth, it's same as process of build our code`
+* [HOWTO_INSTALL.md](https://github.com/TTCECO/gttc/wiki/Building-GTTC): `install instructions`
+* [DPOS_CONSENSUS_ALGORITHM](https://github.com/TTCECO/gttc/wiki/DPOS_CONSENSUS_ALGORITHM): `description of DPOS algorithm`
+* [PBFT_CONSENSUS_ALGORITHM](https://github.com/TTCECO/gttc/wiki/PBFT_CONSENSUS_ALGORITHM): `description of PBFT algorithm`
+* [HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN](https://github.com/TTCECO/gttc/wiki/HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN): `details about how we implement dpos and pbft`
+* [genesis.json](https://github.com/TTCECO/gttc/wiki/genesis.json)  : `genesis.json file for the testnet we deploy`
+* [HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK](https://github.com/TTCECO/gttc/wiki/HOWTO_RUNNING_TEST_ON_PRIVATE_NETWORK) : `The instruction of deploy your own testnet`
+* [HOWTO_VOTE_ON_GTTC](https://github.com/TTCECO/gttc/wiki//HOWTO_VOTE_ON_GTTC)  : `how to vote on alien testnet and view snapshot through API`
+* [GENESIS_JSON_SAMPLE](https://github.com/TTCECO/gttc/wiki/GENESIS_JSON_SAMPLE) : `genesis.json sample`
 
 #### Connection to Testnet
 
