@@ -35,7 +35,6 @@ func TestQueue(t *testing.T) {
 		signers        []string
 		number         uint64
 		maxSignerCount uint64
-		hash           string
 		historyHash    []string
 		tally          map[string]uint64
 		punished       map[string]uint64
@@ -43,18 +42,124 @@ func TestQueue(t *testing.T) {
 	}{
 		{
 			/* 	Case 0:
-			*   new loop signer queue is create at blocknumber 2, the new signerQueue is order by history hash
+			*   new loop signer queue is create at blocknumber 2,
+			*   the new signerQueue is selected by tally, and random order depends on history hash
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> A, B, C
+			*   step 2: the top 3 signer is map to historyHash A->c, B->b, C->a
+			*   step 3: the result order is set by historyHash decrease -> A, B, C
+			 */
+			addrNames:      []string{"A", "B", "C", "D"},
+			signers:        []string{"A", "B", "C", "D"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"D": 5, "A": 30, "B": 20, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"A", "B", "C"},
+		},
+		{
+			/* 	Case 1:
+			*   follow test case 0. the tally is same but history hash is x,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> A, B, C
+			*   step 2: the top 3 signer is map to historyHash A->c, B->b, C->x
+			*   step 3: the result order is set by historyHash decrease -> C, A, B
 			*
 			 */
 			addrNames:      []string{"A", "B", "C"},
 			signers:        []string{"A", "B", "C"},
 			number:         2,
 			maxSignerCount: 3,
-			hash:           "c",
-			historyHash:    []string{"a", "b", "c"},
+			historyHash:    []string{"x", "b", "c"},
 			tally:          map[string]uint64{"A": 30, "B": 20, "C": 10},
 			punished:       map[string]uint64{},
-			result:         []string{"A", "B", "C"},
+			result:         []string{"C", "A", "B"},
+		},
+		{
+			/* 	Case 2:
+			*   fllow test case 0. the tally is same but history hash is a,x,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> A, B, C
+			*   step 2: the top 3 signer is map to historyHash A->c, B->x, C->a
+			*   step 3: the result order is set by historyHash decrease -> B, A, C
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "x", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 20, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"B", "A", "C"},
+		},
+		{
+			/* 	Case 3:
+			*   fllow test case 0. the tally is changed and history hash is a,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> B, A, C
+			*   step 2: the top 3 signer is map to historyHash B->c, A->b, C->a
+			*   step 3: the result order is set by historyHash decrease -> B, A, C
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 40, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"B", "A", "C"},
+		},
+		{
+			/* 	Case 4:
+			*   fllow test case 0. the tally is changed and history hash is x,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> B, A, C
+			*   step 2: the top 3 signer is map to historyHash B->c, A->b, C->x
+			*   step 3: the result order is set by historyHash decrease -> C, B, A
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"x", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 40, "C": 10},
+			punished:       map[string]uint64{},
+			result:         []string{"C", "B", "A"},
+		},
+		{
+			/* 	Case 5:
+			*   fllow test case 0. the tally is changed and history hash is a,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> but same t ally
+			*   step 2: order by address (NOT A, B, C , address is [20]byte) desc, different by each test.
+			*   step 3: the top 3 signer is map to historyHash
+			*   step 4: the result order is set by historyHash decrease
+			*   The result will be checked if order by address desc if result if empty
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"a", "b", "c"},
+			tally:          map[string]uint64{"A": 30, "B": 30, "C": 30},
+			punished:       map[string]uint64{},
+			result:         []string{}, // If tally(punished include) is same, then result order by their address
+		},
+		{
+			/* 	Case 6:
+			*   fllow test case 0. the tally is changed and history hash is x,b,c
+			*   step 1: the top 3(maxSignerCount) is selected order by tally -> same tally
+			*   step 2: consider the punished for each account, result order -> A, B, C
+			*   step 3: the top 3 signer is map to historyHash A->c, B->b, C->x
+			*   step 4: the result order is set by historyHash decrease -> C, A, B
+			*
+			 */
+			addrNames:      []string{"A", "B", "C"},
+			signers:        []string{"A", "B", "C"},
+			number:         2,
+			maxSignerCount: 3,
+			historyHash:    []string{"x", "b", "c"},
+			tally:          map[string]uint64{"A": 300, "B": 300, "C": 300},
+			punished:       map[string]uint64{"A": 500, "B": 600, "C": 800},
+			result:         []string{"C", "A", "B"},
 		},
 	}
 
@@ -83,7 +188,7 @@ func TestQueue(t *testing.T) {
 			Punished: make(map[common.Address]uint64),
 		}
 
-		snap.Hash.SetString(tt.hash)
+		snap.Hash.SetString(tt.historyHash[len(tt.historyHash)-1])
 		for _, hash := range tt.historyHash {
 			var hh common.Hash
 			hh.SetString(hash)
@@ -103,14 +208,23 @@ func TestQueue(t *testing.T) {
 			t.Errorf("test %d: create signer queue fail , err = %s", i, err)
 			continue
 		}
-		if len(signerQueue) != len(tt.result) {
-			t.Errorf("test %d: length of result is not correct. len(signerQueue) is %d, but len(tt.result) is %d", i, len(signerQueue), len(tt.result))
-			continue
-		}
-		for j, signer := range signerQueue {
-			if signer.Hex() != accounts.address(tt.result[j]).Hex() {
-				t.Errorf("test %d: result is not correct signerQueue(%d) is %s, but result(%d) is %s", i, j, signer.Hex(), j, accounts.address(tt.result[j]).Hex())
+		if len(tt.result) == 0 {
+			for j, signer := range signerQueue {
+				if j >= 1 && signerQueue[j-1].Hex() < signerQueue[j].Hex() {
+					t.Errorf("test %d: result is not correct, signerQueue(%d) %s larger than signerQueue(%d) %s ", i, j, signer.Hex(), j-1, signerQueue[j-1].Hex())
+				}
+			}
+		} else {
+			if len(signerQueue) != len(tt.result) {
+				t.Errorf("test %d: length of result is not correct. len(signerQueue) is %d, but len(tt.result) is %d", i, len(signerQueue), len(tt.result))
+				continue
+			}
+			for j, signer := range signerQueue {
+				if signer.Hex() != accounts.address(tt.result[j]).Hex() {
+					t.Errorf("test %d: result is not correct signerQueue(%d) is %s, but result(%d) is %s", i, j, signer.Hex(), j, accounts.address(tt.result[j]).Hex())
+				}
 			}
 		}
+
 	}
 }
