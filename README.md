@@ -32,13 +32,12 @@ Go version | Go1.9 or higher
 
 #### Install
 
-See the [install instructions](/docs/HOWTO_INSTALL.md)
+See the [HOWTO_INSTALL](https://github.com/TTCECO/gttc/wiki/Building-GTTC)
 
 #### Other Documents List
 
-You can find some HOWTO docs in our [wiki](https://github.com/TTCECO/gttc/wiki/)
+You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 
-* [HOWTO_INSTALL.md](https://github.com/TTCECO/gttc/wiki/Building-GTTC): `install instructions`
 * [DPOS_CONSENSUS_ALGORITHM](https://github.com/TTCECO/gttc/wiki/DPOS_CONSENSUS_ALGORITHM): `description of DPOS algorithm`
 * [PBFT_CONSENSUS_ALGORITHM](https://github.com/TTCECO/gttc/wiki/PBFT_CONSENSUS_ALGORITHM): `description of PBFT algorithm`
 * [HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN](https://github.com/TTCECO/gttc/wiki/HOWTO_IMPLEMENT_DPOS_PBFT_IN_ALIEN): `details about how we implement dpos and pbft`
