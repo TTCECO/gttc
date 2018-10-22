@@ -838,7 +838,7 @@ func TestVoting(t *testing.T) {
 
 	// Run through the scenarios and test them
 	for i, tt := range tests {
-		candidateFromPOA = tt.candidatePOA
+		candidateNeedPD = tt.candidatePOA
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))

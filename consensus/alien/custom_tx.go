@@ -185,7 +185,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						if txDataInfo[posCategory] == ufoCategoryEvent {
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
-								if txDataInfo[posEventVote] == ufoEventVote && snap.isCandidate(*tx.To()) {
+								if txDataInfo[posEventVote] == ufoEventVote && (!candidateNeedPD || snap.isCandidate(*tx.To())) {
 									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
 									headerExtra.CurrentBlockConfirmations = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender)

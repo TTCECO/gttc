@@ -30,6 +30,7 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
+	"sort"
 )
 
 const (
@@ -44,8 +45,7 @@ const (
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
 	candidateStateNormal = 1
-	candidateNeedPD      = false // is new candidate need Proposal & Declare process
-	candidateMaxLen      = 100   // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
+	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 )
 
 var (
@@ -268,6 +268,17 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 		// todo :deal declares decisionTypeWaitTillEnd
 
+		// check the len of candidate if not candidateNeedPD
+		if !candidateNeedPD && (snap.Number+1)%(snap.config.MaxSignerCount*snap.LCRS) == 0 && len(snap.Candidates) > candidateMaxLen {
+			// remove minimum tickets tally beyond candidateMaxLen
+			tallySlice := snap.buildTallySlice()
+			sort.Sort(TallySlice(tallySlice))
+			removeNeedTally := tallySlice[candidateMaxLen:]
+			for _, tallySlice := range removeNeedTally {
+				delete(snap.Candidates, tallySlice.addr)
+			}
+		}
+
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
@@ -344,9 +355,11 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 				// process add candidate
 				switch proposal.ProposalType {
 				case proposalTypeCandidateAdd:
-					s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateStateNormal
+					if candidateNeedPD {
+						s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateStateNormal
+					}
 				case proposalTypeCandidateRemove:
-					if _, ok := s.Candidates[proposal.Candidate]; ok {
+					if _, ok := s.Candidates[proposal.Candidate]; ok && candidateNeedPD {
 						delete(s.Candidates, proposal.Candidate)
 					}
 				case proposalTypeMinerRewardDistributionModify:
@@ -436,6 +449,9 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 			s.Tally[vote.Candidate].Add(s.Tally[vote.Candidate], vote.Stake)
 		} else {
 			s.Tally[vote.Candidate] = vote.Stake
+			if !candidateNeedPD {
+				s.Candidates[vote.Candidate] = candidateStateNormal
+			}
 		}
 
 		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
@@ -519,7 +535,7 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // check if address belong to candidate
 func (s *Snapshot) isCandidate(address common.Address) bool {
-	if !candidateFromPOA {
+	if !candidateNeedPD {
 		return true
 	} else if _, ok := s.Candidates[address]; ok {
 		return true

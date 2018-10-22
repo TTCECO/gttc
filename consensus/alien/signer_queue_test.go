@@ -165,7 +165,7 @@ func TestQueue(t *testing.T) {
 
 	// Run through the scenarios and test them
 	for i, tt := range tests {
-		candidateFromPOA = false
+		candidateNeedPD = false
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
