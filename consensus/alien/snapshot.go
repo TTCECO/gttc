@@ -43,7 +43,9 @@ const (
 	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
-	candidateNormal = 1
+	candidateStateNormal = 1
+	candidateNeedPD      = false // is new candidate need Proposal & Declare process
+	candidateMaxLen      = 100   // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 )
 
 var (
@@ -110,7 +112,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		// init Voters
 		snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
 		// init Candidates
-		snap.Candidates[vote.Voter] = candidateNormal
+		snap.Candidates[vote.Voter] = candidateStateNormal
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
@@ -342,7 +344,7 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 				// process add candidate
 				switch proposal.ProposalType {
 				case proposalTypeCandidateAdd:
-					s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateNormal
+					s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateStateNormal
 				case proposalTypeCandidateRemove:
 					if _, ok := s.Candidates[proposal.Candidate]; ok {
 						delete(s.Candidates, proposal.Candidate)
