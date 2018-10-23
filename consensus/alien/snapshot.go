@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/TTCECO/gttc/common"
@@ -30,7 +31,6 @@ import (
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
-	"sort"
 )
 
 const (
@@ -270,13 +270,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 		// check the len of candidate if not candidateNeedPD
 		if !candidateNeedPD && (snap.Number+1)%(snap.config.MaxSignerCount*snap.LCRS) == 0 && len(snap.Candidates) > candidateMaxLen {
-			// remove minimum tickets tally beyond candidateMaxLen
-			tallySlice := snap.buildTallySlice()
-			sort.Sort(TallySlice(tallySlice))
-			removeNeedTally := tallySlice[candidateMaxLen:]
-			for _, tallySlice := range removeNeedTally {
-				delete(snap.Candidates, tallySlice.addr)
-			}
+			snap.removeExtraCandidate()
 		}
 
 	}
@@ -289,6 +283,18 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		return nil, err
 	}
 	return snap, nil
+}
+
+func (s *Snapshot) removeExtraCandidate() {
+	// remove minimum tickets tally beyond candidateMaxLen
+	tallySlice := s.buildTallySlice()
+	sort.Sort(TallySlice(tallySlice))
+	if len(tallySlice) > candidateMaxLen {
+		removeNeedTally := tallySlice[candidateMaxLen:]
+		for _, tallySlice := range removeNeedTally {
+			delete(s.Candidates, tallySlice.addr)
+		}
+	}
 }
 
 func (s *Snapshot) verifyTallyCnt() error {
