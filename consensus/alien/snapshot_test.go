@@ -133,7 +133,7 @@ func TestVoting(t *testing.T) {
 	// Define the various voting scenarios to test
 	tests := []struct {
 		addrNames        []string             // accounts used in this case
-		candidatePOA     bool                 // candidate from POA
+		candidateNeedPD  bool                 // candidate from POA
 		period           uint64               // default 3
 		epoch            uint64               // default 30000
 		maxSignerCount   uint64               // default 5 for test
@@ -645,7 +645,7 @@ func TestVoting(t *testing.T) {
 			* 	C vote D to be signer in block 3, but D is not in candidates ,so this vote not valid
 			 */
 			addrNames:        []string{"A", "B", "C", "D"},
-			candidatePOA:     true,
+			candidateNeedPD:  true,
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -680,7 +680,7 @@ func TestVoting(t *testing.T) {
 			* 	C vote D to be signer in block 3, but D is not in candidates ,so this vote not valid
 			 */
 			addrNames:        []string{"A", "B", "C", "D"},
-			candidatePOA:     true,
+			candidateNeedPD:  true,
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -719,7 +719,7 @@ func TestVoting(t *testing.T) {
 			* 	C vote D to be signer in block 5
 			 */
 			addrNames:        []string{"A", "B", "C", "D"},
-			candidatePOA:     true,
+			candidateNeedPD:  true,
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -760,7 +760,7 @@ func TestVoting(t *testing.T) {
 			* 	C vote D to be signer in block 5
 			 */
 			addrNames:        []string{"A", "B", "C", "D", "E", "F"},
-			candidatePOA:     true,
+			candidateNeedPD:  true,
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -802,7 +802,7 @@ func TestVoting(t *testing.T) {
 			*   Now do not change the vote automatically,
 			 */
 			addrNames:        []string{"A", "B", "C", "D", "E", "F"},
-			candidatePOA:     true,
+			candidateNeedPD:  true,
 			period:           uint64(3),
 			epoch:            uint64(31),
 			maxSignerCount:   uint64(5),
@@ -838,7 +838,7 @@ func TestVoting(t *testing.T) {
 
 	// Run through the scenarios and test them
 	for i, tt := range tests {
-		candidateNeedPD = tt.candidatePOA
+		candidateNeedPD = tt.candidateNeedPD
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
