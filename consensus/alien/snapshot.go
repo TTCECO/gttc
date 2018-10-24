@@ -264,9 +264,11 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		// deal proposals
 		snap.updateSnapshotByProposals(headerExtra.CurrentBlockProposals, header.Number)
 
-		// deal declares decisionTypeImmediately
+		// deal declares
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
-		// todo :deal declares decisionTypeWaitTillEnd
+
+		// calculate proposal result
+		snap.calculateProposalResult(header.Number)
 
 		// check the len of candidate if not candidateNeedPD
 		if !candidateNeedPD && (snap.Number+1)%(snap.config.MaxSignerCount*snap.LCRS) == 0 && len(snap.Candidates) > candidateMaxLen {
@@ -323,7 +325,7 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 	for _, declare := range declares {
 		if proposal, ok := s.Proposals[declare.ProposalHash]; ok {
 			// check the proposal enable status and valid block number
-			if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount < headerNumber.Uint64() || proposal.Enable || !s.isCandidate(declare.Declarer) {
+			if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount < headerNumber.Uint64() || !s.isCandidate(declare.Declarer) {
 				continue
 			}
 			// check if this signer already declare on this proposal
@@ -342,6 +344,15 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 			s.Proposals[declare.ProposalHash].Declares = append(s.Proposals[declare.ProposalHash].Declares,
 				&Declare{declare.ProposalHash, declare.Declarer, declare.Decision})
 
+		}
+	}
+}
+
+func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
+
+	for hashKey, proposal := range s.Proposals {
+		// the result will be calculate at receiverdNumber + vlcnt + 1
+		if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount+1 == headerNumber.Uint64() {
 			// calculate the current stake of this proposal
 			judegmentStake := big.NewInt(0)
 			for _, tally := range s.Tally {
@@ -353,28 +364,32 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 			yesDeclareStake := big.NewInt(0)
 			for _, declare := range proposal.Declares {
 				if declare.Decision {
-					yesDeclareStake.Add(yesDeclareStake, s.Tally[declare.Declarer])
+					if _, ok := s.Tally[declare.Declarer]; ok {
+						yesDeclareStake.Add(yesDeclareStake, s.Tally[declare.Declarer])
+					}
 				}
 			}
 			if yesDeclareStake.Cmp(judegmentStake) > 0 {
-				s.Proposals[declare.ProposalHash].Enable = true
 				// process add candidate
 				switch proposal.ProposalType {
 				case proposalTypeCandidateAdd:
 					if candidateNeedPD {
-						s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateStateNormal
+						s.Candidates[s.Proposals[hashKey].Candidate] = candidateStateNormal
 					}
 				case proposalTypeCandidateRemove:
 					if _, ok := s.Candidates[proposal.Candidate]; ok && candidateNeedPD {
 						delete(s.Candidates, proposal.Candidate)
 					}
 				case proposalTypeMinerRewardDistributionModify:
-					minerRewardPerThousand = s.Proposals[declare.ProposalHash].MinerRewardPerThousand
+					minerRewardPerThousand = s.Proposals[hashKey].MinerRewardPerThousand
 
 				}
 			}
+
 		}
+
 	}
+
 }
 
 func (s *Snapshot) updateSnapshotByProposals(proposals []Proposal, headerNumber *big.Int) {

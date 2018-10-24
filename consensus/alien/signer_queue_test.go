@@ -210,7 +210,7 @@ func TestQueue(t *testing.T) {
 		}
 		if len(tt.result) == 0 {
 			for j, signer := range signerQueue {
-				if j >= 1 && signerQueue[j-1].Hex() < signerQueue[j].Hex() {
+				if j >= 1 && signerQueue[j-1].Str() < signerQueue[j].Str() {
 					t.Errorf("test %d: result is not correct, signerQueue(%d) %s larger than signerQueue(%d) %s ", i, j, signer.Hex(), j-1, signerQueue[j-1].Hex())
 				}
 			}

@@ -143,6 +143,7 @@ func TestVoting(t *testing.T) {
 		selfVoters       []testerSelfVoter    //
 		txHeaders        []testerSingleHeader //
 		result           testerSnapshot       // the result of current snapshot
+		vlCnt            uint64
 	}{
 		{
 			/* 	Case 0:
@@ -732,6 +733,12 @@ func TestVoting(t *testing.T) {
 				{[]testerTransaction{{from: "A", to: "A", isProposal: true, candidate: "D", txHash: "a", proposalType: proposalTypeCandidateAdd}}},
 				{[]testerTransaction{{from: "A", to: "A", isDeclare: true, txHash: "a", decision: true}, {from: "B", to: "B", isDeclare: true, txHash: "a", decision: true}}},
 				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
+				{[]testerTransaction{}},
 				{[]testerTransaction{{from: "C", to: "D", balance: 250, isVote: true}}},
 				{[]testerTransaction{}},
 				{[]testerTransaction{}},
@@ -743,7 +750,7 @@ func TestVoting(t *testing.T) {
 			result: testerSnapshot{
 				Signers: []string{"A", "B", "D"},
 				Tally:   map[string]int{"A": 100, "B": 200, "D": 250},
-				Voters:  map[string]int{"A": 0, "B": 0, "C": 5},
+				Voters:  map[string]int{"A": 0, "B": 0, "C": 11},
 				Votes: map[string]*testerVote{
 					"A": {"A", "A", 100},
 					"B": {"B", "B", 200},
@@ -839,6 +846,9 @@ func TestVoting(t *testing.T) {
 	// Run through the scenarios and test them
 	for i, tt := range tests {
 		candidateNeedPD = tt.candidateNeedPD
+		if tt.vlCnt == 0 {
+			tt.vlCnt = 1
+		}
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
@@ -910,14 +920,12 @@ func TestVoting(t *testing.T) {
 					if snap.isCandidate(accounts.address(trans.from)) {
 						currentBlockProposals = append(currentBlockProposals, Proposal{
 							Hash:                   common.HexToHash(trans.txHash),
-							ValidationLoopCnt:      defaultValidationLoopCnt,
+							ValidationLoopCnt:      tt.vlCnt,
 							ImplementNumber:        big.NewInt(1),
-							DecisionType:           decisionTypeImmediately,
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
 							Candidate:              accounts.address(trans.candidate),
 							MinerRewardPerThousand: minerRewardPerThousand,
-							Enable:                 false,
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
 						})

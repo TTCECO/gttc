@@ -54,12 +54,6 @@ const (
 	posEventConfirmNumber = 4
 
 	/*
-	 * decision type
-	 */
-	decisionTypeWaitTillEnd = 1
-	decisionTypeImmediately = 2
-
-	/*
 	 *  proposal type
 	 */
 	proposalTypeCandidateAdd                  = 1
@@ -69,7 +63,9 @@ const (
 	/*
 	 * proposal related
 	 */
-	defaultValidationLoopCnt = 30000
+	maxValidationLoopCnt     = 123500 // About one month if seal each block per second & 21 super nodes
+	minValidationLoopCnt     = 12350  // About three days if seal each block per second & 21 super nodes
+	defaultValidationLoopCnt = 30875  // About one week if seal each block per second & 21 super nodes
 )
 
 // Vote :
@@ -99,12 +95,10 @@ type Proposal struct {
 	Hash                   common.Hash    // tx hash
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ImplementNumber        *big.Int       // block number to implement modification in this proposal
-	DecisionType           uint64         // success if condition fill / success if condition fill and block number reach ValidationLoopCnt
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address //
 	Candidate              common.Address
 	MinerRewardPerThousand uint64
-	Enable                 bool       // Result of proposal
 	Declares               []*Declare // Declare this proposal received
 	ReceivedNumber         *big.Int   // block number of proposal received
 }
@@ -114,12 +108,10 @@ func (p *Proposal) copy() *Proposal {
 		Hash:                   p.Hash,
 		ValidationLoopCnt:      p.ValidationLoopCnt,
 		ImplementNumber:        new(big.Int).Set(p.ImplementNumber),
-		DecisionType:           p.DecisionType,
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
 		Candidate:              p.Candidate,
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
-		Enable:                 p.Enable,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 	}
@@ -226,12 +218,10 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		Hash:                   tx.Hash(),
 		ValidationLoopCnt:      defaultValidationLoopCnt,
 		ImplementNumber:        big.NewInt(1),
-		DecisionType:           decisionTypeImmediately,
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
 		Candidate:              common.Address{},
 		MinerRewardPerThousand: minerRewardPerThousand,
-		Enable:                 false,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),
 	}
@@ -240,7 +230,8 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		k, v := txDataInfo[posEventProposal+1+i*2], txDataInfo[posEventProposal+2+i*2]
 		switch k {
 		case "vlcnt":
-			if validationLoopCnt, err := strconv.Atoi(v); err != nil || validationLoopCnt <= 0 {
+			// If vlcnt is missing then user default value, but if the vlcnt is beyond the min/max value then ignore this proposal
+			if validationLoopCnt, err := strconv.Atoi(v); err != nil || validationLoopCnt < minValidationLoopCnt || validationLoopCnt > maxValidationLoopCnt {
 				return currentBlockProposals
 			} else {
 				proposal.ValidationLoopCnt = uint64(validationLoopCnt)
@@ -250,12 +241,6 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 				return currentBlockProposals
 			} else {
 				proposal.ImplementNumber = big.NewInt(int64(implementNumber))
-			}
-		case "decision_type":
-			if decisionType, err := strconv.Atoi(v); err != nil || (decisionType != decisionTypeWaitTillEnd && decisionType != decisionTypeImmediately) {
-				return currentBlockProposals
-			} else {
-				proposal.DecisionType = uint64(decisionType)
 			}
 		case "proposal_type":
 			if proposalType, err := strconv.Atoi(v); err != nil || (proposalType != proposalTypeCandidateAdd && proposalType != proposalTypeCandidateRemove && proposalType != proposalTypeMinerRewardDistributionModify) {
