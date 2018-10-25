@@ -216,6 +216,10 @@ var AppHelpFlagGroups = []flagGroup{
 		Flags: whisperFlags,
 	},
 	{
+		Name:  "SIDE CHAIN FOR APP",
+		Flags: scaFlags,
+	},
+	{
 		Name: "DEPRECATED",
 		Flags: []cli.Flag{
 			utils.FastSyncFlag,

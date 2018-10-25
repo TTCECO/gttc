@@ -140,6 +140,13 @@ var (
 		utils.WhisperMaxMessageSizeFlag,
 		utils.WhisperMinPOWFlag,
 	}
+
+	scaFlags = []cli.Flag{
+		utils.SCAEnableFlag,
+		utils.SCAMainRPCAddrFlag,
+		utils.SCAMainRPCPortFlag,
+		utils.SCAPeriod,
+	}
 )
 
 func init() {
@@ -182,6 +189,7 @@ func init() {
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, whisperFlags...)
+	app.Flags = append(app.Flags, scaFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())

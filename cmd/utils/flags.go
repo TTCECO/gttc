@@ -533,6 +533,27 @@ var (
 		Usage: "Minimum POW accepted",
 		Value: whisper.DefaultMinimumPoW,
 	}
+
+	// Data side chain settings
+	SCAEnableFlag = cli.BoolFlag{
+		Name:  "sca",
+		Usage: "Side chain for App (dsc)",
+	}
+	SCAMainRPCAddrFlag = cli.StringFlag{
+		Name:  "sca.mainrpcaddr",
+		Usage: "Address of main chain ",
+		Value: node.DefaultHTTPHost,
+	}
+	SCAMainRPCPortFlag = cli.IntFlag{
+		Name:  "sca.mainrpcport",
+		Usage: "Port of main chain rpc port",
+		Value: node.DefaultHTTPPort,
+	}
+	SCAPeriod = cli.IntFlag{
+		Name:  "sca.period",
+		Usage: "Period of each side chain block",
+		Value: 1,
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
