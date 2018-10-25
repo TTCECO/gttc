@@ -35,7 +35,9 @@ import (
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/metrics"
 	"github.com/TTCECO/gttc/node"
+	"github.com/TTCECO/gttc/rpc"
 	"gopkg.in/urfave/cli.v1"
+	"strconv"
 )
 
 const (
@@ -305,6 +307,17 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			if th, ok := ethereum.Engine().(threaded); ok {
 				th.SetThreads(threads)
 			}
+		}
+
+		// Set the main chain rpc setting
+		if ctx.GlobalBool(utils.MiningEnabledFlag.Name) && ctx.GlobalBool(utils.SCAEnableFlag.Name) {
+			mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
+			mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
+			mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
+			client, _ := rpc.Dial("ws://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
+			ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
+			ethereum.BlockChain().Config().Alien.MCRPCClient = client
+
 		}
 
 		// Set the gas price to the limits from the CLI and start mining
