@@ -527,8 +527,10 @@ func (a *Alien) getMainChainSnapshot(chain consensus.ChainReader) (*Snapshot, er
 	if chain.Config().Alien.MCRPCClient == nil {
 		return nil, errMCRPCClientEmpty
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
+	defer cancel()
+
 	var ms *Snapshot
-	ctx, _ := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
 	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshot", "latest"); err != nil {
 		return nil, err
 	}
