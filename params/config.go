@@ -213,6 +213,7 @@ type AlienConfig struct {
 	MinVoterBalance  *big.Int         `json:"minVoterBalance"`  // Min voter balance to valid this vote
 	GenesisTimestamp uint64           `json:"genesisTimestamp"` // The LoopStartTime of first Block
 	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
+	SideChain        bool             // If side chain or not
 	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
 }
 

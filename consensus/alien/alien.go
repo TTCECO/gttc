@@ -19,6 +19,7 @@ package alien
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"math/big"
 	"sync"
@@ -40,10 +41,11 @@ import (
 )
 
 const (
-	inMemorySnapshots  = 128             // Number of recent vote snapshots to keep in memory
-	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
-	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
-	checkpointInterval = 360             // About N hours if config.period is N
+	inMemorySnapshots   = 128             // Number of recent vote snapshots to keep in memory
+	inMemorySignatures  = 4096            // Number of recent block signatures to keep in memory
+	secondsPerYear      = 365 * 24 * 3600 // Number of seconds for one year
+	checkpointInterval  = 360             // About N hours if config.period is N
+	mainchainRPCTimeout = 300             // Number of millisecond mainchain rpc connect timeout
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -112,6 +114,12 @@ var (
 
 	// errInvalidSignerQueue is returned if verify SignerQueue fail
 	errInvalidSignerQueue = errors.New("invalid signer queue")
+
+	// errNotSideChain is returned if main chain try to get main chain client
+	errNotSideChain = errors.New("not side chain")
+
+	// errMCRPCCLientEmpty is returned if Side chain not have main chain rpc client
+	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
 )
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -512,9 +520,33 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 	return nil
 }
 
+func (a *Alien) getMainChainSnapshot(chain consensus.ChainReader) (*Snapshot, error) {
+	if !chain.Config().Alien.SideChain {
+		return nil, errNotSideChain
+	}
+	if chain.Config().Alien.MCRPCClient == nil {
+		return nil, errMCRPCClientEmpty
+	}
+	var ms *Snapshot
+	ctx, _ := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshot", "latest"); err != nil {
+		return nil, err
+	}
+	return ms, nil
+}
+
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
+
+	if chain.Config().Alien.SideChain {
+		ms, err := a.getMainChainSnapshot(chain)
+		if err == nil {
+			log.Info("Main chain last block info", "Number", ms.Number)
+		} else {
+			log.Info("Main chain last block info", "err", err)
+		}
+	}
 
 	number := header.Number.Uint64()
 

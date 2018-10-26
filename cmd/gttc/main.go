@@ -314,10 +314,13 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
 			mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
 			mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
-			client, _ := rpc.Dial("ws://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
+			client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
+			if err != nil {
+				utils.Fatalf("Main net rpc connect fail: %v", err)
+			}
+			ethereum.BlockChain().Config().Alien.SideChain = true
 			ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
 			ethereum.BlockChain().Config().Alien.MCRPCClient = client
-
 		}
 
 		// Set the gas price to the limits from the CLI and start mining
