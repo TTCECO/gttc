@@ -508,7 +508,7 @@ func (self *worker) commitNewWork() {
 	self.push(work)
 	self.updateSnapshot()
 
-	if self.config.Alien != nil {
+	if self.config.Alien != nil && !self.config.Alien.SideChain {
 		err = self.sendConfirmTx(parent.Number())
 		if err != nil {
 			log.Info("Fail to Sign the transaction by coinbase", "err", err)
