@@ -161,6 +161,9 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 
 	sort.Sort(SignerSlice(signerSlice))
 	// Set the top candidates in random order base on block hash
+	if len(signerSlice) == 0 {
+		return nil, errSignerQueueEmpty
+	}
 	for i := 0; i < int(s.config.MaxSignerCount); i++ {
 		topStakeAddress = append(topStakeAddress, signerSlice[i%len(signerSlice)].addr)
 	}

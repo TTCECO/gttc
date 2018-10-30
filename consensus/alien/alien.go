@@ -120,6 +120,9 @@ var (
 
 	// errMCRPCCLientEmpty is returned if Side chain not have main chain rpc client
 	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
+
+	// errSignerQueueEmpty is returned if no signer when calculate
+	errSignerQueueEmpty = errors.New("signer queue is empty")
 )
 
 // Alien is the delegated-proof-of-stake consensus engine.
