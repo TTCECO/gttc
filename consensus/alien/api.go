@@ -66,3 +66,45 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 	}
 	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
 }
+
+// GetSnapshotByHeaderTime retrieves the state snapshot by timestamp of header.
+// snapshot.header.time <= targetTime < snapshot.header.time + period
+func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
+	header := api.chain.CurrentHeader()
+	if header == nil || targetTime > header.Time.Uint64() {
+		return nil, errUnknownBlock
+	}
+	period := api.chain.Config().Alien.Period
+	minN := uint64(0)
+	maxN := header.Number.Uint64()
+	for {
+		if targetTime >= header.Time.Uint64() && targetTime < header.Time.Uint64()+period {
+			return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
+		} else {
+			if maxN == minN || maxN == minN+1 {
+				return nil, errUnknownBlock
+			}
+			// calculate next number
+			nextN := uint64(int64(header.Number.Uint64()) + (int64(targetTime)-int64(header.Time.Uint64()))/int64(period))
+			if nextN >= maxN || nextN <= minN {
+				nextN = (maxN + minN) / 2
+			}
+			// get new header
+			header = api.chain.GetHeaderByNumber(nextN)
+			if header == nil {
+				return nil, errUnknownBlock
+			}
+			// update maxN & minN
+			if header.Time.Uint64() >= targetTime {
+				if header.Number.Uint64() < maxN {
+					maxN = header.Number.Uint64()
+				}
+			} else if header.Time.Uint64() <= targetTime {
+				if header.Number.Uint64() > minN {
+					minN = header.Number.Uint64()
+				}
+			}
+		}
+	}
+	return nil, errUnknownBlock
+}
