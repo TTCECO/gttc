@@ -82,7 +82,7 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
 			return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
 		} else {
 			if maxN == minN || maxN == minN+1 {
-				return nil, errUnknownBlock
+				break
 			}
 			// calculate next number
 			nextN := uint64(int64(header.Number.Uint64()) + (int64(targetTime)-int64(header.Time.Uint64()))/int64(period))
@@ -92,7 +92,7 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
 			// get new header
 			header = api.chain.GetHeaderByNumber(nextN)
 			if header == nil {
-				return nil, errUnknownBlock
+				break
 			}
 			// update maxN & minN
 			if header.Time.Uint64() >= targetTime {
