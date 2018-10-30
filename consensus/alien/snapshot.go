@@ -99,7 +99,6 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 	}
-
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
 	for _, vote := range votes {

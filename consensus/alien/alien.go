@@ -324,6 +324,10 @@ func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 
 // snapshot retrieves the authorization snapshot at a given point in time.
 func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, genesisVotes []*Vote, lcrs uint64) (*Snapshot, error) {
+	// Don't keep snapshot for side chain
+	if chain.Config().Alien.SideChain {
+		return nil, nil
+	}
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -436,56 +440,62 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	if number > a.config.MaxSignerCount {
-		var parent *types.Header
-		if len(parents) > 0 {
-			parent = parents[len(parents)-1]
-		} else {
-			parent = chain.GetHeader(header.ParentHash, number-1)
+	if chain.Config().Alien.SideChain {
+		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
+			return errUnauthorized
 		}
-		parentHeaderExtra := HeaderExtra{}
-		err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
-		if err != nil {
-			log.Info("Fail to decode parent header", "err", err)
-			return err
-		}
-		currentHeaderExtra := HeaderExtra{}
-		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
-		if err != nil {
-			log.Info("Fail to decode header", "err", err)
-			return err
-		}
-		// verify signerqueue
-		if number%a.config.MaxSignerCount == 0 {
-			err := snap.verifySignerQueue(currentHeaderExtra.SignerQueue)
+	} else {
+
+		if number > a.config.MaxSignerCount {
+			var parent *types.Header
+			if len(parents) > 0 {
+				parent = parents[len(parents)-1]
+			} else {
+				parent = chain.GetHeader(header.ParentHash, number-1)
+			}
+			parentHeaderExtra := HeaderExtra{}
+			err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 			if err != nil {
+				log.Info("Fail to decode parent header", "err", err)
 				return err
 			}
+			currentHeaderExtra := HeaderExtra{}
+			err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+			if err != nil {
+				log.Info("Fail to decode header", "err", err)
+				return err
+			}
+			// verify signerqueue
+			if number%a.config.MaxSignerCount == 0 {
+				err := snap.verifySignerQueue(currentHeaderExtra.SignerQueue)
+				if err != nil {
+					return err
+				}
 
-		} else {
-			for i := 0; i < int(a.config.MaxSignerCount); i++ {
-				if parentHeaderExtra.SignerQueue[i] != currentHeaderExtra.SignerQueue[i] {
-					return errInvalidSignerQueue
+			} else {
+				for i := 0; i < int(a.config.MaxSignerCount); i++ {
+					if parentHeaderExtra.SignerQueue[i] != currentHeaderExtra.SignerQueue[i] {
+						return errInvalidSignerQueue
+					}
+				}
+			}
+
+			// verify missing signer for punish
+			parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
+			if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
+				return errPunishedMissing
+			}
+			for i, signerMissing := range currentHeaderExtra.SignerMissing {
+				if parentSignerMissing[i] != signerMissing {
+					return errPunishedMissing
 				}
 			}
 		}
 
-		// verify missing signer for punish
-		parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
-		if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
-			return errPunishedMissing
-		}
-		for i, signerMissing := range currentHeaderExtra.SignerMissing {
-			if parentSignerMissing[i] != signerMissing {
-				return errPunishedMissing
-			}
+		if !snap.inturn(signer, header.Time.Uint64()) {
+			return errUnauthorized
 		}
 	}
-
-	if !snap.inturn(signer, header.Time.Uint64()) {
-		return errUnauthorized
-	}
-
 	return nil
 }
 
@@ -623,31 +633,31 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	if err != nil {
 		return nil, err
 	}
+	if !chain.Config().Alien.SideChain {
+		currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentHeaderExtra.CurrentBlockConfirmations).Uint64()
 
-	currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentHeaderExtra.CurrentBlockConfirmations).Uint64()
-
-	// write signerQueue in first header, from self vote signers in genesis block
-	if number == 1 {
-		currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
-		for i := 0; i < int(a.config.MaxSignerCount); i++ {
-			currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
-		}
-	}
-
-	if number%a.config.MaxSignerCount == 0 {
-		//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
-		currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
-		// create random signersQueue in currentHeaderExtra by snapshot.Tally
-		currentHeaderExtra.SignerQueue = []common.Address{}
-		newSignerQueue, err := snap.createSignerQueue()
-		if err != nil {
-			return nil, err
+		// write signerQueue in first header, from self vote signers in genesis block
+		if number == 1 {
+			currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
+			for i := 0; i < int(a.config.MaxSignerCount); i++ {
+				currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+			}
 		}
 
-		currentHeaderExtra.SignerQueue = newSignerQueue
+		if number%a.config.MaxSignerCount == 0 {
+			//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
+			currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
+			// create random signersQueue in currentHeaderExtra by snapshot.Tally
+			currentHeaderExtra.SignerQueue = []common.Address{}
+			newSignerQueue, err := snap.createSignerQueue()
+			if err != nil {
+				return nil, err
+			}
 
+			currentHeaderExtra.SignerQueue = newSignerQueue
+
+		}
 	}
-
 	// encode header.extra
 	currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
 	if err != nil {
@@ -705,9 +715,16 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		return nil, err
 	}
 
-	if !snap.inturn(signer, header.Time.Uint64()) {
-		<-stop
-		return nil, errUnauthorized
+	if !chain.Config().Alien.SideChain {
+		if !snap.inturn(signer, header.Time.Uint64()) {
+			<-stop
+			return nil, errUnauthorized
+		}
+	} else {
+		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
+			<-stop
+			return nil, errUnauthorized
+		}
 	}
 
 	// correct the time
@@ -756,18 +773,23 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
-	minerReward := new(big.Int).Set(blockReward)
-	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
-	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
+	if !config.Alien.SideChain {
 
-	votersReward := blockReward.Sub(blockReward, minerReward)
+		minerReward := new(big.Int).Set(blockReward)
+		minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
+		minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
-	// rewards for the voters
-	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
-		state.AddBalance(voter, reward)
+		votersReward := blockReward.Sub(blockReward, minerReward)
+
+		// rewards for the voters
+		for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
+			state.AddBalance(voter, reward)
+		}
+		// rewards for the miner
+		state.AddBalance(header.Coinbase, minerReward)
+	} else {
+		state.AddBalance(header.Coinbase, blockReward)
 	}
-	// rewards for the miner
-	state.AddBalance(header.Coinbase, minerReward)
 }
 
 // Get the signer missing from last signer till header.Coinbase
