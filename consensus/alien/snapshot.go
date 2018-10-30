@@ -58,6 +58,7 @@ type Snapshot struct {
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 	LCRS     uint64              // Loop count to recreate signers from top tally
 
+	Period          uint64                       `json:"period"`          // Period of seal each block
 	Number          uint64                       `json:"number"`          // Block number where the snapshot was created
 	ConfirmedNumber uint64                       `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
 	Hash            common.Hash                  `json:"hash"`            // Block hash where the snapshot was created
@@ -82,6 +83,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		config:          config,
 		sigcache:        sigcache,
 		LCRS:            lcrs,
+		Period:          config.Period,
 		Number:          0,
 		ConfirmedNumber: 0,
 		Hash:            hash,
@@ -152,6 +154,7 @@ func (s *Snapshot) copy() *Snapshot {
 		config:          s.config,
 		sigcache:        s.sigcache,
 		LCRS:            s.LCRS,
+		Period:          s.Period,
 		Number:          s.Number,
 		ConfirmedNumber: s.ConfirmedNumber,
 		Hash:            s.Hash,

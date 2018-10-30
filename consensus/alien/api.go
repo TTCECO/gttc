@@ -70,11 +70,11 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 // GetSnapshotByHeaderTime retrieves the state snapshot by timestamp of header.
 // snapshot.header.time <= targetTime < snapshot.header.time + period
 func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
+	period := api.chain.Config().Alien.Period
 	header := api.chain.CurrentHeader()
-	if header == nil || targetTime > header.Time.Uint64() {
+	if header == nil || targetTime > header.Time.Uint64()+period {
 		return nil, errUnknownBlock
 	}
-	period := api.chain.Config().Alien.Period
 	minN := uint64(0)
 	maxN := header.Number.Uint64()
 	for {

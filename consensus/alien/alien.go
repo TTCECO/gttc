@@ -350,7 +350,7 @@ func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common
 			if err := a.VerifyHeader(chain, genesis, false); err != nil {
 				return nil, err
 			}
-
+			a.config.Period = chain.Config().Alien.Period
 			snap = newSnapshot(a.config, a.signatures, genesis.Hash(), genesisVotes, lcrs)
 			if err := snap.store(a.db); err != nil {
 				return nil, err
@@ -520,7 +520,7 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 	return nil
 }
 
-func (a *Alien) getMainChainSnapshot(chain consensus.ChainReader) (*Snapshot, error) {
+func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64) (*Snapshot, error) {
 	if !chain.Config().Alien.SideChain {
 		return nil, errNotSideChain
 	}
@@ -531,24 +531,34 @@ func (a *Alien) getMainChainSnapshot(chain consensus.ChainReader) (*Snapshot, er
 	defer cancel()
 
 	var ms *Snapshot
-	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshot", "latest"); err != nil {
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime); err != nil {
 		return nil, err
 	}
 	return ms, nil
 }
 
+func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, headerTime uint64) bool {
+	if chain.Config().Alien.SideChain {
+		ms, err := a.getMainChainSnapshotByTime(chain, headerTime)
+		if err != nil {
+			log.Info("Main chain snapshot query fail ", "err", err)
+			return false
+		}
+		// calculate the coinbase by loopStartTime & signers slice
+		loopIndex := int((headerTime-ms.LoopStartTime)/ms.Period) % len(ms.Signers)
+		if loopIndex >= len(ms.Signers) {
+			return false
+		} else if *ms.Signers[loopIndex] != signer {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
-
-	if chain.Config().Alien.SideChain {
-		ms, err := a.getMainChainSnapshot(chain)
-		if err == nil {
-			log.Info("Main chain last block info", "Number", ms.Number)
-		} else {
-			log.Info("Main chain last block info", "err", err)
-		}
-	}
 
 	number := header.Number.Uint64()
 
