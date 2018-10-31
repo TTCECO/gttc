@@ -660,6 +660,12 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			currentHeaderExtra.SignerQueue = newSignerQueue
 
 		}
+	} else {
+		// use currentHeaderExtra.SignerQueue as signer queue
+		currentHeaderExtra.SignerQueue = append([]common.Address{header.Coinbase}, parentHeaderExtra.SignerQueue...)
+		if len(currentHeaderExtra.SignerQueue) > int(a.config.MaxSignerCount) {
+			currentHeaderExtra.SignerQueue = currentHeaderExtra.SignerQueue[:int(a.config.MaxSignerCount)]
+		}
 	}
 	// encode header.extra
 	currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
