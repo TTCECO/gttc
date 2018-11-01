@@ -22,7 +22,7 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 7 file
 
 If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
 
-Current test chain is deploy the code of branch v0.0.5
+Current test chain is deploy the code of branch v0.0.6
 
 #### Minimum requirements
 
