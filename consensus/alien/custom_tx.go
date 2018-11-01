@@ -39,6 +39,7 @@ const (
 	ufoVersion            = "1"
 	ufoCategoryEvent      = "event"
 	ufoCategoryLog        = "oplog"
+	ufoCategorySC         = "sc"
 	ufoEventVote          = "vote"
 	ufoEventConfirm       = "confirm"
 	ufoEventPorposal      = "proposal"
@@ -197,6 +198,13 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 							}
 						} else if txDataInfo[posCategory] == ufoCategoryLog {
 							// todo :
+						} else if txDataInfo[posCategory] == ufoCategorySC {
+							if len(txDataInfo) > ufoMinSplitLen+2 {
+								if txDataInfo[posEventConfirm] == ufoEventConfirm {
+									// log.Info("Side chain confirm info", "hash", txDataInfo[ufoMinSplitLen+1])
+									// log.Info("Side chain confirm info", "number", txDataInfo[ufoMinSplitLen+2])
+								}
+							}
 						}
 					}
 				}
