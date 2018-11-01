@@ -19,7 +19,6 @@ package alien
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"math/big"
 	"sync"
@@ -28,7 +27,6 @@ import (
 	"fmt"
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
-	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/core/state"
 	"github.com/TTCECO/gttc/core/types"
@@ -43,11 +41,10 @@ import (
 )
 
 const (
-	inMemorySnapshots   = 128             // Number of recent vote snapshots to keep in memory
-	inMemorySignatures  = 4096            // Number of recent block signatures to keep in memory
-	secondsPerYear      = 365 * 24 * 3600 // Number of seconds for one year
-	checkpointInterval  = 360             // About N hours if config.period is N
-	mainchainRPCTimeout = 300             // Number of millisecond mainchain rpc connect timeout
+	inMemorySnapshots  = 128             // Number of recent vote snapshots to keep in memory
+	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
+	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
+	checkpointInterval = 360             // About N hours if config.period is N
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -116,12 +113,6 @@ var (
 
 	// errInvalidSignerQueue is returned if verify SignerQueue fail
 	errInvalidSignerQueue = errors.New("invalid signer queue")
-
-	// errNotSideChain is returned if main chain try to get main chain client
-	errNotSideChain = errors.New("not side chain")
-
-	// errMCRPCCLientEmpty is returned if Side chain not have main chain rpc client
-	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
 
 	// errSignerQueueEmpty is returned if no signer when calculate
 	errSignerQueueEmpty = errors.New("signer queue is empty")
@@ -544,23 +535,6 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 	return nil
 }
 
-func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64) (*Snapshot, error) {
-	if !chain.Config().Alien.SideChain {
-		return nil, errNotSideChain
-	}
-	if chain.Config().Alien.MCRPCClient == nil {
-		return nil, errMCRPCClientEmpty
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
-	defer cancel()
-
-	var ms *Snapshot
-	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime); err != nil {
-		return nil, err
-	}
-	return ms, nil
-}
-
 func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, headerTime uint64) bool {
 	if chain.Config().Alien.SideChain {
 		ms, err := a.getMainChainSnapshotByTime(chain, headerTime)
@@ -578,44 +552,6 @@ func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, hea
 		return true
 	}
 	return false
-}
-
-func (a *Alien) sendTransactionToMainChain(chain consensus.ChainReader, tx *types.Transaction) (common.Hash, error) {
-	if !chain.Config().Alien.SideChain {
-		return common.Hash{}, errNotSideChain
-	}
-	if chain.Config().Alien.MCRPCClient == nil {
-		return common.Hash{}, errMCRPCClientEmpty
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
-	defer cancel()
-
-	data, err := rlp.EncodeToBytes(tx)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	var hash common.Hash
-	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &hash, "eth_sendRawTransaction", common.ToHex(data)); err != nil {
-		return common.Hash{}, err
-	}
-	return hash, nil
-}
-
-func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, account common.Address) (uint64, error) {
-	if !chain.Config().Alien.SideChain {
-		return 0, errNotSideChain
-	}
-	if chain.Config().Alien.MCRPCClient == nil {
-		return 0, errMCRPCClientEmpty
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
-	defer cancel()
-
-	var result hexutil.Uint64
-	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &result, "eth_getTransactionCount", account.Hex(), "latest"); err != nil {
-		return 0, err
-	}
-	return uint64(result), nil
 }
 
 func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header) {
