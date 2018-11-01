@@ -577,6 +577,25 @@ var (
 		Usage: "Enable browser web port",
 		Value: 80,
 	}
+	// Data side chain settings
+	SCAEnableFlag = cli.BoolFlag{
+		Name:  "sca",
+		Usage: "Side chain for App (dsc)",
+	}
+	SCAMainRPCAddrFlag = cli.StringFlag{
+		Name:  "sca.mainrpcaddr",
+		Usage: "Address of main chain ",
+		Value: node.DefaultHTTPHost,
+	}
+	SCAMainRPCPortFlag = cli.IntFlag{
+		Name:  "sca.mainrpcport",
+		Usage: "Port of main chain rpc port",
+		Value: node.DefaultHTTPPort,
+	}
+	SCAPeriod = cli.IntFlag{
+		Name:  "sca.period",
+		Usage: "Period of each side chain block",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating

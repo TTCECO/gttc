@@ -1,4 +1,4 @@
-// Copyright 2017 The gttc Authors
+// Copyright 2018 The gttc Authors
 // This file is part of the gttc library.
 //
 // The gttc library is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/TTCECO/gttc/common"
@@ -44,7 +45,8 @@ const (
 	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
 	// the credit of one signer is at least minCalSignerQueueCredit
-	candidateNormal = 1
+	candidateStateNormal = 1
+	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 )
 
 var (
@@ -57,6 +59,7 @@ type Snapshot struct {
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 	LCRS     uint64              // Loop count to recreate signers from top tally
 
+	Period          uint64                       `json:"period"`          // Period of seal each block
 	Number          uint64                       `json:"number"`          // Block number where the snapshot was created
 	ConfirmedNumber uint64                       `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
 	Hash            common.Hash                  `json:"hash"`            // Block hash where the snapshot was created
@@ -81,6 +84,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		config:          config,
 		sigcache:        sigcache,
 		LCRS:            lcrs,
+		Period:          config.Period,
 		Number:          0,
 		ConfirmedNumber: 0,
 		Hash:            hash,
@@ -96,7 +100,6 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 	}
-
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
 	for _, vote := range votes {
@@ -111,7 +114,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		// init Voters
 		snap.Voters[vote.Voter] = big.NewInt(0) // block number is 0 , vote in genesis block
 		// init Candidates
-		snap.Candidates[vote.Voter] = candidateNormal
+		snap.Candidates[vote.Voter] = candidateStateNormal
 	}
 
 	for i := 0; i < int(config.MaxSignerCount); i++ {
@@ -151,6 +154,7 @@ func (s *Snapshot) copy() *Snapshot {
 		config:          s.config,
 		sigcache:        s.sigcache,
 		LCRS:            s.LCRS,
+		Period:          s.Period,
 		Number:          s.Number,
 		ConfirmedNumber: s.ConfirmedNumber,
 		Hash:            s.Hash,
@@ -241,12 +245,10 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 		cpyProposals[tx.Hex()] = map[string]interface{}{
 			"validationLoopCnt":      proposal.ValidationLoopCnt,
 			"implementNumber":        proposal.ImplementNumber,
-			"decisionType":           proposal.DecisionType,
 			"proposalType":           proposal.ProposalType,
 			"proposer":               proposal.Proposer.Hex(),
 			"candidate":              proposal.Candidate.Hex(),
 			"minerRewardPerThousand": proposal.MinerRewardPerThousand,
-			"enable":                 proposal.Enable,
 			"receivedNumber":         proposal.ReceivedNumber.String(),
 			"declares":               declares,
 		}
@@ -330,9 +332,16 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		// deal proposals
 		snap.updateSnapshotByProposals(headerExtra.CurrentBlockProposals, header.Number)
 
-		// deal declares decisionTypeImmediately
+		// deal declares
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
-		// todo :deal declares decisionTypeWaitTillEnd
+
+		// calculate proposal result
+		snap.calculateProposalResult(header.Number)
+
+		// check the len of candidate if not candidateNeedPD
+		if !candidateNeedPD && (snap.Number+1)%(snap.config.MaxSignerCount*snap.LCRS) == 0 && len(snap.Candidates) > candidateMaxLen {
+			snap.removeExtraCandidate()
+		}
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
 		if snap.config.BrowserDB != nil && snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
@@ -357,6 +366,18 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		return nil, err
 	}
 	return snap, nil
+}
+
+func (s *Snapshot) removeExtraCandidate() {
+	// remove minimum tickets tally beyond candidateMaxLen
+	tallySlice := s.buildTallySlice()
+	sort.Sort(TallySlice(tallySlice))
+	if len(tallySlice) > candidateMaxLen {
+		removeNeedTally := tallySlice[candidateMaxLen:]
+		for _, tallySlice := range removeNeedTally {
+			delete(s.Candidates, tallySlice.addr)
+		}
+	}
 }
 
 func (s *Snapshot) verifyTallyCnt() error {
@@ -385,7 +406,7 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 	for _, declare := range declares {
 		if proposal, ok := s.Proposals[declare.ProposalHash]; ok {
 			// check the proposal enable status and valid block number
-			if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount < headerNumber.Uint64() || proposal.Enable || !s.isCandidate(declare.Declarer) {
+			if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount < headerNumber.Uint64() || !s.isCandidate(declare.Declarer) {
 				continue
 			}
 			// check if this signer already declare on this proposal
@@ -404,6 +425,15 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 			s.Proposals[declare.ProposalHash].Declares = append(s.Proposals[declare.ProposalHash].Declares,
 				&Declare{declare.ProposalHash, declare.Declarer, declare.Decision})
 
+		}
+	}
+}
+
+func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
+
+	for hashKey, proposal := range s.Proposals {
+		// the result will be calculate at receiverdNumber + vlcnt + 1
+		if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount+1 == headerNumber.Uint64() {
 			// calculate the current stake of this proposal
 			judegmentStake := big.NewInt(0)
 			for _, tally := range s.Tally {
@@ -415,26 +445,32 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 			yesDeclareStake := big.NewInt(0)
 			for _, declare := range proposal.Declares {
 				if declare.Decision {
-					yesDeclareStake.Add(yesDeclareStake, s.Tally[declare.Declarer])
+					if _, ok := s.Tally[declare.Declarer]; ok {
+						yesDeclareStake.Add(yesDeclareStake, s.Tally[declare.Declarer])
+					}
 				}
 			}
 			if yesDeclareStake.Cmp(judegmentStake) > 0 {
-				s.Proposals[declare.ProposalHash].Enable = true
 				// process add candidate
 				switch proposal.ProposalType {
 				case proposalTypeCandidateAdd:
-					s.Candidates[s.Proposals[declare.ProposalHash].Candidate] = candidateNormal
+					if candidateNeedPD {
+						s.Candidates[s.Proposals[hashKey].Candidate] = candidateStateNormal
+					}
 				case proposalTypeCandidateRemove:
-					if _, ok := s.Candidates[proposal.Candidate]; ok {
+					if _, ok := s.Candidates[proposal.Candidate]; ok && candidateNeedPD {
 						delete(s.Candidates, proposal.Candidate)
 					}
 				case proposalTypeMinerRewardDistributionModify:
-					minerRewardPerThousand = s.Proposals[declare.ProposalHash].MinerRewardPerThousand
+					minerRewardPerThousand = s.Proposals[hashKey].MinerRewardPerThousand
 
 				}
 			}
+
 		}
+
 	}
+
 }
 
 func (s *Snapshot) updateSnapshotByProposals(proposals []Proposal, headerNumber *big.Int) {
@@ -515,6 +551,9 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 			s.Tally[vote.Candidate].Add(s.Tally[vote.Candidate], vote.Stake)
 		} else {
 			s.Tally[vote.Candidate] = vote.Stake
+			if !candidateNeedPD {
+				s.Candidates[vote.Candidate] = candidateStateNormal
+			}
 		}
 
 		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
@@ -598,9 +637,7 @@ func (s *Snapshot) isVoter(address common.Address) bool {
 
 // check if address belong to candidate
 func (s *Snapshot) isCandidate(address common.Address) bool {
-	if !candidateFromPOA {
-		return true
-	} else if _, ok := s.Candidates[address]; ok {
+	if _, ok := s.Candidates[address]; ok {
 		return true
 	}
 	return false

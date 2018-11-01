@@ -1,4 +1,4 @@
-// Copyright 2017 The gttc Authors
+// Copyright 2018 The gttc Authors
 // This file is part of the gttc library.
 //
 // The gttc library is free software: you can redistribute it and/or modify
@@ -65,4 +65,46 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 		return nil, errUnknownBlock
 	}
 	return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
+}
+
+// GetSnapshotByHeaderTime retrieves the state snapshot by timestamp of header.
+// snapshot.header.time <= targetTime < snapshot.header.time + period
+func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
+	period := api.chain.Config().Alien.Period
+	header := api.chain.CurrentHeader()
+	if header == nil || targetTime > header.Time.Uint64()+period {
+		return nil, errUnknownBlock
+	}
+	minN := uint64(0)
+	maxN := header.Number.Uint64()
+	for {
+		if targetTime >= header.Time.Uint64() && targetTime < header.Time.Uint64()+period {
+			return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
+		} else {
+			if maxN == minN || maxN == minN+1 {
+				break
+			}
+			// calculate next number
+			nextN := uint64(int64(header.Number.Uint64()) + (int64(targetTime)-int64(header.Time.Uint64()))/int64(period))
+			if nextN >= maxN || nextN <= minN {
+				nextN = (maxN + minN) / 2
+			}
+			// get new header
+			header = api.chain.GetHeaderByNumber(nextN)
+			if header == nil {
+				break
+			}
+			// update maxN & minN
+			if header.Time.Uint64() >= targetTime {
+				if header.Number.Uint64() < maxN {
+					maxN = header.Number.Uint64()
+				}
+			} else if header.Time.Uint64() <= targetTime {
+				if header.Number.Uint64() > minN {
+					minN = header.Number.Uint64()
+				}
+			}
+		}
+	}
+	return nil, errUnknownBlock
 }

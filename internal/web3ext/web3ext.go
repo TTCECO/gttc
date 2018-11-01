@@ -130,6 +130,11 @@ web3._extend({
 			call: 'alien_getSnapshotAtNumber',
 			params: 1
 		}),
+		new web3._extend.Method({
+			name: 'getSnapshotByHeaderTime',
+			call: 'alien_getSnapshotByHeaderTime',
+			params: 1
+		}),
 	]
 });
 `

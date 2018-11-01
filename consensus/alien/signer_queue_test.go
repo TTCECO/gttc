@@ -1,4 +1,4 @@
-// Copyright 2017 The gttc Authors
+// Copyright 2018 The gttc Authors
 // This file is part of the gttc library.
 //
 // The gttc library is free software: you can redistribute it and/or modify
@@ -165,7 +165,7 @@ func TestQueue(t *testing.T) {
 
 	// Run through the scenarios and test them
 	for i, tt := range tests {
-		candidateFromPOA = false
+		candidateNeedPD = false
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrNames := make([]common.Address, len(tt.addrNames))
@@ -210,7 +210,7 @@ func TestQueue(t *testing.T) {
 		}
 		if len(tt.result) == 0 {
 			for j, signer := range signerQueue {
-				if j >= 1 && signerQueue[j-1].Hex() < signerQueue[j].Hex() {
+				if j >= 1 && signerQueue[j-1].Str() < signerQueue[j].Str() {
 					t.Errorf("test %d: result is not correct, signerQueue(%d) %s larger than signerQueue(%d) %s ", i, j, signer.Hex(), j-1, signerQueue[j-1].Hex())
 				}
 			}

@@ -245,7 +245,7 @@ func (self *worker) update() {
 	defer self.txsSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
-	
+
 	for {
 		// A real event arrived, process interesting content
 		select {
@@ -497,7 +497,6 @@ func (self *worker) commitNewWork() {
 	self.updateSnapshot()
 
 }
-
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 	hash := uncle.Hash()

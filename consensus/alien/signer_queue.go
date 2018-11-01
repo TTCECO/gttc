@@ -1,4 +1,4 @@
-// Copyright 2017 The gttc Authors
+// Copyright 2018 The gttc Authors
 // This file is part of the gttc library.
 //
 // The gttc library is free software: you can redistribute it and/or modify
@@ -83,6 +83,26 @@ func (s *Snapshot) verifySignerQueue(signerQueue []common.Address) error {
 	return nil
 }
 
+func (s *Snapshot) buildTallySlice() TallySlice {
+	var tallySlice TallySlice
+	for address, stake := range s.Tally {
+		if !candidateNeedPD || s.isCandidate(address) {
+			if _, ok := s.Punished[address]; ok {
+				var creditWeight uint64
+				if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
+					creditWeight = minCalSignerQueueCredit
+				} else {
+					creditWeight = defaultFullCredit - s.Punished[address]
+				}
+				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
+			} else {
+				tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
+			}
+		}
+	}
+	return tallySlice
+}
+
 func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 
 	if (s.Number+1)%s.config.MaxSignerCount != 0 || s.Hash != s.HistoryHash[len(s.HistoryHash)-1] {
@@ -97,23 +117,7 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 
 		// only recalculate signers from to tally per 10 loop,
 		// other loop end just reset the order of signers by block hash (nearly random)
-		var tallySlice TallySlice
-		for address, stake := range s.Tally {
-			if s.isCandidate(address) {
-				if _, ok := s.Punished[address]; ok {
-					var creditWeight uint64
-					if s.Punished[address] > defaultFullCredit-minCalSignerQueueCredit {
-						creditWeight = minCalSignerQueueCredit
-					} else {
-						creditWeight = defaultFullCredit - s.Punished[address]
-					}
-					tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(int64(creditWeight)))})
-				} else {
-					tallySlice = append(tallySlice, TallyItem{address, new(big.Int).Mul(stake, big.NewInt(defaultFullCredit))})
-				}
-			}
-		}
-
+		tallySlice := s.buildTallySlice()
 		sort.Sort(TallySlice(tallySlice))
 		queueLength := int(s.config.MaxSignerCount)
 		if queueLength > len(tallySlice) {
@@ -176,6 +180,9 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 
 	sort.Sort(SignerSlice(signerSlice))
 	// Set the top candidates in random order base on block hash
+	if len(signerSlice) == 0 {
+		return nil, errSignerQueueEmpty
+	}
 	for i := 0; i < int(s.config.MaxSignerCount); i++ {
 		topStakeAddress = append(topStakeAddress, signerSlice[i%len(signerSlice)].addr)
 	}
