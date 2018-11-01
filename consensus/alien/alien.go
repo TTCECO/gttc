@@ -25,8 +25,10 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/core/state"
 	"github.com/TTCECO/gttc/core/types"
@@ -133,12 +135,17 @@ type Alien struct {
 	signatures *lru.ARCCache       // Signatures of recent blocks to speed up mining
 	signer     common.Address      // Ethereum address of the signing key
 	signFn     SignerFn            // Signer function to authorize hashes with
+	signTxFn   SignTxFn            // Sign transaction function to sign tx
 	lock       sync.RWMutex        // Protects the signer fields
+	lcsc       uint64              // Last confirmed side chain
 }
 
 // SignerFn is a signer callback function to request a hash to be signed by a
 // backing account.
 type SignerFn func(accounts.Account, []byte) ([]byte, error)
+
+// SignTxFn is a signTx
+type SignTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Transaction, error)
 
 // sigHash returns the hash which is used as input for the delegated-proof-of-stake
 // signing. It is the hash of the entire header apart from the 65 byte signature
@@ -443,11 +450,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
-	if chain.Config().Alien.SideChain {
-		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
-			return errUnauthorized
-		}
-	} else {
+	if !chain.Config().Alien.SideChain {
 
 		if number > a.config.MaxSignerCount {
 			var parent *types.Header
@@ -498,7 +501,15 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		if !snap.inturn(signer, header.Time.Uint64()) {
 			return errUnauthorized
 		}
+	} else {
+		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
+			return errUnauthorized
+		} else {
+			// send tx to main chain to confirm this block
+			a.mcConfirmBlock(chain, header)
+		}
 	}
+
 	return nil
 }
 
@@ -567,6 +578,80 @@ func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, hea
 		return true
 	}
 	return false
+}
+
+func (a *Alien) sendTransactionToMainChain(chain consensus.ChainReader, tx *types.Transaction) (common.Hash, error) {
+	if !chain.Config().Alien.SideChain {
+		return common.Hash{}, errNotSideChain
+	}
+	if chain.Config().Alien.MCRPCClient == nil {
+		return common.Hash{}, errMCRPCClientEmpty
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
+	defer cancel()
+
+	data, err := rlp.EncodeToBytes(tx)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	var hash common.Hash
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &hash, "eth_sendRawTransaction", common.ToHex(data)); err != nil {
+		return common.Hash{}, err
+	}
+	return hash, nil
+}
+
+func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, account common.Address) (uint64, error) {
+	if !chain.Config().Alien.SideChain {
+		return 0, errNotSideChain
+	}
+	if chain.Config().Alien.MCRPCClient == nil {
+		return 0, errMCRPCClientEmpty
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
+	defer cancel()
+
+	var result hexutil.Uint64
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &result, "eth_getTransactionCount", account.Hex(), "latest"); err != nil {
+		return 0, err
+	}
+	return uint64(result), nil
+}
+
+func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header) {
+
+	a.lock.RLock()
+	signer, signTxFn := a.signer, a.signTxFn
+	a.lock.RUnlock()
+
+	if signer != (common.Address{}) {
+		nonce, err := a.getTransactionCountFromMainChain(chain, signer)
+		if err != nil {
+			log.Info("confirm tx sign fail", "err", err)
+		}
+		// todo update gaslimit , gasprice ,and get ChainID need to get from mainchain
+		if header.Number.Uint64() > a.lcsc {
+
+			tx := types.NewTransaction(nonce,
+				header.Coinbase, big.NewInt(0),
+				uint64(100000), big.NewInt(100000),
+				[]byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(1).Hash().Hex(), header.Number.Uint64())))
+
+			signedTx, err := signTxFn(accounts.Account{Address: signer}, tx, big.NewInt(1014))
+			if err != nil {
+				log.Info("confirm tx sign fail", "err", err)
+			}
+			res, err := a.sendTransactionToMainChain(chain, signedTx)
+			if err != nil {
+
+				log.Info("confirm tx send fail", "err", err)
+			} else {
+				log.Info("confirm tx result", "hash", res)
+				a.lcsc = header.Number.Uint64()
+			}
+		}
+	}
+
 }
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
@@ -697,6 +782,12 @@ func (a *Alien) Authorize(signer common.Address, signFn SignerFn) {
 
 	a.signer = signer
 	a.signFn = signFn
+}
+
+func (a *Alien) SignTx(signTxFn SignTxFn) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	a.signTxFn = signTxFn
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using

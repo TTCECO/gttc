@@ -356,6 +356,7 @@ func (s *Ethereum) StartMining(local bool) error {
 			return fmt.Errorf("signer missing: %v", err)
 		}
 		alien.Authorize(eb, wallet.SignHash)
+		alien.SignTx(wallet.SignTx)
 	}
 	if local {
 		// If local (CPU) mining is started, we can disable the transaction rejection

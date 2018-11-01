@@ -289,6 +289,24 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 		}
 	}()
+	// Set Side chain config
+	if ctx.GlobalBool(utils.SCAEnableFlag.Name) {
+		var ethereum *eth.Ethereum
+		if err := stack.Service(&ethereum); err != nil {
+			utils.Fatalf("Ethereum service not running: %v", err)
+		}
+		mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
+		mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
+		mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
+		client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
+		if err != nil {
+			utils.Fatalf("Main net rpc connect fail: %v", err)
+		}
+		ethereum.BlockChain().Config().Alien.SideChain = true
+		ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
+		ethereum.BlockChain().Config().Alien.MCRPCClient = client
+	}
+
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Ethereum node is running
@@ -307,20 +325,6 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			if th, ok := ethereum.Engine().(threaded); ok {
 				th.SetThreads(threads)
 			}
-		}
-
-		// Set the main chain rpc setting
-		if ctx.GlobalBool(utils.MiningEnabledFlag.Name) && ctx.GlobalBool(utils.SCAEnableFlag.Name) {
-			mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
-			mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
-			mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
-			client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
-			if err != nil {
-				utils.Fatalf("Main net rpc connect fail: %v", err)
-			}
-			ethereum.BlockChain().Config().Alien.SideChain = true
-			ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
-			ethereum.BlockChain().Config().Alien.MCRPCClient = client
 		}
 
 		// Set the gas price to the limits from the CLI and start mining
