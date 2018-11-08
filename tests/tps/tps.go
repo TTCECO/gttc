@@ -18,9 +18,9 @@ const (
 	pKey        = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
 	toAddress   = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
 
-	defaultCount = 10000
-	portStart    = 8501
-	portLen      = 3
+	defaultCount     = 10000
+	defaultPortStart = 8501
+	portLen          = 3
 )
 
 func main() {
@@ -33,6 +33,15 @@ func main() {
 		}
 	}
 	fmt.Println("count : ", count)
+
+	portStart := defaultPortStart
+	if len(os.Args) > 2 {
+		argPortStart, err := strconv.ParseInt(os.Args[2], 10, 64)
+		if err == nil {
+			portStart = int(argPortStart)
+		}
+	}
+	fmt.Println("start port : ", portStart)
 
 	cl := []*rpc.Client{}
 	for i := 0; i < portLen; i++ {
