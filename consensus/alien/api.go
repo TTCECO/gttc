@@ -79,7 +79,8 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
 	maxN := header.Number.Uint64()
 	for {
 		if targetTime >= header.Time.Uint64() && targetTime < header.Time.Uint64()+period {
-			return api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
+			snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
+			return &Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: snap.Signers}, err
 		} else {
 			if maxN == minN || maxN == minN+1 {
 				break
