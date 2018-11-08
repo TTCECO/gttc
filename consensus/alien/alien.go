@@ -61,6 +61,7 @@ var (
 	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
 	minerRewardPerThousand           = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
 	candidateNeedPD                  = false                    // is new candidate need Proposal & Declare process
+	mcNetVersion                     = uint64(0)                // the net version of main chain
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -539,7 +540,7 @@ func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, hea
 	if chain.Config().Alien.SideChain {
 		ms, err := a.getMainChainSnapshotByTime(chain, headerTime)
 		if err != nil {
-			log.Info("Main chain snapshot query fail ", "err", err)
+			//log.Info("Main chain snapshot query fail ", "err", err)
 			return false
 		}
 		// calculate the coinbase by loopStartTime & signers slice
@@ -573,7 +574,14 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 				uint64(100000), big.NewInt(100000),
 				[]byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(1).Hash().Hex(), header.Number.Uint64())))
 
-			signedTx, err := signTxFn(accounts.Account{Address: signer}, tx, big.NewInt(1014))
+			if mcNetVersion == 0 {
+				mcNetVersion, err = a.getNetVersionFromMainChain(chain)
+				if err != nil {
+					log.Info("query main chain net version fail", "err", err)
+				}
+			}
+
+			signedTx, err := signTxFn(accounts.Account{Address: signer}, tx, big.NewInt(int64(mcNetVersion)))
 			if err != nil {
 				log.Info("confirm tx sign fail", "err", err)
 			}

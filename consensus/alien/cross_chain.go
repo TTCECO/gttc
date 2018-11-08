@@ -27,6 +27,7 @@ import (
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/rlp"
+	"strconv"
 )
 
 const (
@@ -94,4 +95,25 @@ func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, ac
 		return 0, err
 	}
 	return uint64(result), nil
+}
+
+func (a *Alien) getNetVersionFromMainChain(chain consensus.ChainReader) (uint64, error) {
+	if !chain.Config().Alien.SideChain {
+		return 0, errNotSideChain
+	}
+	if chain.Config().Alien.MCRPCClient == nil {
+		return 0, errMCRPCClientEmpty
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
+	defer cancel()
+
+	var result string
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &result, "net_version", "latest"); err != nil {
+		return 0, err
+	}
+	netVersion, err := strconv.Atoi(result)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(netVersion), nil
 }
