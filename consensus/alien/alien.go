@@ -45,6 +45,7 @@ const (
 	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
 	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
 	checkpointInterval = 360             // About N hours if config.period is N
+	scUnconfirmLoop    = 20              // First count of Loop not send confirm tx to main chain
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -567,7 +568,7 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 			log.Info("confirm tx sign fail", "err", err)
 		}
 		// todo update gaslimit , gasprice ,and get ChainID need to get from mainchain
-		if header.Number.Uint64() > a.lcsc {
+		if header.Number.Uint64() > a.lcsc*scUnconfirmLoop {
 
 			tx := types.NewTransaction(nonce,
 				header.Coinbase, big.NewInt(0),
