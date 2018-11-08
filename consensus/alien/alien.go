@@ -499,7 +499,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			return errUnauthorized
 		} else {
 			// send tx to main chain to confirm this block
-			a.mcConfirmBlock(chain, header)
+			//a.mcConfirmBlock(chain, header)
 		}
 	}
 
@@ -568,7 +568,7 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 			log.Info("confirm tx sign fail", "err", err)
 		}
 		// todo update gaslimit , gasprice ,and get ChainID need to get from mainchain
-		if header.Number.Uint64() > a.lcsc*scUnconfirmLoop {
+		if header.Number.Uint64() > a.lcsc && header.Number.Uint64() > a.config.MaxSignerCount*scUnconfirmLoop {
 
 			tx := types.NewTransaction(nonce,
 				header.Coinbase, big.NewInt(0),
@@ -769,6 +769,9 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
 			<-stop
 			return nil, errUnauthorized
+		} else {
+			// send tx to main chain to confirm this block
+			a.mcConfirmBlock(chain, header)
 		}
 	}
 
