@@ -73,6 +73,8 @@ type Snapshot struct {
 	Proposals       map[common.Hash]*Proposal    `json:"proposals"`       // The Proposals going or success (failed proposal will be removed)
 	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
 	LoopStartTime   uint64                       `json:"loopStartTime"`   // Start Time of the current loop
+
+	SCCoinbase map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // Coinbase of side chain setting
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -98,6 +100,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		Proposals:       make(map[common.Hash]*Proposal),
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
+		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
@@ -170,6 +173,7 @@ func (s *Snapshot) copy() *Snapshot {
 
 		HeaderTime:    s.HeaderTime,
 		LoopStartTime: s.LoopStartTime,
+		SCCoinbase:    make(map[common.Address]map[common.Hash]common.Address),
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
@@ -198,6 +202,12 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 	for txHash, proposal := range s.Proposals {
 		cpy.Proposals[txHash] = proposal.copy()
+	}
+	for signer, sc := range s.SCCoinbase {
+		cpy.SCCoinbase[signer] = make(map[common.Hash]common.Address)
+		for hash, addr := range sc {
+			cpy.SCCoinbase[signer][hash] = addr
+		}
 	}
 
 	return cpy
@@ -269,6 +279,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		// deal declares
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 
+		// deal setcoinbase for side chain
+		snap.updateSnapshotBySetSCCoinbase(headerExtra.SideChainSetCoinbases)
+
 		// calculate proposal result
 		snap.calculateProposalResult(header.Number)
 
@@ -296,6 +309,9 @@ func (s *Snapshot) removeExtraCandidate() {
 	if len(tallySlice) > candidateMaxLen {
 		removeNeedTally := tallySlice[candidateMaxLen:]
 		for _, tallySlice := range removeNeedTally {
+			if _, ok := s.SCCoinbase[tallySlice.addr]; ok {
+				delete(s.SCCoinbase, tallySlice.addr)
+			}
 			delete(s.Candidates, tallySlice.addr)
 		}
 	}
@@ -321,6 +337,15 @@ func (s *Snapshot) verifyTallyCnt() error {
 	}
 
 	return nil
+}
+
+func (s *Snapshot) updateSnapshotBySetSCCoinbase(scCoinbases []SCSetCoinbase) {
+	for _, scc := range scCoinbases {
+		if _, ok := s.SCCoinbase[scc.Signer]; !ok {
+			s.SCCoinbase[scc.Signer] = make(map[common.Hash]common.Address)
+		}
+		s.SCCoinbase[scc.Signer][scc.Hash] = scc.Coinbase
+	}
 }
 
 func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *big.Int) {
@@ -435,6 +460,9 @@ func (s *Snapshot) updateSnapshotForExpired() {
 	// remove 0 stake tally
 	for address, tally := range s.Tally {
 		if tally.Cmp(big.NewInt(0)) <= 0 {
+			if _, ok := s.SCCoinbase[address]; ok {
+				delete(s.SCCoinbase, address)
+			}
 			delete(s.Tally, address)
 		}
 	}
