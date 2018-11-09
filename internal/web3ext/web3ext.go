@@ -133,7 +133,7 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'getSnapshotByHeaderTime',
 			call: 'alien_getSnapshotByHeaderTime',
-			params: 1
+			params: 2
 		}),
 	]
 });

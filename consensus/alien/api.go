@@ -69,7 +69,7 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 
 // GetSnapshotByHeaderTime retrieves the state snapshot by timestamp of header.
 // snapshot.header.time <= targetTime < snapshot.header.time + period
-func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
+func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (*Snapshot, error) {
 	period := api.chain.Config().Alien.Period
 	header := api.chain.CurrentHeader()
 	if header == nil || targetTime > header.Time.Uint64()+period {
@@ -80,7 +80,21 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64) (*Snapshot, error) {
 	for {
 		if targetTime >= header.Time.Uint64() && targetTime < header.Time.Uint64()+period {
 			snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
-			return &Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: snap.Signers}, err
+			// replace coinbase by signer settings
+			var scSigners []*common.Address
+			for _, signer := range snap.Signers {
+				replaced := false
+				if _, ok := snap.SCCoinbase[*signer]; ok {
+					if addr, ok := snap.SCCoinbase[*signer][scHash]; ok {
+						replaced = true
+						scSigners = append(scSigners, &addr)
+					}
+				}
+				if !replaced {
+					scSigners = append(scSigners, signer)
+				}
+			}
+			return &Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners}, err
 		} else {
 			if maxN == minN || maxN == minN+1 {
 				break

@@ -42,7 +42,7 @@ var (
 	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
 )
 
-func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64) (*Snapshot, error) {
+func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64, scHash common.Hash) (*Snapshot, error) {
 	if !chain.Config().Alien.SideChain {
 		return nil, errNotSideChain
 	}
@@ -53,7 +53,7 @@ func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTi
 	defer cancel()
 
 	var ms *Snapshot
-	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime); err != nil {
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime, scHash); err != nil {
 		return nil, err
 	}
 	return ms, nil
