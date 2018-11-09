@@ -63,6 +63,10 @@ var (
 	minerRewardPerThousand           = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
 	candidateNeedPD                  = false                    // is new candidate need Proposal & Declare process
 	mcNetVersion                     = uint64(0)                // the net version of main chain
+	mcLoopStartTime                  = uint64(0)                // the loopstarttime of main chain
+	mcPeriod                         = uint64(0)                // the period of main chain
+	mcSignerLength                   = uint64(0)                // the maxsinger of main chain config
+	mcNonce                          = uint64(0)                // the current Nonce of coinbase on main chain
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -118,6 +122,9 @@ var (
 
 	// errSignerQueueEmpty is returned if no signer when calculate
 	errSignerQueueEmpty = errors.New("signer queue is empty")
+
+	// errGetLastLoopInfoFail is returned if get last loop info fail
+	errGetLastLoopInfoFail = errors.New("get last loop info fail")
 )
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -551,9 +558,39 @@ func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, hea
 		} else if *ms.Signers[loopIndex] != signer {
 			return false
 		}
+		mcLoopStartTime = ms.LoopStartTime
+		mcPeriod = ms.Period
+		mcSignerLength = uint64(len(ms.Signers))
 		return true
 	}
 	return false
+}
+
+func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) ([]byte, error) {
+	if chain.Config().Alien.SideChain && mcLoopStartTime != 0 && mcPeriod != 0 {
+		loopHeaderInfo := ""
+		inLastLoop := false
+		extraTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
+		for i := uint64(0); i < a.config.MaxSignerCount*2; i++ {
+			header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+			newTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
+			if newTime > extraTime {
+				if !inLastLoop {
+					inLastLoop = true
+				} else {
+					break
+				}
+			}
+			extraTime = newTime
+			if inLastLoop {
+				loopHeaderInfo += fmt.Sprintf(":%d:%s", header.Number.Uint64(), header.Coinbase.Hex())
+			}
+		}
+		if len(loopHeaderInfo) > 0 {
+			return []byte(loopHeaderInfo), nil
+		}
+	}
+	return []byte{}, errGetLastLoopInfoFail
 }
 
 func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header) {
@@ -563,17 +600,22 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 	a.lock.RUnlock()
 
 	if signer != (common.Address{}) {
-		nonce, err := a.getTransactionCountFromMainChain(chain, signer)
-		if err != nil {
-			log.Info("confirm tx sign fail", "err", err)
-		}
 		// todo update gaslimit , gasprice ,and get ChainID need to get from mainchain
 		if header.Number.Uint64() > a.lcsc && header.Number.Uint64() > a.config.MaxSignerCount*scUnconfirmLoop {
+			nonce, err := a.getTransactionCountFromMainChain(chain, signer)
+			if err != nil {
+				log.Info("confirm tx sign fail", "err", err)
+				return
+			}
 
-			tx := types.NewTransaction(nonce,
-				header.Coinbase, big.NewInt(0),
-				uint64(100000), big.NewInt(100000),
-				[]byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(1).Hash().Hex(), header.Number.Uint64())))
+			lastLoopInfo, err := a.getLastLoopInfo(chain, header)
+			if err != nil {
+				log.Info("confirm tx sign fail", "err", err)
+				return
+			}
+			txData := []byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(0).ParentHash.Hex(), header.Number.Uint64()))
+			txData = append(txData, lastLoopInfo...)
+			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), uint64(3000000), big.NewInt(30000000), txData)
 
 			if mcNetVersion == 0 {
 				mcNetVersion, err = a.getNetVersionFromMainChain(chain)
@@ -588,10 +630,9 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 			}
 			res, err := a.sendTransactionToMainChain(chain, signedTx)
 			if err != nil {
-
 				log.Info("confirm tx send fail", "err", err)
 			} else {
-				log.Info("confirm tx result", "hash", res)
+				log.Info("confirm tx result", "hash", res.Hex())
 				a.lcsc = header.Number.Uint64()
 			}
 		}

@@ -199,10 +199,11 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						} else if txDataInfo[posCategory] == ufoCategoryLog {
 							// todo :
 						} else if txDataInfo[posCategory] == ufoCategorySC {
-							if len(txDataInfo) > ufoMinSplitLen+2 {
+							if len(txDataInfo) > ufoMinSplitLen+3 {
 								if txDataInfo[posEventConfirm] == ufoEventConfirm {
-									// log.Info("Side chain confirm info", "hash", txDataInfo[ufoMinSplitLen+1])
-									// log.Info("Side chain confirm info", "number", txDataInfo[ufoMinSplitLen+2])
+									log.Info("Side chain confirm info", "hash", txDataInfo[ufoMinSplitLen+1])
+									log.Info("Side chain confirm info", "number", txDataInfo[ufoMinSplitLen+2])
+									log.Info("Side chain confirm info", "loop", txDataInfo[ufoMinSplitLen+3])
 								}
 							}
 						}
