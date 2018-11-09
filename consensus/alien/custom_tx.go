@@ -44,6 +44,7 @@ const (
 	ufoEventConfirm       = "confirm"
 	ufoEventPorposal      = "proposal"
 	ufoEventDeclare       = "declare"
+	ufoEventSetCoinbase   = "setcb"
 	ufoMinSplitLen        = 3
 	posPrefix             = 0
 	posVersion            = 1
@@ -52,6 +53,7 @@ const (
 	posEventConfirm       = 3
 	posEventProposal      = 3
 	posEventDeclare       = 3
+	posEventSetCoinbase   = 3
 	posEventConfirmNumber = 4
 
 	/*
@@ -131,6 +133,21 @@ type Declare struct {
 	Decision     bool
 }
 
+// SCConfirmation is the confirmed tx send by side chain super node
+type SCConfirmation struct {
+	Hash     common.Hash
+	Coinbase common.Address // the side chain signer , may be diff from signer in main chain
+	Number   uint64
+	LoopInfo []string
+}
+
+// SCSetCoinbase is the tx send by main chain super node which can set coinbase for side chain
+type SCSetCoinbase struct {
+	Hash     common.Hash
+	Signer   common.Address
+	Coinbase common.Address
+}
+
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 type HeaderExtra struct {
 	CurrentBlockConfirmations []Confirmation
@@ -142,6 +159,8 @@ type HeaderExtra struct {
 	SignerQueue               []common.Address
 	SignerMissing             []common.Address
 	ConfirmedBlockNumber      uint64
+	SideChainConfirmations    []SCConfirmation
+	SideChainSetCoinbases     []SCSetCoinbase
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
@@ -199,11 +218,22 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						} else if txDataInfo[posCategory] == ufoCategoryLog {
 							// todo :
 						} else if txDataInfo[posCategory] == ufoCategorySC {
-							if len(txDataInfo) > ufoMinSplitLen+3 {
+							if len(txDataInfo) > ufoMinSplitLen {
 								if txDataInfo[posEventConfirm] == ufoEventConfirm {
-									log.Info("Side chain confirm info", "hash", txDataInfo[ufoMinSplitLen+1])
-									log.Info("Side chain confirm info", "number", txDataInfo[ufoMinSplitLen+2])
-									log.Info("Side chain confirm info", "loop", txDataInfo[ufoMinSplitLen+3])
+									if len(txDataInfo) > ufoMinSplitLen+3 {
+										number, err := strconv.Atoi(txDataInfo[ufoMinSplitLen+2])
+										if err != nil {
+											log.Info("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
+										} else {
+											headerExtra.SideChainConfirmations = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
+												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), uint64(number), txDataInfo[ufoMinSplitLen+3:])
+										}
+									}
+								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
+									if len(txDataInfo) > ufoMinSplitLen+2 {
+										headerExtra.SideChainSetCoinbases = a.processSCEventSetCoinbase(headerExtra.SideChainSetCoinbases,
+											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), txSender, common.HexToAddress(txDataInfo[ufoMinSplitLen+2]))
+									}
 								}
 							}
 						}
@@ -219,6 +249,24 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 	}
 
 	return headerExtra, nil
+}
+
+func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo []string) []SCConfirmation {
+	scEventConfirmaions = append(scEventConfirmaions, SCConfirmation{
+		Hash:     hash,
+		Number:   number,
+		LoopInfo: loopInfo,
+	})
+	return scEventConfirmaions
+}
+
+func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, hash common.Hash, signer common.Address, coinbase common.Address) []SCSetCoinbase {
+	scEventSetCoinbases = append(scEventSetCoinbases, SCSetCoinbase{
+		Hash:     hash,
+		Signer:   signer,
+		Coinbase: coinbase,
+	})
+	return scEventSetCoinbases
 }
 
 func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
