@@ -230,9 +230,12 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 										}
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
-									if len(txDataInfo) > ufoMinSplitLen+2 {
-										headerExtra.SideChainSetCoinbases = a.processSCEventSetCoinbase(headerExtra.SideChainSetCoinbases,
-											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), txSender, common.HexToAddress(txDataInfo[ufoMinSplitLen+2]))
+									if len(txDataInfo) > ufoMinSplitLen+1 {
+										// the signer of main chain must send some value to coinbase of side chain for confirm tx of side chain
+										if tx.Value().Cmp(SignerBlockReward) >= 0 {
+											headerExtra.SideChainSetCoinbases = a.processSCEventSetCoinbase(headerExtra.SideChainSetCoinbases,
+												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), txSender, *tx.To())
+										}
 									}
 								}
 							}
