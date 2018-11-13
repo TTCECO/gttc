@@ -751,8 +751,9 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Difficulty = new(big.Int).Set(defaultDifficulty)
 
 	// Accumulate any block rewards and commit the final state root
-	accumulateRewards(chain.Config(), state, header, snap)
-
+	if !chain.Config().Alien.SideChain {
+		accumulateRewards(chain.Config(), state, header, snap)
+	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
 	header.UncleHash = types.CalcUncleHash(nil)
@@ -862,23 +863,19 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
-	if !config.Alien.SideChain {
+	minerReward := new(big.Int).Set(blockReward)
+	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
+	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
-		minerReward := new(big.Int).Set(blockReward)
-		minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
-		minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
+	votersReward := blockReward.Sub(blockReward, minerReward)
 
-		votersReward := blockReward.Sub(blockReward, minerReward)
-
-		// rewards for the voters
-		for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
-			state.AddBalance(voter, reward)
-		}
-		// rewards for the miner
-		state.AddBalance(header.Coinbase, minerReward)
-	} else {
-		state.AddBalance(header.Coinbase, blockReward)
+	// rewards for the voters
+	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
+		state.AddBalance(voter, reward)
 	}
+	// rewards for the miner
+	state.AddBalance(header.Coinbase, minerReward)
+
 }
 
 // Get the signer missing from last signer till header.Coinbase
