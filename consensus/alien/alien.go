@@ -335,9 +335,9 @@ func (a *Alien) verifyCascadingFields(chain consensus.ChainReader, header *types
 // snapshot retrieves the authorization snapshot at a given point in time.
 func (a *Alien) snapshot(chain consensus.ChainReader, number uint64, hash common.Hash, parents []*types.Header, genesisVotes []*Vote, lcrs uint64) (*Snapshot, error) {
 	// Don't keep snapshot for side chain
-	if chain.Config().Alien.SideChain {
-		return nil, nil
-	}
+	//if chain.Config().Alien.SideChain {
+	//	return nil, nil
+	//}
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
