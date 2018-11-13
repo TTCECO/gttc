@@ -71,6 +71,19 @@ const (
 	defaultValidationLoopCnt = 30875  // About one week if seal each block per second & 21 super nodes
 )
 
+// RefundGas :
+// refund gas to tx sender
+type RefundGas map[common.Address]*big.Int
+
+// RefundPair :
+type RefundPair struct {
+	Sender   common.Address
+	GasPrice *big.Int
+}
+
+// RefundHash :
+type RefundHash map[common.Hash]RefundPair
+
 // Vote :
 // vote come from custom tx which data like "ufo:1:event:vote"
 // Sender of tx is Voter, the tx.to is Candidate
@@ -164,19 +177,23 @@ type HeaderExtra struct {
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) (HeaderExtra, error) {
+func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, receipts []*types.Receipt) (HeaderExtra, RefundGas, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 	var (
-		snap   *Snapshot
-		err    error
-		number uint64
+		snap       *Snapshot
+		err        error
+		number     uint64
+		refundGas  RefundGas
+		refundHash RefundHash
 	)
+	refundGas = make(map[common.Address]*big.Int)
+	refundHash = make(map[common.Hash]RefundPair)
 	number = header.Number.Uint64()
 	if number > 1 {
 		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
 		if err != nil {
-			return headerExtra, err
+			return headerExtra, nil, err
 		}
 	}
 
@@ -200,7 +217,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								if txDataInfo[posEventVote] == ufoEventVote && (!candidateNeedPD || snap.isCandidate(*tx.To())) {
 									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
-									headerExtra.CurrentBlockConfirmations = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender)
+									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
 								} else if txDataInfo[posEventProposal] == ufoEventPorposal && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, tx, txSender)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
@@ -225,8 +242,8 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 										if err != nil {
 											log.Info("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
 										} else {
-											headerExtra.SideChainConfirmations = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
-												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), uint64(number), txDataInfo[ufoMinSplitLen+3:])
+											headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
+												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), uint64(number), txDataInfo[ufoMinSplitLen+3:], tx, txSender, refundHash)
 										}
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
@@ -251,16 +268,34 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 
 	}
 
-	return headerExtra, nil
+	for _, receipt := range receipts {
+		if pair, ok := refundHash[receipt.TxHash]; ok && receipt.Status == 1 {
+			pair.GasPrice.Mul(pair.GasPrice, big.NewInt(int64(receipt.GasUsed)))
+			refundGas = a.refundAddGas(refundGas, pair.Sender, pair.GasPrice)
+		}
+	}
+	return headerExtra, refundGas, nil
 }
 
-func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo []string) []SCConfirmation {
+func (a *Alien) refundAddGas(refundGas RefundGas, address common.Address, value *big.Int) RefundGas {
+	if _, ok := refundGas[address]; ok {
+		refundGas[address].Add(refundGas[address], value)
+	} else {
+		refundGas[address] = value
+	}
+
+	return refundGas
+}
+
+func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo []string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {
 	scEventConfirmaions = append(scEventConfirmaions, SCConfirmation{
 		Hash:     hash,
+		Coinbase: txSender,
 		Number:   number,
 		LoopInfo: loopInfo,
 	})
-	return scEventConfirmaions
+	refundHash[tx.Hash()] = RefundPair{txSender, tx.GasPrice()}
+	return scEventConfirmaions, refundHash
 }
 
 func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, hash common.Hash, signer common.Address, coinbase common.Address) []SCSetCoinbase {
@@ -369,26 +404,26 @@ func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB,
 	return currentBlockVotes
 }
 
-func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address) []Confirmation {
+func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address, refundHash RefundHash) ([]Confirmation, RefundHash) {
 	if len(txDataInfo) >= posEventConfirmNumber {
 		confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
 		if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
-			return currentBlockConfirmations
+			return currentBlockConfirmations, refundHash
 		}
 		// check if the voter is in block
 		confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
 		if confirmedHeader == nil {
 			log.Info("Fail to get confirmedHeader")
-			return currentBlockConfirmations
+			return currentBlockConfirmations, refundHash
 		}
 		confirmedHeaderExtra := HeaderExtra{}
 		if extraVanity+extraSeal > len(confirmedHeader.Extra) {
-			return currentBlockConfirmations
+			return currentBlockConfirmations, refundHash
 		}
 		err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
-			return currentBlockConfirmations
+			return currentBlockConfirmations, refundHash
 		}
 		for _, s := range confirmedHeaderExtra.SignerQueue {
 			if s == confirmer {
@@ -396,12 +431,13 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 					Signer:      confirmer,
 					BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
 				})
+				refundHash[tx.Hash()] = RefundPair{confirmer, tx.GasPrice()}
 				break
 			}
 		}
 	}
 
-	return currentBlockConfirmations
+	return currentBlockConfirmations, refundHash
 }
 
 func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address, snap *Snapshot) []Vote {

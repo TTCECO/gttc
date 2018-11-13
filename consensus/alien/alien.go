@@ -697,7 +697,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 	// calculate votes write into header.extra
-	currentHeaderExtra, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs)
+	currentHeaderExtra, refundGas, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs, receipts)
+
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +753,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	// Accumulate any block rewards and commit the final state root
 	if !chain.Config().Alien.SideChain {
-		accumulateRewards(chain.Config(), state, header, snap)
+		accumulateRewards(chain.Config(), state, header, snap, refundGas)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
@@ -857,7 +858,7 @@ func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot) {
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot, refundGas RefundGas) {
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
@@ -872,6 +873,12 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	// rewards for the voters
 	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
 		state.AddBalance(voter, reward)
+	}
+
+	// refund gas for custom txs
+	for sender, gas := range refundGas {
+		state.AddBalance(sender, gas)
+		minerReward.Sub(minerReward, gas)
 	}
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, minerReward)
