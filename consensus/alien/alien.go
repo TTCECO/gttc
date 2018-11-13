@@ -764,17 +764,12 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks with.
-func (a *Alien) Authorize(signer common.Address, signFn SignerFn) {
+func (a *Alien) Authorize(signer common.Address, signFn SignerFn, signTxFn SignTxFn) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
 	a.signer = signer
 	a.signFn = signFn
-}
-
-func (a *Alien) SignTx(signTxFn SignTxFn) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
 	a.signTxFn = signTxFn
 }
 
