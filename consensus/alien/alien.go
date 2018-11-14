@@ -604,13 +604,13 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 		if header.Number.Uint64() > a.lcsc && header.Number.Uint64() > a.config.MaxSignerCount*scUnconfirmLoop {
 			nonce, err := a.getTransactionCountFromMainChain(chain, signer)
 			if err != nil {
-				log.Info("confirm tx sign fail", "err", err)
+				log.Info("Confirm tx sign fail", "err", err)
 				return
 			}
 
 			lastLoopInfo, err := a.getLastLoopInfo(chain, header)
 			if err != nil {
-				log.Info("confirm tx sign fail", "err", err)
+				log.Info("Confirm tx sign fail", "err", err)
 				return
 			}
 			txData := []byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(0).ParentHash.Hex(), header.Number.Uint64()))
@@ -620,19 +620,19 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 			if mcNetVersion == 0 {
 				mcNetVersion, err = a.getNetVersionFromMainChain(chain)
 				if err != nil {
-					log.Info("query main chain net version fail", "err", err)
+					log.Info("Query main chain net version fail", "err", err)
 				}
 			}
 
 			signedTx, err := signTxFn(accounts.Account{Address: signer}, tx, big.NewInt(int64(mcNetVersion)))
 			if err != nil {
-				log.Info("confirm tx sign fail", "err", err)
+				log.Info("Confirm tx sign fail", "err", err)
 			}
-			res, err := a.sendTransactionToMainChain(chain, signedTx)
+			txHash, err := a.sendTransactionToMainChain(chain, signedTx)
 			if err != nil {
-				log.Info("confirm tx send fail", "err", err)
+				log.Info("Confirm tx send fail", "err", err)
 			} else {
-				log.Info("confirm tx result", "hash", res.Hex())
+				log.Info("Confirm tx result", "txHash", txHash)
 				a.lcsc = header.Number.Uint64()
 			}
 		}
