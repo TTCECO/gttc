@@ -31,11 +31,13 @@ import (
 
 var versionRegexp = regexp.MustCompile(`([0-9]+)\.([0-9]+)\.([0-9]+)`)
 
+// Contract contains code and info
 type Contract struct {
 	Code string       `json:"code"`
 	Info ContractInfo `json:"info"`
 }
 
+// ContractInfo contains source and other info
 type ContractInfo struct {
 	Source          string      `json:"source"`
 	Language        string      `json:"language"`

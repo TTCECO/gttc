@@ -20,7 +20,7 @@ const (
 
 	defaultCount     = 10000
 	defaultPortStart = 8501
-	portLen          = 3
+	portLen          = 2
 )
 
 func main() {
