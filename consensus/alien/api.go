@@ -69,6 +69,7 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 
 // GetSnapshotByHeaderTime retrieves the state snapshot by timestamp of header.
 // snapshot.header.time <= targetTime < snapshot.header.time + period
+// todo: add confirm headertime in return snapshot, to minimize the request from side chain
 func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (*Snapshot, error) {
 	period := api.chain.Config().Alien.Period
 	header := api.chain.CurrentHeader()

@@ -20,6 +20,7 @@ package alien
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/TTCECO/gttc/common"
@@ -27,7 +28,6 @@ import (
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/rlp"
-	"strconv"
 )
 
 const (
@@ -42,6 +42,8 @@ var (
 	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
 )
 
+// getMainChainSnapshotByTime return snapshot by header time of side chain
+// the rpc api will return the snapshot with the same header time (not loopStartTime)
 func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64, scHash common.Hash) (*Snapshot, error) {
 	if !chain.Config().Alien.SideChain {
 		return nil, errNotSideChain
@@ -59,6 +61,8 @@ func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTi
 	return ms, nil
 }
 
+// sendTransactionToMainChain
+// transaction send to main chain by rpc api, usually is the transaction for notify or confirm seal new block.
 func (a *Alien) sendTransactionToMainChain(chain consensus.ChainReader, tx *types.Transaction) (common.Hash, error) {
 	if !chain.Config().Alien.SideChain {
 		return common.Hash{}, errNotSideChain
@@ -80,6 +84,8 @@ func (a *Alien) sendTransactionToMainChain(chain consensus.ChainReader, tx *type
 	return hash, nil
 }
 
+// getTransactionCountFromMainChain
+// get nonce from main chain for sendTransactionToMainChain
 func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, account common.Address) (uint64, error) {
 	if !chain.Config().Alien.SideChain {
 		return 0, errNotSideChain
@@ -97,6 +103,8 @@ func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, ac
 	return uint64(result), nil
 }
 
+// getNetVersionFromMainChain
+// get network id
 func (a *Alien) getNetVersionFromMainChain(chain consensus.ChainReader) (uint64, error) {
 	if !chain.Config().Alien.SideChain {
 		return 0, errNotSideChain
