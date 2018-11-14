@@ -67,6 +67,8 @@ var (
 	mcPeriod                         = uint64(0)                // the period of main chain
 	mcSignerLength                   = uint64(0)                // the maxsinger of main chain config
 	mcNonce                          = uint64(0)                // the current Nonce of coinbase on main chain
+	mcTxDefaultGasPrice              = big.NewInt(30000000)     // default gas price to build transaction for main chain
+	mcTxDefaultGasLimit              = uint64(3000000)          // default limit to build transaction for main chain
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -615,7 +617,7 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 			}
 			txData := []byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(0).ParentHash.Hex(), header.Number.Uint64()))
 			txData = append(txData, lastLoopInfo...)
-			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), uint64(3000000), big.NewInt(30000000), txData)
+			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), mcTxDefaultGasLimit, mcTxDefaultGasPrice, txData)
 
 			if mcNetVersion == 0 {
 				mcNetVersion, err = a.getNetVersionFromMainChain(chain)
