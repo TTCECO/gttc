@@ -19,6 +19,7 @@
 package alien
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -174,6 +175,12 @@ type HeaderExtra struct {
 	ConfirmedBlockNumber      uint64
 	SideChainConfirmations    []SCConfirmation
 	SideChainSetCoinbases     []SCSetCoinbase
+}
+
+// Build side chain confirm data
+func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, lastLoopInfo []byte) []byte {
+	txData := []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d", ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm, scHash.Hex(), headerNumber.Uint64()))
+	return append(txData, lastLoopInfo...)
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra

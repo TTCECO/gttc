@@ -615,8 +615,8 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 				log.Info("Confirm tx sign fail", "err", err)
 				return
 			}
-			txData := []byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(0).ParentHash.Hex(), header.Number.Uint64()))
-			txData = append(txData, lastLoopInfo...)
+
+			txData := a.buildSCEventConfirmData(chain.GetHeaderByNumber(0).ParentHash, header.Number, lastLoopInfo)
 			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), mcTxDefaultGasLimit, mcTxDefaultGasPrice, txData)
 
 			if mcNetVersion == 0 {
