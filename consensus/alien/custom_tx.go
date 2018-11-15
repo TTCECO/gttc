@@ -155,6 +155,17 @@ type SCConfirmation struct {
 	LoopInfo []string
 }
 
+func (s *SCConfirmation) copy() *SCConfirmation {
+	cpy := &SCConfirmation{
+		Hash:     s.Hash,
+		Coinbase: s.Coinbase,
+		Number:   s.Number,
+		LoopInfo: make([]string, len(s.LoopInfo)),
+	}
+	copy(cpy.LoopInfo, s.LoopInfo)
+	return cpy
+}
+
 // SCSetCoinbase is the tx send by main chain super node which can set coinbase for side chain
 type SCSetCoinbase struct {
 	Hash     common.Hash
@@ -178,8 +189,8 @@ type HeaderExtra struct {
 }
 
 // Build side chain confirm data
-func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, lastLoopInfo []byte) []byte {
-	txData := []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d", ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm, scHash.Hex(), headerNumber.Uint64()))
+func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo []byte) []byte {
+	txData := []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d", ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm, scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64()))
 	return append(txData, lastLoopInfo...)
 }
 
@@ -248,10 +259,14 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 										number, err := strconv.Atoi(txDataInfo[ufoMinSplitLen+2])
 										if err != nil {
 											log.Info("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
-										} else {
-											headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
-												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), uint64(number), txDataInfo[ufoMinSplitLen+3:], tx, txSender, refundHash)
 										}
+										time, err := strconv.Atoi(txDataInfo[ufoMinSplitLen+3])
+										if err != nil || uint64(time) > header.Time.Uint64() {
+											log.Info("Side chain confirm info fail", "time", txDataInfo[ufoMinSplitLen+3])
+										}
+										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
+											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), uint64(number), txDataInfo[ufoMinSplitLen+4:], tx, txSender, refundHash)
+
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
 									if len(txDataInfo) > ufoMinSplitLen+1 {

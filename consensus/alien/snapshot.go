@@ -21,16 +21,17 @@ package alien
 import (
 	"encoding/json"
 	"errors"
-	"math/big"
-	"sort"
-	"time"
-
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
+	"math/big"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -51,6 +52,13 @@ const (
 var (
 	errIncorrectTallyCount = errors.New("incorrect tally count")
 )
+
+// SCRecord is the state record for side chain
+type SCRecord struct {
+	Record              map[uint64][]SCConfirmation `json:"record"`              // Confirmation Record of one side chain
+	LastConfirmedNumber uint64                      `json:"lastConfirmedNumber"` // Last confirmed header number of one side chain
+	MaxHeaderNumber     uint64                      `json:"maxHeaderNumber"`     // max header number of one side chain
+}
 
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
@@ -74,7 +82,8 @@ type Snapshot struct {
 	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
 	LoopStartTime   uint64                       `json:"loopStartTime"`   // Start Time of the current loop
 
-	SCCoinbase map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // Coinbase of side chain setting
+	SCCoinbase     map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"`     // Coinbase of side chain setting
+	SCConfirmation map[common.Hash]*SCRecord                         `json:"sideChainConfirmation"` // Confirmation of side chain setting
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -101,6 +110,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		HeaderTime:      uint64(time.Now().Unix()) - 1,
 		LoopStartTime:   config.GenesisTimestamp,
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
+		SCConfirmation:  make(map[common.Hash]*SCRecord),
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
@@ -171,9 +181,10 @@ func (s *Snapshot) copy() *Snapshot {
 		Proposals:     make(map[common.Hash]*Proposal),
 		Confirmations: make(map[uint64][]*common.Address),
 
-		HeaderTime:    s.HeaderTime,
-		LoopStartTime: s.LoopStartTime,
-		SCCoinbase:    make(map[common.Address]map[common.Hash]common.Address),
+		HeaderTime:     s.HeaderTime,
+		LoopStartTime:  s.LoopStartTime,
+		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
+		SCConfirmation: make(map[common.Hash]*SCRecord),
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
@@ -207,6 +218,13 @@ func (s *Snapshot) copy() *Snapshot {
 		cpy.SCCoinbase[signer] = make(map[common.Hash]common.Address)
 		for hash, addr := range sc {
 			cpy.SCCoinbase[signer][hash] = addr
+		}
+	}
+	for hash, sc := range s.SCConfirmation {
+		cpy.SCConfirmation[hash] = &SCRecord{make(map[uint64][]SCConfirmation), sc.LastConfirmedNumber, sc.MaxHeaderNumber}
+		for number, scConfirmation := range sc.Record {
+			cpy.SCConfirmation[hash].Record[number] = make([]SCConfirmation, len(scConfirmation))
+			copy(cpy.SCConfirmation[hash].Record[number], scConfirmation)
 		}
 	}
 
@@ -282,6 +300,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		// deal setcoinbase for side chain
 		snap.updateSnapshotBySetSCCoinbase(headerExtra.SideChainSetCoinbases)
 
+		// deal confirmation for side chain
+		snap.updateSnapshotBySCConfirm(headerExtra.SideChainConfirmations)
+
 		// calculate proposal result
 		snap.calculateProposalResult(header.Number)
 
@@ -345,6 +366,85 @@ func (s *Snapshot) updateSnapshotBySetSCCoinbase(scCoinbases []SCSetCoinbase) {
 			s.SCCoinbase[scc.Signer] = make(map[common.Hash]common.Address)
 		}
 		s.SCCoinbase[scc.Signer][scc.Hash] = scc.Coinbase
+	}
+}
+
+func (s *Snapshot) isSideChainCoinbase(sc common.Hash, address common.Address) bool {
+	// check is side chain coinbase
+	// is use the coinbase of main chain as coinbase of side chain , return false
+	// the main chain cloud seal block, but not recommend for send confirm tx usually fail
+	for _, coinbaseMap := range s.SCCoinbase {
+		if coinbase, ok := coinbaseMap[sc]; ok && coinbase == address {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
+	// todo ,if diff side chain coinbase send confirm for the same side chain , same number ...
+	for _, scc := range scConfirmations {
+
+		// new confirmation header number must larger than last confirmed number of this side chain
+		if scc.Number > s.SCConfirmation[scc.Hash].LastConfirmedNumber && s.isSideChainCoinbase(scc.Hash, scc.Coinbase) {
+			if _, ok := s.SCConfirmation[scc.Hash]; !ok {
+				s.SCConfirmation[scc.Hash] = &SCRecord{make(map[uint64][]SCConfirmation), 0, 0}
+			}
+			s.SCConfirmation[scc.Hash].Record[scc.Number] = append(s.SCConfirmation[scc.Hash].Record[scc.Number], scc)
+			if scc.Number > s.SCConfirmation[scc.Hash].MaxHeaderNumber {
+				s.SCConfirmation[scc.Hash].MaxHeaderNumber = scc.Number
+			}
+
+		}
+	}
+
+	if (s.Number+1)%s.config.MaxSignerCount == 0 {
+		s.updateSCConfirmation()
+	}
+}
+
+func (s *Snapshot) updateSCConfirmation() {
+
+	minLoopInfoLen := int(2 * 2 * s.config.MaxSignerCount / 3)
+	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
+	for scHash, record := range s.SCConfirmation {
+		confirmedNumber := record.LastConfirmedNumber
+		confirmedRecordMap := make(map[string]map[common.Address]bool)
+		confirmedRecordCount := make(map[string]int)
+
+		for i := record.LastConfirmedNumber + 1; i <= record.MaxHeaderNumber; i++ {
+			if _, ok := record.Record[i]; ok {
+				scConfirm := record.Record[i][0]
+				if len(scConfirm.LoopInfo) > minLoopInfoLen {
+					key := strings.Join(scConfirm.LoopInfo, "")
+					if _, ok := confirmedRecordMap[key]; !ok {
+						confirmedRecordMap[key] = make(map[common.Address]bool)
+						confirmedRecordCount[key] = 0
+					}
+					if _, ok := confirmedRecordMap[key][scConfirm.Coinbase]; !ok {
+						confirmedRecordMap[key][scConfirm.Coinbase] = true
+						confirmedRecordCount[key] += 1
+						if confirmedRecordCount[key] >= minConfirmedSignerCount {
+							headerNum, err := strconv.Atoi(scConfirm.LoopInfo[len(scConfirm.LoopInfo)-2])
+							if err == nil {
+								confirmedNumber = uint64(headerNum)
+							}
+
+						}
+					}
+				}
+
+			}
+		}
+
+		if confirmedNumber >= record.LastConfirmedNumber {
+			for i := record.LastConfirmedNumber + 1; i <= confirmedNumber; i++ {
+				if _, ok := s.SCConfirmation[scHash].Record[i]; ok {
+					delete(s.SCConfirmation[scHash].Record, i)
+				}
+			}
+			s.SCConfirmation[scHash].LastConfirmedNumber = confirmedNumber
+		}
 	}
 }
 

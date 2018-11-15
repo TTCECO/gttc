@@ -616,7 +616,7 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 				return
 			}
 
-			txData := a.buildSCEventConfirmData(chain.GetHeaderByNumber(0).ParentHash, header.Number, lastLoopInfo)
+			txData := a.buildSCEventConfirmData(chain.GetHeaderByNumber(0).ParentHash, header.Number, header.Time, lastLoopInfo)
 			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), mcTxDefaultGasLimit, mcTxDefaultGasPrice, txData)
 
 			if mcNetVersion == 0 {
