@@ -405,7 +405,6 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
 
 func (s *Snapshot) updateSCConfirmation() {
 
-	minLoopInfoLen := int(2 * 2 * s.config.MaxSignerCount / 3)
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
 	for scHash, record := range s.SCConfirmation {
 		confirmedNumber := record.LastConfirmedNumber
@@ -415,7 +414,7 @@ func (s *Snapshot) updateSCConfirmation() {
 		for i := record.LastConfirmedNumber + 1; i <= record.MaxHeaderNumber; i++ {
 			if _, ok := record.Record[i]; ok {
 				scConfirm := record.Record[i][0]
-				if len(scConfirm.LoopInfo) > minLoopInfoLen {
+				if len(scConfirm.LoopInfo) > minConfirmedSignerCount*2 {
 					key := strings.Join(scConfirm.LoopInfo, "")
 					if _, ok := confirmedRecordMap[key]; !ok {
 						confirmedRecordMap[key] = make(map[common.Address]bool)
@@ -444,6 +443,9 @@ func (s *Snapshot) updateSCConfirmation() {
 				}
 			}
 			s.SCConfirmation[scHash].LastConfirmedNumber = confirmedNumber
+			// todo
+			// calculate the rewards for the side chain coinbase
+			// reward should give to the coinbase of main chain, which own the coinbase of side chain
 		}
 	}
 }
