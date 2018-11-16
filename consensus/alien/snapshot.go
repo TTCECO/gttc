@@ -384,7 +384,6 @@ func (s *Snapshot) isSideChainCoinbase(sc common.Hash, address common.Address) b
 func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
 	// todo ,if diff side chain coinbase send confirm for the same side chain , same number ...
 	for _, scc := range scConfirmations {
-
 		// new confirmation header number must larger than last confirmed number of this side chain
 		if scc.Number > s.SCConfirmation[scc.Hash].LastConfirmedNumber && s.isSideChainCoinbase(scc.Hash, scc.Coinbase) {
 			if _, ok := s.SCConfirmation[scc.Hash]; !ok {
@@ -394,32 +393,32 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
 			if scc.Number > s.SCConfirmation[scc.Hash].MaxHeaderNumber {
 				s.SCConfirmation[scc.Hash].MaxHeaderNumber = scc.Number
 			}
-
 		}
 	}
-
+	// calculate the side chain reward in each loop
 	if (s.Number+1)%s.config.MaxSignerCount == 0 {
 		s.updateSCConfirmation()
 	}
 }
 
-func (s *Snapshot) updateSCConfirmation() {
+func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSignerCount int) uint64 {
+	confirmedNumber := record.LastConfirmedNumber
+	confirmedRecordMap := make(map[string]map[common.Address]bool)
+	confirmedRecordCount := make(map[string]int)
 
-	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
-	for scHash, record := range s.SCConfirmation {
-		confirmedNumber := record.LastConfirmedNumber
-		confirmedRecordMap := make(map[string]map[common.Address]bool)
-		confirmedRecordCount := make(map[string]int)
-
-		for i := record.LastConfirmedNumber + 1; i <= record.MaxHeaderNumber; i++ {
-			if _, ok := record.Record[i]; ok {
-				scConfirm := record.Record[i][0]
+	for i := record.LastConfirmedNumber + 1; i <= record.MaxHeaderNumber; i++ {
+		if _, ok := record.Record[i]; ok {
+			// during reorged, the side chain loop info may more than one for each side chain block number.
+			for _, scConfirm := range record.Record[i] {
+				// loopInfo slice contain number and coinbase address of side chain block,
+				// so the length of loop info must larger than twice of minConfirmedSignerCount .
 				if len(scConfirm.LoopInfo) > minConfirmedSignerCount*2 {
 					key := strings.Join(scConfirm.LoopInfo, "")
 					if _, ok := confirmedRecordMap[key]; !ok {
 						confirmedRecordMap[key] = make(map[common.Address]bool)
 						confirmedRecordCount[key] = 0
 					}
+					// new coinbase for same loop info
 					if _, ok := confirmedRecordMap[key][scConfirm.Coinbase]; !ok {
 						confirmedRecordMap[key][scConfirm.Coinbase] = true
 						confirmedRecordCount[key] += 1
@@ -432,20 +431,28 @@ func (s *Snapshot) updateSCConfirmation() {
 						}
 					}
 				}
-
 			}
 		}
+	}
+	return confirmedNumber
+}
 
+func (s *Snapshot) updateSCConfirmation() {
+	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
+	for scHash, record := range s.SCConfirmation {
+		confirmedNumber := s.calculateConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber >= record.LastConfirmedNumber {
+
+			// todo
+			// calculate the rewards for the side chain coinbase
+			// reward should give to the coinbase of main chain, which own the coinbase of side chain
+
 			for i := record.LastConfirmedNumber + 1; i <= confirmedNumber; i++ {
 				if _, ok := s.SCConfirmation[scHash].Record[i]; ok {
 					delete(s.SCConfirmation[scHash].Record, i)
 				}
 			}
 			s.SCConfirmation[scHash].LastConfirmedNumber = confirmedNumber
-			// todo
-			// calculate the rewards for the side chain coinbase
-			// reward should give to the coinbase of main chain, which own the coinbase of side chain
 		}
 	}
 }
