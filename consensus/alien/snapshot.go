@@ -496,11 +496,9 @@ func (s *Snapshot) updateSCConfirmation() {
 	}
 
 	// clear expired side chain reward record
-	if s.Number-scExpiredRewardCount > 0 {
-		for i := s.Number - scExpiredRewardCount; i < s.Number-scExpiredRewardCount+s.config.MaxSignerCount; i++ {
-			if _, ok := s.SCReward[i]; ok {
-				delete(s.SCReward, i)
-			}
+	for number, _ := range s.SCReward {
+		if number < s.Number-scExpiredRewardCount {
+			delete(s.SCReward, number)
 		}
 	}
 }
