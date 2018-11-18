@@ -481,7 +481,7 @@ func (s *Snapshot) updateSCConfirmation() {
 					if _, ok := s.SCReward[targetNumber][scCoinbase]; !ok {
 						s.SCReward[targetNumber][scCoinbase] = new(big.Int).Set(scSignerBlockReward)
 					} else {
-						s.SCReward[targetNumber][scCoinbase] = s.SCReward[targetNumber][scCoinbase].Add(s.SCReward[targetNumber][scCoinbase], scSignerBlockReward)
+						s.SCReward[targetNumber][scCoinbase].Add(s.SCReward[targetNumber][scCoinbase], scSignerBlockReward)
 					}
 				}
 			}
@@ -805,7 +805,7 @@ func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.In
 	if scReward, ok := s.SCReward[headerNumber]; ok {
 		for addr, scre := range scReward {
 			if _, ok := rewards[addr]; ok {
-				rewards[addr] = scre.Add(scre, rewards[addr])
+				rewards[addr].Add(rewards[addr], scre)
 			} else {
 				rewards[addr] = new(big.Int).Set(scre)
 			}
