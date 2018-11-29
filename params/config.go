@@ -115,26 +115,6 @@ var (
 		},
 	}
 
-	// UFOChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	UFOChainConfig = &ChainConfig{
-		ChainId:             big.NewInt(4),
-		HomesteadBlock:      big.NewInt(1),
-		EIP150Block:         big.NewInt(2),
-		EIP150Hash:          common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"),
-		EIP155Block:         big.NewInt(3),
-		EIP158Block:         big.NewInt(3),
-		ByzantiumBlock:      big.NewInt(1035301),
-		ConstantinopleBlock: nil,
-		Alien: &AlienConfig{
-			Period:           3,
-			Epoch:            30000,
-			MaxSignerCount:   21,
-			MinVoterBalance:  new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
-			GenesisTimestamp: 0,
-			SelfVoteSigners:  []common.Address{},
-		},
-	}
-
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
