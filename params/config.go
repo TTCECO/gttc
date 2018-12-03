@@ -195,11 +195,19 @@ type AlienConfig struct {
 	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
 	SideChain        bool             // If side chain or not
 	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
+
+	EarthBlock *big.Int `json:"earthBlock,omitempty"` // Earth switch block (nil = no fork, 0 = already on earth)
+
 }
 
 // String implements the stringer interface, returning the consensus engine details.
-func (c *AlienConfig) String() string {
+func (a *AlienConfig) String() string {
 	return "alien"
+}
+
+// IsEarth returns whether num is either equal to the earth block or greater.
+func (a *AlienConfig) IsEarth(num *big.Int) bool {
+	return isForked(a.EarthBlock, num)
 }
 
 // String implements the fmt.Stringer interface.

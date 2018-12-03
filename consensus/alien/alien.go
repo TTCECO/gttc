@@ -780,6 +780,11 @@ func (a *Alien) Authorize(signer common.Address, signFn SignerFn, signTxFn SignT
 // the local signing credentials.
 func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
+
+	if a.config.IsEarth(header.Number) {
+		log.Info("Current block is earth block.")
+	}
+
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
