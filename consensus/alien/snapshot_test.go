@@ -31,7 +31,6 @@ import (
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
-	"github.com/TTCECO/gttc/rlp"
 )
 
 type testerTransaction struct {
@@ -896,6 +895,7 @@ func TestVoting(t *testing.T) {
 			MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
 			MaxSignerCount:  tt.maxSignerCount,
 			SelfVoteSigners: selfVoteSigners,
+			EarthBlock:      big.NewInt(1),
 		}, db)
 
 		// Assemble a chain of headers from the cast votes
@@ -963,7 +963,9 @@ func TestVoting(t *testing.T) {
 
 			} else {
 				// decode parent header.extra
-				rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
+				//rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
+
+				decodeHeaderExtra(alien.config, headers[j-1].Number, headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
 				signer = currentHeaderExtra.SignerQueue[uint64(j)%tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
 				if (j+1)%int(tt.maxSignerCount) == 0 {
@@ -989,7 +991,9 @@ func TestVoting(t *testing.T) {
 			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 			currentHeaderExtra.CurrentBlockProposals = currentBlockProposals
 			currentHeaderExtra.CurrentBlockDeclares = currentBlockDeclares
-			currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
+			//currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
+			currentHeaderExtraEnc, err := encodeHeaderExtra(alien.config, big.NewInt(int64(j)+1), currentHeaderExtra)
+
 			if err != nil {
 				t.Errorf("test %d: failed to rlp encode to bytes: %v", i, err)
 				continue

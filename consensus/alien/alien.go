@@ -463,13 +463,13 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 				parent = chain.GetHeader(header.ParentHash, number-1)
 			}
 			parentHeaderExtra := HeaderExtra{}
-			err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+			err = decodeHeaderExtra(a.config, parent.Number, parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 			if err != nil {
 				log.Info("Fail to decode parent header", "err", err)
 				return err
 			}
 			currentHeaderExtra := HeaderExtra{}
-			err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+			err = decodeHeaderExtra(a.config, header.Number, header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
 			if err != nil {
 				log.Info("Fail to decode header", "err", err)
 				return err
@@ -688,7 +688,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	} else {
 		// decode extra from last header.extra
-		err := rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		err := decodeHeaderExtra(a.config, parent.Number, parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
 			return nil, err
@@ -743,7 +743,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	}
 	// encode header.extra
-	currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
+	currentHeaderExtraEnc, err := encodeHeaderExtra(a.config, header.Number, currentHeaderExtra)
 	if err != nil {
 		return nil, err
 	}
@@ -780,10 +780,6 @@ func (a *Alien) Authorize(signer common.Address, signFn SignerFn, signTxFn SignT
 // the local signing credentials.
 func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
-
-	if a.config.IsEarth(header.Number) {
-		log.Info("Current block is earth block.")
-	}
 
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()

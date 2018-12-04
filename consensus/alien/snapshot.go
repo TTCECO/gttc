@@ -25,7 +25,6 @@ import (
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
-	"github.com/TTCECO/gttc/rlp"
 	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"sort"
@@ -273,7 +272,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		}
 
 		headerExtra := HeaderExtra{}
-		err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
+		err = decodeHeaderExtra(s.config, header.Number, header.Extra[extraVanity:len(header.Extra)-extraSeal], &headerExtra)
 		if err != nil {
 			return nil, err
 		}

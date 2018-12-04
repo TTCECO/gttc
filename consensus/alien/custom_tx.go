@@ -20,6 +20,7 @@ package alien
 
 import (
 	"fmt"
+	"github.com/TTCECO/gttc/params"
 	"math/big"
 	"strconv"
 	"strings"
@@ -174,6 +175,7 @@ type SCSetCoinbase struct {
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
+// HeaderExtra is the current struct
 type HeaderExtra struct {
 	CurrentBlockConfirmations []Confirmation
 	CurrentBlockVotes         []Vote
@@ -186,6 +188,94 @@ type HeaderExtra struct {
 	ConfirmedBlockNumber      uint64
 	SideChainConfirmations    []SCConfirmation
 	SideChainSetCoinbases     []SCSetCoinbase
+}
+
+// HeaderExtraBeforeEarth is the struct of headerExtra before earth
+type HeaderExtraBeforeEarth struct {
+	CurrentBlockConfirmations []Confirmation
+	CurrentBlockVotes         []Vote
+	CurrentBlockProposals     []Proposal
+	CurrentBlockDeclares      []Declare
+	ModifyPredecessorVotes    []Vote
+	LoopStartTime             uint64
+	SignerQueue               []common.Address
+	SignerMissing             []common.Address
+	ConfirmedBlockNumber      uint64
+}
+
+func copyToBeforeEarth(val HeaderExtra) HeaderExtraBeforeEarth {
+	return HeaderExtraBeforeEarth{
+		val.CurrentBlockConfirmations,
+		val.CurrentBlockVotes,
+		val.CurrentBlockProposals,
+		val.CurrentBlockDeclares,
+		val.ModifyPredecessorVotes,
+		val.LoopStartTime,
+		val.SignerQueue,
+		val.SignerMissing,
+		val.ConfirmedBlockNumber,
+	}
+}
+
+func copyFromBeforeEarth(val *HeaderExtra, headerExtraBeforeEarth HeaderExtraBeforeEarth) {
+	val.CurrentBlockConfirmations = make([]Confirmation, len(headerExtraBeforeEarth.CurrentBlockConfirmations))
+	copy(val.CurrentBlockConfirmations, headerExtraBeforeEarth.CurrentBlockConfirmations)
+
+	val.CurrentBlockVotes = make([]Vote, len(headerExtraBeforeEarth.CurrentBlockVotes))
+	copy(val.CurrentBlockVotes, headerExtraBeforeEarth.CurrentBlockVotes)
+
+	val.CurrentBlockProposals = make([]Proposal, len(headerExtraBeforeEarth.CurrentBlockProposals))
+	copy(val.CurrentBlockProposals, headerExtraBeforeEarth.CurrentBlockProposals)
+
+	val.CurrentBlockDeclares = make([]Declare, len(headerExtraBeforeEarth.CurrentBlockDeclares))
+	copy(val.CurrentBlockDeclares, headerExtraBeforeEarth.CurrentBlockDeclares)
+
+	val.ModifyPredecessorVotes = make([]Vote, len(headerExtraBeforeEarth.ModifyPredecessorVotes))
+	copy(val.ModifyPredecessorVotes, headerExtraBeforeEarth.ModifyPredecessorVotes)
+
+	val.LoopStartTime = headerExtraBeforeEarth.LoopStartTime
+
+	val.SignerQueue = make([]common.Address, len(headerExtraBeforeEarth.SignerQueue))
+	copy(val.SignerQueue, headerExtraBeforeEarth.SignerQueue)
+
+	val.SignerMissing = make([]common.Address, len(headerExtraBeforeEarth.SignerMissing))
+	copy(val.SignerMissing, headerExtraBeforeEarth.SignerMissing)
+
+	val.ConfirmedBlockNumber = headerExtraBeforeEarth.ConfirmedBlockNumber
+
+	val.SideChainConfirmations = make([]SCConfirmation, 0)
+	val.SideChainSetCoinbases = make([]SCSetCoinbase, 0)
+
+}
+
+// Encode HeaderExtra
+func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderExtra) ([]byte, error) {
+
+	var headerExtra interface{}
+	switch {
+	case config.IsEarth(number):
+		headerExtra = val
+	default:
+		headerExtra = copyToBeforeEarth(val)
+	}
+	return rlp.EncodeToBytes(headerExtra)
+
+}
+
+// Decode HeaderExtra
+func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, val *HeaderExtra) error {
+	var err error
+	switch {
+	case config.IsEarth(number):
+		err = rlp.DecodeBytes(b, val)
+	default:
+		headerExtraBeforeEarth := HeaderExtraBeforeEarth{}
+		err = rlp.DecodeBytes(b, &headerExtraBeforeEarth)
+		if err == nil {
+			copyFromBeforeEarth(val, headerExtraBeforeEarth)
+		}
+	}
+	return err
 }
 
 // Build side chain confirm data
@@ -442,7 +532,7 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 		if extraVanity+extraSeal > len(confirmedHeader.Extra) {
 			return currentBlockConfirmations, refundHash
 		}
-		err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+		err = decodeHeaderExtra(a.config, big.NewInt(int64(confirmedBlockNumber)), confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
 			return currentBlockConfirmations, refundHash
