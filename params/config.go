@@ -196,7 +196,8 @@ type AlienConfig struct {
 	SideChain        bool             // If side chain or not
 	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
 
-	EarthBlock *big.Int `json:"earthBlock,omitempty"` // Earth switch block (nil = no fork, 0 = already on earth)
+	TrantorBlock  *big.Int `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
+	TerminusBlock *big.Int `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
 
 }
 
@@ -205,9 +206,14 @@ func (a *AlienConfig) String() string {
 	return "alien"
 }
 
-// IsEarth returns whether num is either equal to the earth block or greater.
-func (a *AlienConfig) IsEarth(num *big.Int) bool {
-	return isForked(a.EarthBlock, num)
+// IsTrantor returns whether num is either equal to the Trantor block or greater.
+func (a *AlienConfig) IsTrantor(num *big.Int) bool {
+	return isForked(a.TrantorBlock, num)
+}
+
+// IsTerminus returns whether num is either equal to the Terminus block or greater.
+func (a *AlienConfig) IsTerminus(num *big.Int) bool {
+	return isForked(a.TerminusBlock, num)
 }
 
 // String implements the fmt.Stringer interface.

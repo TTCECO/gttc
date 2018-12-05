@@ -190,8 +190,8 @@ type HeaderExtra struct {
 	SideChainSetCoinbases     []SCSetCoinbase
 }
 
-// HeaderExtraBeforeEarth is the struct of headerExtra before earth
-type HeaderExtraBeforeEarth struct {
+// HeaderExtraBeforeTrantor is the struct of headerExtra before trantor
+type HeaderExtraBeforeTrantor struct {
 	CurrentBlockConfirmations []Confirmation
 	CurrentBlockVotes         []Vote
 	CurrentBlockProposals     []Proposal
@@ -203,8 +203,8 @@ type HeaderExtraBeforeEarth struct {
 	ConfirmedBlockNumber      uint64
 }
 
-func copyToBeforeEarth(val HeaderExtra) HeaderExtraBeforeEarth {
-	return HeaderExtraBeforeEarth{
+func copyToBeforeTrantor(val HeaderExtra) HeaderExtraBeforeTrantor {
+	return HeaderExtraBeforeTrantor{
 		val.CurrentBlockConfirmations,
 		val.CurrentBlockVotes,
 		val.CurrentBlockProposals,
@@ -217,31 +217,31 @@ func copyToBeforeEarth(val HeaderExtra) HeaderExtraBeforeEarth {
 	}
 }
 
-func copyFromBeforeEarth(val *HeaderExtra, headerExtraBeforeEarth HeaderExtraBeforeEarth) {
-	val.CurrentBlockConfirmations = make([]Confirmation, len(headerExtraBeforeEarth.CurrentBlockConfirmations))
-	copy(val.CurrentBlockConfirmations, headerExtraBeforeEarth.CurrentBlockConfirmations)
+func copyFromBeforeTrantor(val *HeaderExtra, headerExtraBeforeTrantor HeaderExtraBeforeTrantor) {
+	val.CurrentBlockConfirmations = make([]Confirmation, len(headerExtraBeforeTrantor.CurrentBlockConfirmations))
+	copy(val.CurrentBlockConfirmations, headerExtraBeforeTrantor.CurrentBlockConfirmations)
 
-	val.CurrentBlockVotes = make([]Vote, len(headerExtraBeforeEarth.CurrentBlockVotes))
-	copy(val.CurrentBlockVotes, headerExtraBeforeEarth.CurrentBlockVotes)
+	val.CurrentBlockVotes = make([]Vote, len(headerExtraBeforeTrantor.CurrentBlockVotes))
+	copy(val.CurrentBlockVotes, headerExtraBeforeTrantor.CurrentBlockVotes)
 
-	val.CurrentBlockProposals = make([]Proposal, len(headerExtraBeforeEarth.CurrentBlockProposals))
-	copy(val.CurrentBlockProposals, headerExtraBeforeEarth.CurrentBlockProposals)
+	val.CurrentBlockProposals = make([]Proposal, len(headerExtraBeforeTrantor.CurrentBlockProposals))
+	copy(val.CurrentBlockProposals, headerExtraBeforeTrantor.CurrentBlockProposals)
 
-	val.CurrentBlockDeclares = make([]Declare, len(headerExtraBeforeEarth.CurrentBlockDeclares))
-	copy(val.CurrentBlockDeclares, headerExtraBeforeEarth.CurrentBlockDeclares)
+	val.CurrentBlockDeclares = make([]Declare, len(headerExtraBeforeTrantor.CurrentBlockDeclares))
+	copy(val.CurrentBlockDeclares, headerExtraBeforeTrantor.CurrentBlockDeclares)
 
-	val.ModifyPredecessorVotes = make([]Vote, len(headerExtraBeforeEarth.ModifyPredecessorVotes))
-	copy(val.ModifyPredecessorVotes, headerExtraBeforeEarth.ModifyPredecessorVotes)
+	val.ModifyPredecessorVotes = make([]Vote, len(headerExtraBeforeTrantor.ModifyPredecessorVotes))
+	copy(val.ModifyPredecessorVotes, headerExtraBeforeTrantor.ModifyPredecessorVotes)
 
-	val.LoopStartTime = headerExtraBeforeEarth.LoopStartTime
+	val.LoopStartTime = headerExtraBeforeTrantor.LoopStartTime
 
-	val.SignerQueue = make([]common.Address, len(headerExtraBeforeEarth.SignerQueue))
-	copy(val.SignerQueue, headerExtraBeforeEarth.SignerQueue)
+	val.SignerQueue = make([]common.Address, len(headerExtraBeforeTrantor.SignerQueue))
+	copy(val.SignerQueue, headerExtraBeforeTrantor.SignerQueue)
 
-	val.SignerMissing = make([]common.Address, len(headerExtraBeforeEarth.SignerMissing))
-	copy(val.SignerMissing, headerExtraBeforeEarth.SignerMissing)
+	val.SignerMissing = make([]common.Address, len(headerExtraBeforeTrantor.SignerMissing))
+	copy(val.SignerMissing, headerExtraBeforeTrantor.SignerMissing)
 
-	val.ConfirmedBlockNumber = headerExtraBeforeEarth.ConfirmedBlockNumber
+	val.ConfirmedBlockNumber = headerExtraBeforeTrantor.ConfirmedBlockNumber
 
 	val.SideChainConfirmations = make([]SCConfirmation, 0)
 	val.SideChainSetCoinbases = make([]SCSetCoinbase, 0)
@@ -253,10 +253,10 @@ func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderEx
 
 	var headerExtra interface{}
 	switch {
-	case config.IsEarth(number):
+	case config.IsTrantor(number):
 		headerExtra = val
 	default:
-		headerExtra = copyToBeforeEarth(val)
+		headerExtra = copyToBeforeTrantor(val)
 	}
 	return rlp.EncodeToBytes(headerExtra)
 
@@ -266,13 +266,13 @@ func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderEx
 func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, val *HeaderExtra) error {
 	var err error
 	switch {
-	case config.IsEarth(number):
+	case config.IsTrantor(number):
 		err = rlp.DecodeBytes(b, val)
 	default:
-		headerExtraBeforeEarth := HeaderExtraBeforeEarth{}
-		err = rlp.DecodeBytes(b, &headerExtraBeforeEarth)
+		headerExtraBeforeTrantor := HeaderExtraBeforeTrantor{}
+		err = rlp.DecodeBytes(b, &headerExtraBeforeTrantor)
 		if err == nil {
-			copyFromBeforeEarth(val, headerExtraBeforeEarth)
+			copyFromBeforeTrantor(val, headerExtraBeforeTrantor)
 		}
 	}
 	return err
