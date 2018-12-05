@@ -17,7 +17,6 @@
 package miner
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -525,7 +524,7 @@ func (self *worker) sendConfirmTx(blockNumber *big.Int) error {
 	wallets := self.eth.AccountManager().Wallets()
 	// wallets check
 	if len(wallets) == 0 {
-		return errors.New("No wallets")
+		return nil
 	}
 	for _, wallet := range wallets {
 		if len(wallet.Accounts()) == 0 {
