@@ -874,10 +874,12 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		state.AddBalance(voter, reward)
 	}
 
-	// refund gas for custom txs
-	for sender, gas := range refundGas {
-		state.AddBalance(sender, gas)
-		minerReward.Sub(minerReward, gas)
+	if config.Alien.IsTrantor(header.Number) {
+		// refund gas for custom txs
+		for sender, gas := range refundGas {
+			state.AddBalance(sender, gas)
+			minerReward.Sub(minerReward, gas)
+		}
 	}
 	// rewards for the miner
 	state.AddBalance(header.Coinbase, minerReward)
