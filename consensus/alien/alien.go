@@ -20,11 +20,11 @@ package alien
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
-	"fmt"
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/consensus"

@@ -801,12 +801,14 @@ func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.In
 	}
 
 	// rewards for side chain
-	if scReward, ok := s.SCReward[headerNumber]; ok {
-		for addr, scre := range scReward {
-			if _, ok := rewards[addr]; ok {
-				rewards[addr].Add(rewards[addr], scre)
-			} else {
-				rewards[addr] = new(big.Int).Set(scre)
+	if s.config.IsTrantor(new(big.Int).SetUint64(headerNumber)) {
+		if scReward, ok := s.SCReward[headerNumber]; ok {
+			for addr, scre := range scReward {
+				if _, ok := rewards[addr]; ok {
+					rewards[addr].Add(rewards[addr], scre)
+				} else {
+					rewards[addr] = new(big.Int).Set(scre)
+				}
 			}
 		}
 	}
