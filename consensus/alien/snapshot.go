@@ -308,6 +308,11 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		// deal declares
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 
+		// deal trantor upgrade
+		if snap.Period == 0 && snap.config.IsTrantor(header.Number) {
+			snap.Period = snap.config.Period
+		}
+
 		// deal setcoinbase for side chain
 		snap.updateSnapshotBySetSCCoinbase(headerExtra.SideChainSetCoinbases)
 

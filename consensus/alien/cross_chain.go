@@ -40,6 +40,9 @@ var (
 
 	// errMCRPCCLientEmpty is returned if Side chain not have main chain rpc client
 	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
+
+	// errMCPeriodMissing is returned if period from main chain snapshot is zero
+	errMCPeriodMissing = errors.New("main chain period is missing")
 )
 
 // getMainChainSnapshotByTime return snapshot by header time of side chain
@@ -57,6 +60,8 @@ func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTi
 	var ms *Snapshot
 	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime, scHash); err != nil {
 		return nil, err
+	} else if ms.Period == 0 {
+		return nil, errMCPeriodMissing
 	}
 	return ms, nil
 }
