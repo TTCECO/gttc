@@ -23,6 +23,7 @@ import (
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/rpc"
+	"math/big"
 )
 
 // API is a user facing RPC API to allow controlling the signer and voting
@@ -71,15 +72,18 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 // snapshot.header.time <= targetTime < snapshot.header.time + period
 // todo: add confirm headertime in return snapshot, to minimize the request from side chain
 func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (*Snapshot, error) {
-	period := api.chain.Config().Alien.Period
 	header := api.chain.CurrentHeader()
-	if header == nil || targetTime > header.Time.Uint64()+period {
+	period := new(big.Int).SetUint64(api.chain.Config().Alien.Period)
+	target := new(big.Int).SetUint64(targetTime)
+	if ceil := new(big.Int).Add(header.Time, period); header == nil || target.Cmp(ceil) > 0 {
 		return nil, errUnknownBlock
 	}
-	minN := uint64(0)
-	maxN := header.Number.Uint64()
+
+	minN := new(big.Int).SetInt64(0)
+	maxN := new(big.Int).Set(header.Number)
+	nextN := new(big.Int).SetInt64(0)
 	for {
-		if targetTime >= header.Time.Uint64() && targetTime < header.Time.Uint64()+period {
+		if ceil := new(big.Int).Add(header.Time, period); target.Cmp(header.Time) >= 0 && target.Cmp(ceil) < 0 {
 			snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
 			// replace coinbase by signer settings
 			var scSigners []*common.Address
@@ -97,29 +101,36 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 			}
 			return &Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners}, err
 		} else {
-			if maxN == minN || maxN == minN+1 {
+
+			if minNext := new(big.Int).Add(minN, big.NewInt(1)); maxN.Cmp(minN) == 0 || maxN.Cmp(minNext) == 0 {
 				break
 			}
 			// calculate next number
-			nextN := uint64(int64(header.Number.Uint64()) + (int64(targetTime)-int64(header.Time.Uint64()))/int64(period))
-			if nextN >= maxN || nextN <= minN {
-				nextN = (maxN + minN) / 2
+			nextN.Sub(target, header.Time)
+			nextN.Div(nextN, period)
+			nextN.Add(nextN, header.Number)
+
+			// if nextN beyond the [minN,maxN] then set nextN = (min+max)/2
+			if nextN.Cmp(maxN) >= 0 || nextN.Cmp(minN) <= 0 {
+				nextN.Add(maxN, minN)
+				nextN.Div(nextN, big.NewInt(2))
 			}
 			// get new header
-			header = api.chain.GetHeaderByNumber(nextN)
+			header = api.chain.GetHeaderByNumber(nextN.Uint64())
 			if header == nil {
 				break
 			}
 			// update maxN & minN
-			if header.Time.Uint64() >= targetTime {
-				if header.Number.Uint64() < maxN {
-					maxN = header.Number.Uint64()
+			if header.Time.Cmp(target) >= 0 {
+				if header.Number.Cmp(maxN) < 0 {
+					maxN.Set(header.Number)
 				}
-			} else if header.Time.Uint64() <= targetTime {
-				if header.Number.Uint64() > minN {
-					minN = header.Number.Uint64()
+			} else if header.Time.Cmp(target) <= 0 {
+				if header.Number.Cmp(minN) > 0 {
+					minN.Set(header.Number)
 				}
 			}
+
 		}
 	}
 	return nil, errUnknownBlock
