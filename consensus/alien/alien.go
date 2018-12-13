@@ -870,7 +870,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	votersReward := blockReward.Sub(blockReward, minerReward)
 
 	// rewards for the voters
-	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward, header.Number.Uint64()) {
+	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
 		state.AddBalance(voter, reward)
 	}
 

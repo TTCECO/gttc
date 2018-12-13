@@ -47,8 +47,8 @@ const (
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 	// reward for side chain
-	scRewardDelayBlockCount = 1 //
-	scExpiredRewardCount    = 30
+	scRewardDelayLoopCount   = 2                          //
+	scRewardExpiredLoopCount = scRewardDelayLoopCount + 4 //
 )
 
 var (
@@ -57,9 +57,9 @@ var (
 
 // SCRecord is the state record for side chain
 type SCRecord struct {
-	Record              map[uint64][]SCConfirmation `json:"record"`              // Confirmation Record of one side chain
-	LastConfirmedNumber uint64                      `json:"lastConfirmedNumber"` // Last confirmed header number of one side chain
-	MaxHeaderNumber     uint64                      `json:"maxHeaderNumber"`     // max header number of one side chain
+	Record              map[uint64][]*SCConfirmation `json:"record"`              // Confirmation Record of one side chain
+	LastConfirmedNumber uint64                       `json:"lastConfirmedNumber"` // Last confirmed header number of one side chain
+	MaxHeaderNumber     uint64                       `json:"maxHeaderNumber"`     // max header number of one side chain
 }
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -226,9 +226,9 @@ func (s *Snapshot) copy() *Snapshot {
 		}
 	}
 	for hash, sc := range s.SCConfirmation {
-		cpy.SCConfirmation[hash] = &SCRecord{make(map[uint64][]SCConfirmation), sc.LastConfirmedNumber, sc.MaxHeaderNumber}
+		cpy.SCConfirmation[hash] = &SCRecord{make(map[uint64][]*SCConfirmation), sc.LastConfirmedNumber, sc.MaxHeaderNumber}
 		for number, scConfirmation := range sc.Record {
-			cpy.SCConfirmation[hash].Record[number] = make([]SCConfirmation, len(scConfirmation))
+			cpy.SCConfirmation[hash].Record[number] = make([]*SCConfirmation, len(scConfirmation))
 			copy(cpy.SCConfirmation[hash].Record[number], scConfirmation)
 		}
 	}
@@ -403,10 +403,10 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
 		// new confirmation header number must larger than last confirmed number of this side chain
 		if s.isSideChainCoinbase(scc.Hash, scc.Coinbase) {
 			if _, ok := s.SCConfirmation[scc.Hash]; !ok {
-				s.SCConfirmation[scc.Hash] = &SCRecord{make(map[uint64][]SCConfirmation), 0, 0}
+				s.SCConfirmation[scc.Hash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0}
 			}
 			if scc.Number > s.SCConfirmation[scc.Hash].LastConfirmedNumber {
-				s.SCConfirmation[scc.Hash].Record[scc.Number] = append(s.SCConfirmation[scc.Hash].Record[scc.Number], scc)
+				s.SCConfirmation[scc.Hash].Record[scc.Number] = append(s.SCConfirmation[scc.Hash].Record[scc.Number], scc.copy())
 				if scc.Number > s.SCConfirmation[scc.Hash].MaxHeaderNumber {
 					s.SCConfirmation[scc.Hash].MaxHeaderNumber = scc.Number
 				}
@@ -420,6 +420,8 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
 }
 
 func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSignerCount int) (uint64, map[uint64]common.Address) {
+	// todo : add params scHash, so can check if the address in SCRecord is belong to this side chain
+
 	confirmedNumber := record.LastConfirmedNumber
 	confirmedRecordMap := make(map[string]map[common.Address]bool)
 	confirmedRecordCount := make(map[string]int)
@@ -472,9 +474,8 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 
 func (s *Snapshot) updateSCConfirmation() {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
-	targetNumber := s.Number + scRewardDelayBlockCount
-	if _, ok := s.SCReward[s.Number+scRewardDelayBlockCount]; !ok {
-		s.SCReward[targetNumber] = make(map[common.Address]*big.Int)
+	if _, ok := s.SCReward[s.Number]; !ok {
+		s.SCReward[s.Number] = make(map[common.Address]*big.Int)
 	}
 	for scHash, record := range s.SCConfirmation {
 		confirmedNumber, confirmedCoinbase := s.calculateConfirmedNumber(record, minConfirmedSignerCount)
@@ -482,10 +483,10 @@ func (s *Snapshot) updateSCConfirmation() {
 			// todo: map coinbase of side chain to coin base of main chain here
 			for n, scCoinbase := range confirmedCoinbase {
 				if n < confirmedNumber && n >= record.LastConfirmedNumber {
-					if _, ok := s.SCReward[targetNumber][scCoinbase]; !ok {
-						s.SCReward[targetNumber][scCoinbase] = new(big.Int).Set(scSignerBlockReward)
+					if _, ok := s.SCReward[s.Number][scCoinbase]; !ok {
+						s.SCReward[s.Number][scCoinbase] = new(big.Int).Set(scSignerBlockReward)
 					} else {
-						s.SCReward[targetNumber][scCoinbase].Add(s.SCReward[targetNumber][scCoinbase], scSignerBlockReward)
+						s.SCReward[s.Number][scCoinbase].Add(s.SCReward[s.Number][scCoinbase], scSignerBlockReward)
 					}
 				}
 			}
@@ -499,12 +500,16 @@ func (s *Snapshot) updateSCConfirmation() {
 		}
 	}
 
+	if len(s.SCReward[s.Number]) == 0 {
+		delete(s.SCReward, s.Number)
+	}
 	// clear expired side chain reward record
 	for number, _ := range s.SCReward {
-		if number < s.Number-scExpiredRewardCount {
+		if number < s.Number-scRewardExpiredLoopCount*s.config.MaxSignerCount {
 			delete(s.SCReward, number)
 		}
 	}
+
 }
 
 func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *big.Int) {
@@ -790,8 +795,7 @@ func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *bi
 	return big.NewInt(int64(i))
 }
 
-func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.Int, headerNumber uint64) map[common.Address]*big.Int {
-
+func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
 	rewards := make(map[common.Address]*big.Int)
 	allStake := big.NewInt(0)
 	for voter, vote := range s.Votes {
@@ -804,10 +808,9 @@ func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.In
 		stake.Mul(stake, votersReward)
 		stake.Div(stake, allStake)
 	}
-
 	// rewards for side chain
-	if s.config.IsTrantor(new(big.Int).SetUint64(headerNumber)) {
-		if scReward, ok := s.SCReward[headerNumber]; ok {
+	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
+		if scReward, ok := s.SCReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
 			for addr, scre := range scReward {
 				if _, ok := rewards[addr]; ok {
 					rewards[addr].Add(rewards[addr], scre)
