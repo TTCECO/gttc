@@ -225,9 +225,13 @@ func (s *Snapshot) copy() *Snapshot {
 			cpy.SCCoinbase[signer][hash] = addr
 		}
 	}
-	for hash, sc := range s.SCConfirmation {
-		cpy.SCConfirmation[hash] = &SCRecord{make(map[uint64][]*SCConfirmation), sc.LastConfirmedNumber, sc.MaxHeaderNumber}
-		for number, scConfirmation := range sc.Record {
+	for hash, scc := range s.SCConfirmation {
+		cpy.SCConfirmation[hash] = &SCRecord{
+			LastConfirmedNumber: scc.LastConfirmedNumber,
+			MaxHeaderNumber:     scc.MaxHeaderNumber,
+			Record:              make(map[uint64][]*SCConfirmation),
+		}
+		for number, scConfirmation := range scc.Record {
 			cpy.SCConfirmation[hash].Record[number] = make([]*SCConfirmation, len(scConfirmation))
 			copy(cpy.SCConfirmation[hash].Record[number], scConfirmation)
 		}

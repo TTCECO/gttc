@@ -45,7 +45,7 @@ const (
 	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
 	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
 	checkpointInterval = 360             // About N hours if config.period is N
-	scUnconfirmLoop    = 5               // First count of Loop not send confirm tx to main chain
+	scUnconfirmLoop    = 3               // First count of Loop not send confirm tx to main chain
 )
 
 // Alien delegated-proof-of-stake protocol constants.
