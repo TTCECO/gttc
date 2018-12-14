@@ -428,7 +428,6 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 
 	confirmedNumber := record.LastConfirmedNumber
 	confirmedRecordMap := make(map[string]map[common.Address]bool)
-	confirmedRecordCount := make(map[string]int)
 	confirmedCoinbase := make(map[uint64]common.Address)
 	sep := ":"
 	for i := record.LastConfirmedNumber + 1; i <= record.MaxHeaderNumber; i++ {
@@ -437,22 +436,19 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 			for _, scConfirm := range record.Record[i] {
 				// loopInfo slice contain number and coinbase address of side chain block,
 				// so the length of loop info must larger than twice of minConfirmedSignerCount .
-				if len(scConfirm.LoopInfo) > minConfirmedSignerCount*2 {
+				if len(scConfirm.LoopInfo) >= minConfirmedSignerCount*2 {
 					key := strings.Join(scConfirm.LoopInfo, sep)
 					if _, ok := confirmedRecordMap[key]; !ok {
 						confirmedRecordMap[key] = make(map[common.Address]bool)
-						confirmedRecordCount[key] = 0
 					}
 					// new coinbase for same loop info
 					if _, ok := confirmedRecordMap[key][scConfirm.Coinbase]; !ok {
 						confirmedRecordMap[key][scConfirm.Coinbase] = true
-						confirmedRecordCount[key] += 1
-						if confirmedRecordCount[key] >= minConfirmedSignerCount {
+						if len(confirmedRecordMap[key]) >= minConfirmedSignerCount {
 							headerNum, err := strconv.Atoi(scConfirm.LoopInfo[len(scConfirm.LoopInfo)-2])
-							if err == nil {
+							if err == nil && uint64(headerNum) > confirmedNumber {
 								confirmedNumber = uint64(headerNum)
 							}
-
 						}
 					}
 				}
@@ -460,8 +456,8 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 		}
 	}
 
-	for info, count := range confirmedRecordCount {
-		if count >= minConfirmedSignerCount {
+	for info, count := range confirmedRecordMap {
+		if len(count) >= minConfirmedSignerCount {
 			infos := strings.Split(info, sep)
 			for i := 0; i+1 < len(infos); i += 2 {
 				number, err := strconv.Atoi(infos[i])
