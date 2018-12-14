@@ -128,6 +128,9 @@ var (
 
 	// errGetLastLoopInfoFail is returned if get last loop info fail
 	errGetLastLoopInfoFail = errors.New("get last loop info fail")
+
+	// errInvalidNeighborSigner is returned if two neighbor block signed by same miner and time diff less period
+	errInvalidNeighborSigner = errors.New("invalid neighbor signer")
 )
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -486,6 +489,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 					if parentHeaderExtra.SignerQueue[i] != currentHeaderExtra.SignerQueue[i] {
 						return errInvalidSignerQueue
 					}
+				}
+				// if same signer seal two neighbor block, then the diff between timestamp should larger than period
+				if signer == parent.Coinbase && header.Time.Uint64()-parent.Time.Uint64() <= chain.Config().Alien.Period {
+					return errInvalidNeighborSigner
 				}
 			}
 
