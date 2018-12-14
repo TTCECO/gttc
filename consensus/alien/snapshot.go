@@ -321,7 +321,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.updateSnapshotBySetSCCoinbase(headerExtra.SideChainSetCoinbases)
 
 		// deal confirmation for side chain
-		snap.updateSnapshotBySCConfirm(headerExtra.SideChainConfirmations)
+		snap.updateSnapshotBySCConfirm(headerExtra.SideChainConfirmations, header.Number)
 
 		// calculate proposal result
 		snap.calculateProposalResult(header.Number)
@@ -401,7 +401,7 @@ func (s *Snapshot) isSideChainCoinbase(sc common.Hash, address common.Address) b
 	return false
 }
 
-func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
+func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, headerNumber *big.Int) {
 	// todo ,if diff side chain coinbase send confirm for the same side chain , same number ...
 	for _, scc := range scConfirmations {
 		// new confirmation header number must larger than last confirmed number of this side chain
@@ -418,8 +418,8 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation) {
 		}
 	}
 	// calculate the side chain reward in each loop
-	if (s.Number+1)%s.config.MaxSignerCount == 0 {
-		s.updateSCConfirmation()
+	if (headerNumber.Uint64()+1)%s.config.MaxSignerCount == 0 {
+		s.updateSCConfirmation(headerNumber)
 	}
 }
 
@@ -476,21 +476,22 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 	return confirmedNumber, confirmedCoinbase
 }
 
-func (s *Snapshot) updateSCConfirmation() {
+func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
-	if _, ok := s.SCReward[s.Number]; !ok {
-		s.SCReward[s.Number] = make(map[common.Address]*big.Int)
+	if _, ok := s.SCReward[headerNumber.Uint64()]; !ok {
+		s.SCReward[headerNumber.Uint64()] = make(map[common.Address]*big.Int)
 	}
 	for scHash, record := range s.SCConfirmation {
 		confirmedNumber, confirmedCoinbase := s.calculateConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
+
 			// todo: map coinbase of side chain to coin base of main chain here
 			for n, scCoinbase := range confirmedCoinbase {
-				if n < confirmedNumber && n >= record.LastConfirmedNumber {
-					if _, ok := s.SCReward[s.Number][scCoinbase]; !ok {
-						s.SCReward[s.Number][scCoinbase] = new(big.Int).Set(scSignerBlockReward)
+				if n <= confirmedNumber && n > record.LastConfirmedNumber {
+					if _, ok := s.SCReward[headerNumber.Uint64()][scCoinbase]; !ok {
+						s.SCReward[headerNumber.Uint64()][scCoinbase] = new(big.Int).Set(scSignerBlockReward)
 					} else {
-						s.SCReward[s.Number][scCoinbase].Add(s.SCReward[s.Number][scCoinbase], scSignerBlockReward)
+						s.SCReward[headerNumber.Uint64()][scCoinbase].Add(s.SCReward[headerNumber.Uint64()][scCoinbase], scSignerBlockReward)
 					}
 				}
 			}
@@ -504,12 +505,12 @@ func (s *Snapshot) updateSCConfirmation() {
 		}
 	}
 
-	if len(s.SCReward[s.Number]) == 0 {
-		delete(s.SCReward, s.Number)
+	if len(s.SCReward[headerNumber.Uint64()]) == 0 {
+		delete(s.SCReward, headerNumber.Uint64())
 	}
 	// clear expired side chain reward record
 	for number, _ := range s.SCReward {
-		if number < s.Number-scRewardExpiredLoopCount*s.config.MaxSignerCount {
+		if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
 			delete(s.SCReward, number)
 		}
 	}
