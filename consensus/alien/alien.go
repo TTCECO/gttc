@@ -490,6 +490,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 						return errInvalidSignerQueue
 					}
 				}
+				if signer == parent.Coinbase && header.Time.Uint64()-parent.Time.Uint64() < chain.Config().Alien.Period {
+					return errInvalidNeighborSigner
+				}
+
 			}
 
 			// verify missing signer for punish
