@@ -577,11 +577,11 @@ func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, hea
 }
 
 func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) ([]byte, error) {
-	if chain.Config().Alien.SideChain && mcLoopStartTime != 0 && mcPeriod != 0 {
+	if chain.Config().Alien.SideChain && mcLoopStartTime != 0 && mcPeriod != 0 && a.config.Period != 0 {
 		loopHeaderInfo := ""
 		inLastLoop := false
 		extraTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
-		for i := uint64(0); i < a.config.MaxSignerCount*2; i++ {
+		for i := uint64(0); i < a.config.MaxSignerCount*2*(mcPeriod/a.config.Period); i++ {
 			header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 			newTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
 			if newTime > extraTime {
