@@ -406,10 +406,7 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, h
 	for _, scc := range scConfirmations {
 		// new confirmation header number must larger than last confirmed number of this side chain
 		if s.isSideChainCoinbase(scc.Hash, scc.Coinbase) {
-			if _, ok := s.SCConfirmation[scc.Hash]; !ok {
-				s.SCConfirmation[scc.Hash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0}
-			}
-			if scc.Number > s.SCConfirmation[scc.Hash].LastConfirmedNumber {
+			if _, ok := s.SCConfirmation[scc.Hash]; ok && scc.Number > s.SCConfirmation[scc.Hash].LastConfirmedNumber {
 				s.SCConfirmation[scc.Hash].Record[scc.Number] = append(s.SCConfirmation[scc.Hash].Record[scc.Number], scc.copy())
 				if scc.Number > s.SCConfirmation[scc.Hash].MaxHeaderNumber {
 					s.SCConfirmation[scc.Hash].MaxHeaderNumber = scc.Number
@@ -566,7 +563,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 				switch proposal.ProposalType {
 				case proposalTypeCandidateAdd:
 					if candidateNeedPD {
-						s.Candidates[s.Proposals[hashKey].Candidate] = candidateStateNormal
+						s.Candidates[proposal.Candidate] = candidateStateNormal
 					}
 				case proposalTypeCandidateRemove:
 					if _, ok := s.Candidates[proposal.Candidate]; ok && candidateNeedPD {
@@ -575,6 +572,14 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 				case proposalTypeMinerRewardDistributionModify:
 					minerRewardPerThousand = s.Proposals[hashKey].MinerRewardPerThousand
 
+				case proposalTypeSideChainAdd:
+					if _, ok := s.SCConfirmation[proposal.SCHash]; !ok {
+						s.SCConfirmation[proposal.SCHash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0}
+					}
+				case proposalTypeSideChainRemove:
+					if _, ok := s.SCConfirmation[proposal.SCHash]; ok {
+						delete(s.SCConfirmation, proposal.SCHash)
+					}
 				}
 			}
 
