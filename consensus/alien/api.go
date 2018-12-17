@@ -73,13 +73,17 @@ func (api *API) GetSnapshotAtNumber(number uint64) (*Snapshot, error) {
 // todo: add confirm headertime in return snapshot, to minimize the request from side chain
 func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (*Snapshot, error) {
 	header := api.chain.CurrentHeader()
+	// return errUnknownBlock if current is not reach trantorBlock
+	if !api.chain.Config().Alien.IsTrantor(header.Number) {
+		return nil, errUnknownBlock
+	}
 	period := new(big.Int).SetUint64(api.chain.Config().Alien.Period)
 	target := new(big.Int).SetUint64(targetTime)
 	if ceil := new(big.Int).Add(header.Time, period); header == nil || target.Cmp(ceil) > 0 {
 		return nil, errUnknownBlock
 	}
 
-	minN := new(big.Int).SetInt64(0)
+	minN := new(big.Int).Set(api.chain.Config().Alien.TrantorBlock)
 	maxN := new(big.Int).Set(header.Number)
 	nextN := new(big.Int).SetInt64(0)
 	for {
