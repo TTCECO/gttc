@@ -64,6 +64,8 @@ const (
 	proposalTypeCandidateAdd                  = 1
 	proposalTypeCandidateRemove               = 2
 	proposalTypeMinerRewardDistributionModify = 3 // count in one thousand
+	proposalTypeSideChainAdd                  = 4
+	proposalTypeSideChainRemove               = 5
 
 	/*
 	 * proposal related
@@ -112,24 +114,24 @@ type Confirmation struct {
 type Proposal struct {
 	Hash                   common.Hash    // tx hash
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
-	ImplementNumber        *big.Int       // block number to implement modification in this proposal
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address //
 	Candidate              common.Address
 	MinerRewardPerThousand uint64
-	Declares               []*Declare // Declare this proposal received
-	ReceivedNumber         *big.Int   // block number of proposal received
+	SCHash                 common.Hash //
+	Declares               []*Declare  // Declare this proposal received
+	ReceivedNumber         *big.Int    // block number of proposal received
 }
 
 func (p *Proposal) copy() *Proposal {
 	cpy := &Proposal{
 		Hash:                   p.Hash,
 		ValidationLoopCnt:      p.ValidationLoopCnt,
-		ImplementNumber:        new(big.Int).Set(p.ImplementNumber),
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
 		Candidate:              p.Candidate,
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
+		SCHash:                 p.SCHash,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 	}
@@ -424,10 +426,10 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
 		ValidationLoopCnt:      defaultValidationLoopCnt,
-		ImplementNumber:        big.NewInt(1),
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
 		Candidate:              common.Address{},
+		SCHash:                 common.Hash{},
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),
@@ -443,14 +445,10 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			} else {
 				proposal.ValidationLoopCnt = uint64(validationLoopCnt)
 			}
-		case "implement_number":
-			if implementNumber, err := strconv.Atoi(v); err != nil || implementNumber <= 0 {
-				return currentBlockProposals
-			} else {
-				proposal.ImplementNumber = big.NewInt(int64(implementNumber))
-			}
+		case "schash":
+			proposal.SCHash.UnmarshalText([]byte(v))
 		case "proposal_type":
-			if proposalType, err := strconv.Atoi(v); err != nil || (proposalType != proposalTypeCandidateAdd && proposalType != proposalTypeCandidateRemove && proposalType != proposalTypeMinerRewardDistributionModify) {
+			if proposalType, err := strconv.Atoi(v); err != nil || proposalType < proposalTypeCandidateAdd || proposalType > proposalTypeSideChainRemove {
 				return currentBlockProposals
 			} else {
 				proposal.ProposalType = uint64(proposalType)

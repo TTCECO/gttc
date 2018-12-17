@@ -921,11 +921,11 @@ func TestVoting(t *testing.T) {
 						currentBlockProposals = append(currentBlockProposals, Proposal{
 							Hash:                   common.HexToHash(trans.txHash),
 							ValidationLoopCnt:      tt.vlCnt,
-							ImplementNumber:        big.NewInt(1),
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
 							Candidate:              accounts.address(trans.candidate),
 							MinerRewardPerThousand: minerRewardPerThousand,
+							SCHash:                 common.Hash{},
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
 						})
