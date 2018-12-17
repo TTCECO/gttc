@@ -877,8 +877,12 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	votersReward := blockReward.Sub(blockReward, minerReward)
 
 	// rewards for the voters
-	for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
+	for voter, reward := range snap.calculateVoteReward(header.Coinbase, votersReward) {
 		state.AddBalance(voter, reward)
+	}
+	// rewards for the side chain coinbase
+	for scCoinbase, reward := range snap.calculateSCReward() {
+		state.AddBalance(scCoinbase, reward)
 	}
 
 	if config.Alien.IsTrantor(header.Number) {

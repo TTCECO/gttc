@@ -796,7 +796,7 @@ func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *bi
 	return big.NewInt(int64(i))
 }
 
-func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
+func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
 	rewards := make(map[common.Address]*big.Int)
 	allStake := big.NewInt(0)
 	for voter, vote := range s.Votes {
@@ -809,9 +809,15 @@ func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.In
 		stake.Mul(stake, votersReward)
 		stake.Div(stake, allStake)
 	}
+
+	return rewards
+}
+
+func (s *Snapshot) calculateSCReward() map[common.Address]*big.Int {
 	// rewards for side chain
 	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
 		if scReward, ok := s.SCReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
+			rewards := make(map[common.Address]*big.Int)
 			for addr, scre := range scReward {
 				if _, ok := rewards[addr]; ok {
 					rewards[addr].Add(rewards[addr], scre)
@@ -819,8 +825,8 @@ func (s *Snapshot) calculateReward(coinbase common.Address, votersReward *big.In
 					rewards[addr] = new(big.Int).Set(scre)
 				}
 			}
+			return rewards
 		}
 	}
-
-	return rewards
+	return nil
 }
