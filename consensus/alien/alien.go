@@ -557,7 +557,7 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, headerTime uint64) bool {
 	if chain.Config().Alien.SideChain {
 		ms, err := a.getMainChainSnapshotByTime(chain, headerTime, chain.GetHeaderByNumber(0).ParentHash)
-		if err != nil {
+		if err != nil || len(ms.Signers) == 0 || ms.Period == 0 {
 			//log.Info("Main chain snapshot query fail ", "err", err)
 			return false
 		}
