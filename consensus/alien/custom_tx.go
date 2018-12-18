@@ -71,7 +71,7 @@ const (
 	 * proposal related
 	 */
 	maxValidationLoopCnt     = 123500 // About one month if seal each block per second & 21 super nodes
-	minValidationLoopCnt     = 12350  // About three days if seal each block per second & 21 super nodes
+	minValidationLoopCnt     = 1      //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
 	defaultValidationLoopCnt = 30875  // About one week if seal each block per second & 21 super nodes
 )
 
@@ -422,6 +422,10 @@ func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, h
 }
 
 func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
+	// sample for add side chain proposal
+	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
+	// sample for declare
+	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:declare:hash:0xdf34bc9e77bf8fa4496b163ded7466e6b89ca2b1cb3b7e73f0b30d8f64a8af12:decision:yes")})
 
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
