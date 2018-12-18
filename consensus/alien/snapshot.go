@@ -581,6 +581,10 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 						delete(s.SCConfirmation, proposal.SCHash)
 					}
 				}
+			} else {
+				// reach the target header number, but not success
+				// remove the fail proposal
+				delete(s.Proposals, hashKey)
 			}
 
 		}
