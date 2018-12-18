@@ -91,9 +91,9 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 			snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
 			// return err, is this side chain hash is not record in main chain,
 			// only by POA from signer, side chain hash can be add to main chain SCConfirmation map
-			if _, ok := snap.SCConfirmation[scHash]; !ok {
-				return nil, errUnknownBlock
-			}
+			//if _, ok := snap.SCConfirmation[scHash]; !ok {
+			//	return nil, errUnknownBlock
+			//}
 			// replace coinbase by signer settings
 			var scSigners []*common.Address
 			for _, signer := range snap.Signers {
