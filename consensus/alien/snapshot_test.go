@@ -926,6 +926,8 @@ func TestVoting(t *testing.T) {
 							Candidate:              accounts.address(trans.candidate),
 							MinerRewardPerThousand: minerRewardPerThousand,
 							SCHash:                 common.Hash{},
+							SCBlockCountPerPeriod:  1,
+							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
 						})

@@ -118,9 +118,12 @@ type Proposal struct {
 	Proposer               common.Address // proposer
 	Candidate              common.Address // candidate need to add/remove if candidateNeedPD == true
 	MinerRewardPerThousand uint64         // reward of miner + side chain miner
-	SCHash                 common.Hash    // sidechain genesis parent hash need to add/remove
-	Declares               []*Declare     // Declare this proposal received (always empty in block header)
-	ReceivedNumber         *big.Int       // block number of proposal received
+	SCHash                 common.Hash    // side chain genesis parent hash need to add/remove
+	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
+	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0
+	// SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
+	Declares       []*Declare // Declare this proposal received (always empty in block header)
+	ReceivedNumber *big.Int   // block number of proposal received
 }
 
 func (p *Proposal) copy() *Proposal {
@@ -132,6 +135,8 @@ func (p *Proposal) copy() *Proposal {
 		Candidate:              p.Candidate,
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
 		SCHash:                 p.SCHash,
+		SCBlockCountPerPeriod:  p.SCBlockCountPerPeriod,
+		SCBlockRewardPerPeriod: p.SCBlockCountPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 	}
@@ -423,7 +428,7 @@ func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, h
 
 func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
 	// sample for add side chain proposal
-	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
+	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
 	// sample for declare
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:declare:hash:0xdf34bc9e77bf8fa4496b163ded7466e6b89ca2b1cb3b7e73f0b30d8f64a8af12:decision:yes")})
 
@@ -434,6 +439,8 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		Proposer:               proposer,
 		Candidate:              common.Address{},
 		SCHash:                 common.Hash{},
+		SCBlockCountPerPeriod:  1,
+		SCBlockRewardPerPeriod: 0,
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),
@@ -451,6 +458,18 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			}
 		case "schash":
 			proposal.SCHash.UnmarshalText([]byte(v))
+		case "sccount":
+			if scBlockCountPerPeriod, err := strconv.Atoi(v); err != nil {
+				return currentBlockProposals
+			} else {
+				proposal.SCBlockCountPerPeriod = uint64(scBlockCountPerPeriod)
+			}
+		case "screward":
+			if scBlockRewardPerPeriod, err := strconv.Atoi(v); err != nil {
+				return currentBlockProposals
+			} else {
+				proposal.SCBlockRewardPerPeriod = uint64(scBlockRewardPerPeriod)
+			}
 		case "proposal_type":
 			if proposalType, err := strconv.Atoi(v); err != nil || proposalType < proposalTypeCandidateAdd || proposalType > proposalTypeSideChainRemove {
 				return currentBlockProposals
