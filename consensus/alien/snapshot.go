@@ -64,6 +64,8 @@ type SCRecord struct {
 	RewardPerPeriod     uint64                       `json:"rewardPerPeriod"`     // full reward per period
 }
 
+type SCReward = map[uint64]map[common.Address]uint64
+
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
@@ -88,7 +90,7 @@ type Snapshot struct {
 
 	SCCoinbase     map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"`     // Coinbase of side chain setting
 	SCConfirmation map[common.Hash]*SCRecord                         `json:"sideChainConfirmation"` // Confirmation of side chain setting
-	SCReward       map[uint64]map[common.Address]*big.Int            `json:"sideChainReward"`       // Side Chain Reward
+	SCAllReward    map[common.Hash]SCReward                          `json:"sideChainReward"`       // Side Chain Reward
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -116,7 +118,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		LoopStartTime:   config.GenesisTimestamp,
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 		SCConfirmation:  make(map[common.Hash]*SCRecord),
-		SCReward:        make(map[uint64]map[common.Address]*big.Int),
+		SCAllReward:     make(map[common.Hash]SCReward),
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
@@ -191,7 +193,7 @@ func (s *Snapshot) copy() *Snapshot {
 		LoopStartTime:  s.LoopStartTime,
 		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
 		SCConfirmation: make(map[common.Hash]*SCRecord),
-		SCReward:       make(map[uint64]map[common.Address]*big.Int),
+		SCAllReward:    make(map[common.Hash]SCReward),
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
@@ -240,10 +242,14 @@ func (s *Snapshot) copy() *Snapshot {
 			copy(cpy.SCConfirmation[hash].Record[number], scConfirmation)
 		}
 	}
-	for number, reward := range s.SCReward {
-		cpy.SCReward[number] = make(map[common.Address]*big.Int)
-		for addr, scReward := range reward {
-			cpy.SCReward[number][addr] = new(big.Int).Set(scReward)
+
+	for hash, sca := range s.SCAllReward {
+		cpy.SCAllReward[hash] = make(map[uint64]map[common.Address]uint64)
+		for number, reward := range sca {
+			cpy.SCAllReward[hash][number] = make(map[common.Address]uint64)
+			for addr, count := range reward {
+				cpy.SCAllReward[hash][number][addr] = count
+			}
 		}
 	}
 
@@ -475,20 +481,24 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 
 func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
-	if _, ok := s.SCReward[headerNumber.Uint64()]; !ok {
-		s.SCReward[headerNumber.Uint64()] = make(map[common.Address]*big.Int)
-	}
 	for scHash, record := range s.SCConfirmation {
+		if _, ok := s.SCAllReward[scHash]; !ok {
+			s.SCAllReward[scHash] = make(map[uint64]map[common.Address]uint64)
+		}
+		if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()]; !ok {
+			s.SCAllReward[scHash][headerNumber.Uint64()] = make(map[common.Address]uint64)
+		}
+
 		confirmedNumber, confirmedCoinbase := s.calculateConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
 
 			// todo: map coinbase of side chain to coin base of main chain here
 			for n, scCoinbase := range confirmedCoinbase {
 				if n <= confirmedNumber && n > record.LastConfirmedNumber {
-					if _, ok := s.SCReward[headerNumber.Uint64()][scCoinbase]; !ok {
-						s.SCReward[headerNumber.Uint64()][scCoinbase] = new(big.Int).Set(scSignerBlockReward)
+					if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase]; !ok {
+						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] = 1
 					} else {
-						s.SCReward[headerNumber.Uint64()][scCoinbase].Add(s.SCReward[headerNumber.Uint64()][scCoinbase], scSignerBlockReward)
+						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase]++
 					}
 				}
 			}
@@ -500,16 +510,21 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 			}
 			s.SCConfirmation[scHash].LastConfirmedNumber = confirmedNumber
 		}
-	}
-
-	if len(s.SCReward[headerNumber.Uint64()]) == 0 {
-		delete(s.SCReward, headerNumber.Uint64())
-	}
-	// clear expired side chain reward record
-	for number, _ := range s.SCReward {
-		if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
-			delete(s.SCReward, number)
+		// clear empty block number for side chain
+		if len(s.SCAllReward[scHash][headerNumber.Uint64()]) == 0 {
+			delete(s.SCAllReward[scHash], headerNumber.Uint64())
 		}
+		// clear expired side chain reward record
+		for number, _ := range s.SCAllReward[scHash] {
+			if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
+				delete(s.SCAllReward[scHash], number)
+			}
+		}
+		// clear this side chain if reward is empty
+		if len(s.SCAllReward[scHash]) == 0 {
+			delete(s.SCAllReward, scHash)
+		}
+
 	}
 
 }
@@ -829,17 +844,29 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 func (s *Snapshot) calculateSCReward() map[common.Address]*big.Int {
 	// rewards for side chain
 	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
-		if scReward, ok := s.SCReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
-			rewards := make(map[common.Address]*big.Int)
-			for addr, scre := range scReward {
-				if _, ok := rewards[addr]; ok {
-					rewards[addr].Add(rewards[addr], scre)
-				} else {
-					rewards[addr] = new(big.Int).Set(scre)
+		rewards := make(map[common.Address]*big.Int)
+		for scHash, scReward := range s.SCAllReward {
+			// check reward for the block number is exist
+			if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
+				// check confirm is exist, to get countPerPeriod and rewardPerPeriod
+				if confirmation, ok := s.SCConfirmation[scHash]; ok {
+
+					// todo : need calculate the side chain reward in updateSCConfirmation not here !!!
+					// todo : now the sample version just to check the proposal, SCAllReward etc
+					for addr, scre := range reward {
+						if _, ok := rewards[addr]; ok {
+							rewards[addr].Add(rewards[addr], new(big.Int).SetUint64(scre*confirmation.RewardPerPeriod))
+						} else {
+							rewards[addr] = new(big.Int).SetUint64(scre * confirmation.RewardPerPeriod)
+						}
+					}
 				}
+
 			}
-			return rewards
+
 		}
+		return rewards
+
 	}
 	return nil
 }

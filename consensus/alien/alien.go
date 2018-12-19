@@ -69,7 +69,6 @@ var (
 	mcNonce                          = uint64(0)                // the current Nonce of coinbase on main chain
 	mcTxDefaultGasPrice              = big.NewInt(30000000)     // default gas price to build transaction for main chain
 	mcTxDefaultGasLimit              = uint64(3000000)          // default limit to build transaction for main chain
-	scSignerBlockReward              = big.NewInt(1e+18)        // Block reward in wei for successfully mining a side chain block, and can be confirmed by mc snapshot
 )
 
 // Various error messages to mark blocks invalid. These should be private to

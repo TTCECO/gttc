@@ -136,7 +136,7 @@ func (p *Proposal) copy() *Proposal {
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
 		SCHash:                 p.SCHash,
 		SCBlockCountPerPeriod:  p.SCBlockCountPerPeriod,
-		SCBlockRewardPerPeriod: p.SCBlockCountPerPeriod,
+		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 	}
@@ -430,7 +430,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 	// sample for add side chain proposal
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
 	// sample for declare
-	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:declare:hash:0xdf34bc9e77bf8fa4496b163ded7466e6b89ca2b1cb3b7e73f0b30d8f64a8af12:decision:yes")})
+	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:declare:hash:0x853e10706e6b9d39c5f4719018aa2417e8b852dec8ad18f9c592d526db64c725:decision:yes")})
 
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
