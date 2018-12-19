@@ -115,12 +115,12 @@ type Proposal struct {
 	Hash                   common.Hash    // tx hash
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
-	Proposer               common.Address //
-	Candidate              common.Address
-	MinerRewardPerThousand uint64
-	SCHash                 common.Hash //
-	Declares               []*Declare  // Declare this proposal received
-	ReceivedNumber         *big.Int    // block number of proposal received
+	Proposer               common.Address // proposer
+	Candidate              common.Address // candidate need to add/remove if candidateNeedPD == true
+	MinerRewardPerThousand uint64         // reward of miner + side chain miner
+	SCHash                 common.Hash    // sidechain genesis parent hash need to add/remove
+	Declares               []*Declare     // Declare this proposal received (always empty in block header)
+	ReceivedNumber         *big.Int       // block number of proposal received
 }
 
 func (p *Proposal) copy() *Proposal {
