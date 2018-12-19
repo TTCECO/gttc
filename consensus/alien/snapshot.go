@@ -60,6 +60,8 @@ type SCRecord struct {
 	Record              map[uint64][]*SCConfirmation `json:"record"`              // Confirmation Record of one side chain
 	LastConfirmedNumber uint64                       `json:"lastConfirmedNumber"` // Last confirmed header number of one side chain
 	MaxHeaderNumber     uint64                       `json:"maxHeaderNumber"`     // max header number of one side chain
+	CountPerPeriod      uint64                       `json:"countPerPeriod"`      // block sealed per period on this side chain
+	RewardPerPeriod     uint64                       `json:"rewardPerPeriod"`     // full reward per period
 }
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -229,6 +231,8 @@ func (s *Snapshot) copy() *Snapshot {
 		cpy.SCConfirmation[hash] = &SCRecord{
 			LastConfirmedNumber: scc.LastConfirmedNumber,
 			MaxHeaderNumber:     scc.MaxHeaderNumber,
+			CountPerPeriod:      scc.CountPerPeriod,
+			RewardPerPeriod:     scc.RewardPerPeriod,
 			Record:              make(map[uint64][]*SCConfirmation),
 		}
 		for number, scConfirmation := range scc.Record {
@@ -574,7 +578,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 
 				case proposalTypeSideChainAdd:
 					if _, ok := s.SCConfirmation[proposal.SCHash]; !ok {
-						s.SCConfirmation[proposal.SCHash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0}
+						s.SCConfirmation[proposal.SCHash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0, proposal.SCBlockCountPerPeriod, proposal.SCBlockRewardPerPeriod}
 					}
 				case proposalTypeSideChainRemove:
 					if _, ok := s.SCConfirmation[proposal.SCHash]; ok {
