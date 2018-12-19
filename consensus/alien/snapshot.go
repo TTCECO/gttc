@@ -514,6 +514,9 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 		if len(s.SCAllReward[scHash][headerNumber.Uint64()]) == 0 {
 			delete(s.SCAllReward[scHash], headerNumber.Uint64())
 		}
+	}
+
+	for scHash, _ := range s.SCAllReward {
 		// clear expired side chain reward record
 		for number, _ := range s.SCAllReward[scHash] {
 			if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
@@ -524,7 +527,6 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 		if len(s.SCAllReward[scHash]) == 0 {
 			delete(s.SCAllReward, scHash)
 		}
-
 	}
 
 }
