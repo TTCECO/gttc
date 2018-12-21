@@ -49,11 +49,23 @@ const (
 	// reward for side chain
 	scRewardDelayLoopCount   = 2                          //
 	scRewardExpiredLoopCount = scRewardDelayLoopCount + 4 //
+	scMaxCountPerPeriod      = 6
 )
 
 var (
 	errIncorrectTallyCount = errors.New("incorrect tally count")
 )
+
+// SCCurrentBlockReward is base on scMaxCountPerPeriod = 6
+var SCCurrentBlockReward = map[uint64]map[uint64]uint64{1: {1: 100},
+	2: {1: 30, 2: 70},
+	3: {1: 15, 2: 30, 3: 55},
+	4: {1: 5, 2: 15, 3: 30, 4: 50},
+	5: {1: 5, 2: 10, 3: 15, 4: 25, 5: 45},
+	6: {1: 1, 2: 4, 3: 10, 4: 15, 5: 25, 6: 45}}
+
+// SCReward
+type SCReward = map[uint64]map[common.Address]uint64 //sum(this value) in one period == 100
 
 // SCRecord is the state record for side chain
 type SCRecord struct {
@@ -63,8 +75,6 @@ type SCRecord struct {
 	CountPerPeriod      uint64                       `json:"countPerPeriod"`      // block sealed per period on this side chain
 	RewardPerPeriod     uint64                       `json:"rewardPerPeriod"`     // full reward per period
 }
-
-type SCReward = map[uint64]map[common.Address]uint64
 
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
@@ -479,6 +489,17 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 	return confirmedNumber, confirmedCoinbase
 }
 
+func (s *Snapshot) calcuateCurrentBlockReward(currentCount uint64, periodCount uint64) uint64 {
+	currentRewardPercentage := uint64(0)
+	if periodCount > uint64(scMaxCountPerPeriod) {
+		periodCount = scMaxCountPerPeriod
+	}
+	if v, ok := SCCurrentBlockReward[periodCount][currentCount]; ok {
+		currentRewardPercentage = v
+	}
+	return currentRewardPercentage
+}
+
 func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
 	for scHash, record := range s.SCConfirmation {
@@ -488,18 +509,28 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 		if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()]; !ok {
 			s.SCAllReward[scHash][headerNumber.Uint64()] = make(map[common.Address]uint64)
 		}
-
 		confirmedNumber, confirmedCoinbase := s.calculateConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
-
 			// todo: map coinbase of side chain to coin base of main chain here
-			for n, scCoinbase := range confirmedCoinbase {
-				if n <= confirmedNumber && n > record.LastConfirmedNumber {
-					if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase]; !ok {
-						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] = 1
+			lastSCCoinbase := common.Address{}
+			currentSCCoinbaseCount := uint64(0)
+			for n := record.LastConfirmedNumber + 1; n <= confirmedNumber; n++ {
+				if scCoinbase, ok := confirmedCoinbase[n]; ok {
+					// if scCoinbase not same with lastSCCoinbase recount
+					if lastSCCoinbase != scCoinbase {
+						currentSCCoinbaseCount = 1
 					} else {
-						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase]++
+						currentSCCoinbaseCount++
 					}
+
+					if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase]; !ok {
+						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] = s.calcuateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+					} else {
+						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] += s.calcuateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+					}
+
+					// update lastSCCoinbase
+					lastSCCoinbase = scCoinbase
 				}
 			}
 
@@ -853,8 +884,8 @@ func (s *Snapshot) calculateSCReward() map[common.Address]*big.Int {
 				// check confirm is exist, to get countPerPeriod and rewardPerPeriod
 				if confirmation, ok := s.SCConfirmation[scHash]; ok {
 
-					// todo : need calculate the side chain reward in updateSCConfirmation not here !!!
-					// todo : now the sample version just to check the proposal, SCAllReward etc
+					// todo : need calculate the side chain reward base on RewardPerPeriod(/100) and record.RewardPerPeriod
+					// todo : need to deal with sum of record.RewardPerPeriod for all side chain is larger than 100% situation
 					for addr, scre := range reward {
 						if _, ok := rewards[addr]; ok {
 							rewards[addr].Add(rewards[addr], new(big.Int).SetUint64(scre*confirmation.RewardPerPeriod))
