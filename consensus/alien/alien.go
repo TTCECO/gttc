@@ -856,7 +856,7 @@ func (a *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent 
 func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "alien",
-		Version:   "0.1",
+		Version:   ufoVersion,
 		Service:   &API{chain: chain, alien: a},
 		Public:    false,
 	}}
