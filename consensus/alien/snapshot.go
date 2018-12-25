@@ -489,7 +489,7 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 	return confirmedNumber, confirmedCoinbase
 }
 
-func (s *Snapshot) calcuateCurrentBlockReward(currentCount uint64, periodCount uint64) uint64 {
+func (s *Snapshot) calculateCurrentBlockReward(currentCount uint64, periodCount uint64) uint64 {
 	currentRewardPercentage := uint64(0)
 	if periodCount > uint64(scMaxCountPerPeriod) {
 		periodCount = scMaxCountPerPeriod
@@ -524,9 +524,9 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 					}
 
 					if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase]; !ok {
-						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] = s.calcuateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					} else {
-						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] += s.calcuateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+						s.SCAllReward[scHash][headerNumber.Uint64()][scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					}
 
 					// update lastSCCoinbase
