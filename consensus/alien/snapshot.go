@@ -28,7 +28,6 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -447,6 +446,7 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 	confirmedRecordMap := make(map[string]map[common.Address]bool)
 	confirmedCoinbase := make(map[uint64]common.Address)
 	sep := ":"
+	tmpHeaderNum := new(big.Int)
 	for i := record.LastConfirmedNumber + 1; i <= record.MaxHeaderNumber; i++ {
 		if _, ok := record.Record[i]; ok {
 			// during reorged, the side chain loop info may more than one for each side chain block number.
@@ -462,9 +462,9 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 					if _, ok := confirmedRecordMap[key][scConfirm.Coinbase]; !ok {
 						confirmedRecordMap[key][scConfirm.Coinbase] = true
 						if len(confirmedRecordMap[key]) >= minConfirmedSignerCount {
-							headerNum, err := strconv.Atoi(scConfirm.LoopInfo[len(scConfirm.LoopInfo)-2])
-							if err == nil && uint64(headerNum) > confirmedNumber {
-								confirmedNumber = uint64(headerNum)
+							err := tmpHeaderNum.UnmarshalText([]byte(scConfirm.LoopInfo[len(scConfirm.LoopInfo)-2]))
+							if err == nil && tmpHeaderNum.Uint64() > confirmedNumber {
+								confirmedNumber = tmpHeaderNum.Uint64()
 							}
 						}
 					}
@@ -477,11 +477,11 @@ func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSigner
 		if len(count) >= minConfirmedSignerCount {
 			infos := strings.Split(info, sep)
 			for i := 0; i+1 < len(infos); i += 2 {
-				number, err := strconv.Atoi(infos[i])
+				err := tmpHeaderNum.UnmarshalText([]byte(infos[i]))
 				if err != nil {
 					continue
 				}
-				confirmedCoinbase[uint64(number)] = common.HexToAddress(infos[i+1])
+				confirmedCoinbase[tmpHeaderNum.Uint64()] = common.HexToAddress(infos[i+1])
 			}
 		}
 	}

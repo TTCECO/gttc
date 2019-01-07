@@ -20,7 +20,7 @@ package alien
 import (
 	"context"
 	"errors"
-	"strconv"
+	"math/big"
 	"time"
 
 	"github.com/TTCECO/gttc/common"
@@ -124,9 +124,11 @@ func (a *Alien) getNetVersionFromMainChain(chain consensus.ChainReader) (uint64,
 	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &result, "net_version", "latest"); err != nil {
 		return 0, err
 	}
-	netVersion, err := strconv.Atoi(result)
+
+	netVersion := new(big.Int)
+	err := netVersion.UnmarshalText([]byte(result))
 	if err != nil {
 		return 0, err
 	}
-	return uint64(netVersion), nil
+	return netVersion.Uint64(), nil
 }
