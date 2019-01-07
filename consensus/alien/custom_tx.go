@@ -539,12 +539,13 @@ func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB,
 
 func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address, refundHash RefundHash) ([]Confirmation, RefundHash) {
 	if len(txDataInfo) >= posEventConfirmNumber {
-		confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
-		if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
+		confirmedBlockNumber := new(big.Int)
+		err := confirmedBlockNumber.UnmarshalText([]byte(txDataInfo[posEventConfirmNumber]))
+		if err != nil || number-confirmedBlockNumber.Uint64() > a.config.MaxSignerCount || number-confirmedBlockNumber.Uint64() < 0 {
 			return currentBlockConfirmations, refundHash
 		}
 		// check if the voter is in block
-		confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
+		confirmedHeader := chain.GetHeaderByNumber(confirmedBlockNumber.Uint64())
 		if confirmedHeader == nil {
 			log.Info("Fail to get confirmedHeader")
 			return currentBlockConfirmations, refundHash
@@ -553,7 +554,7 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 		if extraVanity+extraSeal > len(confirmedHeader.Extra) {
 			return currentBlockConfirmations, refundHash
 		}
-		err = decodeHeaderExtra(a.config, big.NewInt(int64(confirmedBlockNumber)), confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+		err = decodeHeaderExtra(a.config, confirmedBlockNumber, confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
 			return currentBlockConfirmations, refundHash
@@ -562,7 +563,7 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 			if s == confirmer {
 				currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
 					Signer:      confirmer,
-					BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
+					BlockNumber: new(big.Int).Set(confirmedBlockNumber),
 				})
 				refundHash[tx.Hash()] = RefundPair{confirmer, tx.GasPrice()}
 				break
