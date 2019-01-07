@@ -506,7 +506,7 @@ func (self *worker) commitNewWork() {
 	}
 	self.push(work)
 	self.updateSnapshot()
-
+        // todo: add params into gttc, to decide if or not send this tx
 	if self.config.Alien != nil && !self.config.Alien.SideChain {
 		err = self.sendConfirmTx(parent.Number())
 		if err != nil {
