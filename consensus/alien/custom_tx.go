@@ -547,7 +547,7 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 		// check if the voter is in block
 		confirmedHeader := chain.GetHeaderByNumber(confirmedBlockNumber.Uint64())
 		if confirmedHeader == nil {
-			log.Info("Fail to get confirmedHeader")
+			//log.Info("Fail to get confirmedHeader")
 			return currentBlockConfirmations, refundHash
 		}
 		confirmedHeaderExtra := HeaderExtra{}
