@@ -353,16 +353,17 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 							if len(txDataInfo) > ufoMinSplitLen {
 								if txDataInfo[posEventConfirm] == ufoEventConfirm {
 									if len(txDataInfo) > ufoMinSplitLen+3 {
-										number, err := strconv.Atoi(txDataInfo[ufoMinSplitLen+2])
-										if err != nil {
-											log.Info("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
+										number := new(big.Int)
+										if err := number.UnmarshalText([]byte(txDataInfo[ufoMinSplitLen+2])); err != nil {
+											log.Trace("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
+											continue
 										}
-										time, err := strconv.Atoi(txDataInfo[ufoMinSplitLen+3])
-										if err != nil || uint64(time) > header.Time.Uint64() {
-											log.Info("Side chain confirm info fail", "time", txDataInfo[ufoMinSplitLen+3])
+										if err := new(big.Int).UnmarshalText([]byte(txDataInfo[ufoMinSplitLen+3])); err != nil {
+											log.Trace("Side chain confirm info fail", "time", txDataInfo[ufoMinSplitLen+3])
+											continue
 										}
 										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
-											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), uint64(number), txDataInfo[ufoMinSplitLen+4:], tx, txSender, refundHash)
+											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), txDataInfo[ufoMinSplitLen+4:], tx, txSender, refundHash)
 
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
