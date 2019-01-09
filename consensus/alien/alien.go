@@ -20,11 +20,11 @@ package alien
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
-	"fmt"
 	"github.com/TTCECO/gttc/accounts"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/consensus"
@@ -47,6 +47,7 @@ const (
 	inMemorySignatures = 4096            // Number of recent block signatures to keep in memory
 	secondsPerYear     = 365 * 24 * 3600 // Number of seconds for one year
 	checkpointInterval = 360             // About N hours if config.period is N
+	scUnconfirmLoop    = 3               // First count of Loop not send confirm tx to main chain
 )
 
 // Alien delegated-proof-of-stake protocol constants.
@@ -63,6 +64,13 @@ var (
 	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
 	minerRewardPerThousand           = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
 	candidateNeedPD                  = false                    // is new candidate need Proposal & Declare process
+	mcNetVersion                     = uint64(0)                // the net version of main chain
+	mcLoopStartTime                  = uint64(0)                // the loopstarttime of main chain
+	mcPeriod                         = uint64(0)                // the period of main chain
+	mcSignerLength                   = uint64(0)                // the maxsinger of main chain config
+	mcNonce                          = uint64(0)                // the current Nonce of coinbase on main chain
+	mcTxDefaultGasPrice              = big.NewInt(30000000)     // default gas price to build transaction for main chain
+	mcTxDefaultGasLimit              = uint64(3000000)          // default limit to build transaction for main chain
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -118,6 +126,12 @@ var (
 
 	// errSignerQueueEmpty is returned if no signer when calculate
 	errSignerQueueEmpty = errors.New("signer queue is empty")
+
+	// errGetLastLoopInfoFail is returned if get last loop info fail
+	errGetLastLoopInfoFail = errors.New("get last loop info fail")
+
+	// errInvalidNeighborSigner is returned if two neighbor block signed by same miner and time diff less period
+	errInvalidNeighborSigner = errors.New("invalid neighbor signer")
 )
 
 // TxRecord is the record of one transaction. The data save into MongoDB for browser
@@ -466,13 +480,13 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 				parent = chain.GetHeader(header.ParentHash, number-1)
 			}
 			parentHeaderExtra := HeaderExtra{}
-			err = rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+			err = decodeHeaderExtra(a.config, parent.Number, parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 			if err != nil {
 				log.Info("Fail to decode parent header", "err", err)
 				return err
 			}
 			currentHeaderExtra := HeaderExtra{}
-			err = rlp.DecodeBytes(header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+			err = decodeHeaderExtra(a.config, header.Number, header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
 			if err != nil {
 				log.Info("Fail to decode header", "err", err)
 				return err
@@ -490,6 +504,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 						return errInvalidSignerQueue
 					}
 				}
+				if signer == parent.Coinbase && header.Time.Uint64()-parent.Time.Uint64() < chain.Config().Alien.Period {
+					return errInvalidNeighborSigner
+				}
+
 			}
 
 			// verify missing signer for punish
@@ -512,7 +530,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			return errUnauthorized
 		} else {
 			// send tx to main chain to confirm this block
-			a.mcConfirmBlock(chain, header)
+			//a.mcConfirmBlock(chain, header)
 		}
 	}
 
@@ -605,9 +623,9 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 
 func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, headerTime uint64) bool {
 	if chain.Config().Alien.SideChain {
-		ms, err := a.getMainChainSnapshotByTime(chain, headerTime)
-		if err != nil {
-			log.Info("Main chain snapshot query fail ", "err", err)
+		ms, err := a.getMainChainSnapshotByTime(chain, headerTime, chain.GetHeaderByNumber(0).ParentHash)
+		if err != nil || len(ms.Signers) == 0 || ms.Period == 0 {
+			//log.Info("Main chain snapshot query fail ", "err", err)
 			return false
 		}
 		// calculate the coinbase by loopStartTime & signers slice
@@ -617,9 +635,39 @@ func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, hea
 		} else if *ms.Signers[loopIndex] != signer {
 			return false
 		}
+		mcLoopStartTime = ms.LoopStartTime
+		mcPeriod = ms.Period
+		mcSignerLength = uint64(len(ms.Signers))
 		return true
 	}
 	return false
+}
+
+func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) ([]byte, error) {
+	if chain.Config().Alien.SideChain && mcLoopStartTime != 0 && mcPeriod != 0 && a.config.Period != 0 {
+		loopHeaderInfo := ""
+		inLastLoop := false
+		extraTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
+		for i := uint64(0); i < a.config.MaxSignerCount*2*(mcPeriod/a.config.Period); i++ {
+			header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+			newTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
+			if newTime > extraTime {
+				if !inLastLoop {
+					inLastLoop = true
+				} else {
+					break
+				}
+			}
+			extraTime = newTime
+			if inLastLoop {
+				loopHeaderInfo += fmt.Sprintf(":%d:%s", header.Number.Uint64(), header.Coinbase.Hex())
+			}
+		}
+		if len(loopHeaderInfo) > 0 {
+			return []byte(loopHeaderInfo), nil
+		}
+	}
+	return []byte{}, errGetLastLoopInfoFail
 }
 
 func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header) {
@@ -629,28 +677,39 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 	a.lock.RUnlock()
 
 	if signer != (common.Address{}) {
-		nonce, err := a.getTransactionCountFromMainChain(chain, signer)
-		if err != nil {
-			log.Info("confirm tx sign fail", "err", err)
-		}
 		// todo update gaslimit , gasprice ,and get ChainID need to get from mainchain
-		if header.Number.Uint64() > a.lcsc {
-
-			tx := types.NewTransaction(nonce,
-				header.Coinbase, big.NewInt(0),
-				uint64(100000), big.NewInt(100000),
-				[]byte(fmt.Sprintf("ufo:1:sc:confirm:%s:%d", chain.GetHeaderByNumber(1).Hash().Hex(), header.Number.Uint64())))
-
-			signedTx, err := signTxFn(accounts.Account{Address: signer}, tx, big.NewInt(1014))
+		if header.Number.Uint64() > a.lcsc && header.Number.Uint64() > a.config.MaxSignerCount*scUnconfirmLoop {
+			nonce, err := a.getTransactionCountFromMainChain(chain, signer)
 			if err != nil {
-				log.Info("confirm tx sign fail", "err", err)
+				log.Info("Confirm tx sign fail", "err", err)
+				return
 			}
-			res, err := a.sendTransactionToMainChain(chain, signedTx)
-			if err != nil {
 
-				log.Info("confirm tx send fail", "err", err)
+			lastLoopInfo, err := a.getLastLoopInfo(chain, header)
+			if err != nil {
+				log.Info("Confirm tx sign fail", "err", err)
+				return
+			}
+
+			txData := a.buildSCEventConfirmData(chain.GetHeaderByNumber(0).ParentHash, header.Number, header.Time, lastLoopInfo)
+			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), mcTxDefaultGasLimit, mcTxDefaultGasPrice, txData)
+
+			if mcNetVersion == 0 {
+				mcNetVersion, err = a.getNetVersionFromMainChain(chain)
+				if err != nil {
+					log.Info("Query main chain net version fail", "err", err)
+				}
+			}
+
+			signedTx, err := signTxFn(accounts.Account{Address: signer}, tx, big.NewInt(int64(mcNetVersion)))
+			if err != nil {
+				log.Info("Confirm tx sign fail", "err", err)
+			}
+			txHash, err := a.sendTransactionToMainChain(chain, signedTx)
+			if err != nil {
+				log.Info("Confirm tx send fail", "err", err)
 			} else {
-				log.Info("confirm tx result", "hash", res)
+				log.Info("Confirm tx result", "txHash", txHash)
 				a.lcsc = header.Number.Uint64()
 			}
 		}
@@ -703,7 +762,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	} else {
 		// decode extra from last header.extra
-		err := rlp.DecodeBytes(parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
+		err := decodeHeaderExtra(a.config, parent.Number, parent.Extra[extraVanity:len(parent.Extra)-extraSeal], &parentHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
 			return nil, err
@@ -715,7 +774,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 
 	// calculate votes write into header.extra
-	currentHeaderExtra, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs)
+	currentHeaderExtra, refundGas, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs, receipts)
+
 	if err != nil {
 		return nil, err
 	}
@@ -757,7 +817,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 	}
 	// encode header.extra
-	currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
+	currentHeaderExtraEnc, err := encodeHeaderExtra(a.config, header.Number, currentHeaderExtra)
 	if err != nil {
 		return nil, err
 	}
@@ -769,8 +829,9 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	header.Difficulty = new(big.Int).Set(defaultDifficulty)
 
 	// Accumulate any block rewards and commit the final state root
-	accumulateRewards(chain.Config(), state, header, snap)
-
+	if !chain.Config().Alien.SideChain {
+		accumulateRewards(chain.Config(), state, header, snap, refundGas)
+	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
 	header.UncleHash = types.CalcUncleHash(nil)
@@ -780,17 +841,12 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks with.
-func (a *Alien) Authorize(signer common.Address, signFn SignerFn) {
+func (a *Alien) Authorize(signer common.Address, signFn SignerFn, signTxFn SignTxFn) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
 	a.signer = signer
 	a.signFn = signFn
-}
-
-func (a *Alien) SignTx(signTxFn SignTxFn) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
 	a.signTxFn = signTxFn
 }
 
@@ -798,6 +854,7 @@ func (a *Alien) SignTx(signTxFn SignTxFn) {
 // the local signing credentials.
 func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
+
 	// Sealing the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
@@ -828,6 +885,9 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
 			<-stop
 			return nil, errUnauthorized
+		} else {
+			// send tx to main chain to confirm this block
+			a.mcConfirmBlock(chain, header)
 		}
 	}
 
@@ -864,36 +924,45 @@ func (a *Alien) CalcDifficulty(chain consensus.ChainReader, time uint64, parent 
 func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{{
 		Namespace: "alien",
-		Version:   "0.1",
+		Version:   ufoVersion,
 		Service:   &API{chain: chain, alien: a},
 		Public:    false,
 	}}
 }
 
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot) {
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot, refundGas RefundGas) {
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
 
-	if !config.Alien.SideChain {
+	minerReward := new(big.Int).Set(blockReward)
+	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
+	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
-		minerReward := new(big.Int).Set(blockReward)
-		minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
-		minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
+	votersReward := blockReward.Sub(blockReward, minerReward)
 
-		votersReward := blockReward.Sub(blockReward, minerReward)
-
-		// rewards for the voters
-		for voter, reward := range snap.calculateReward(header.Coinbase, votersReward) {
-			state.AddBalance(voter, reward)
-		}
-		// rewards for the miner
-		state.AddBalance(header.Coinbase, minerReward)
-	} else {
-		state.AddBalance(header.Coinbase, blockReward)
+	// rewards for the voters
+	for voter, reward := range snap.calculateVoteReward(header.Coinbase, votersReward) {
+		state.AddBalance(voter, reward)
 	}
+
+	if config.Alien.IsTrantor(header.Number) {
+		// rewards for the side chain coinbase
+		for scCoinbase, reward := range snap.calculateSCReward(minerReward) {
+			state.AddBalance(scCoinbase, reward)
+			minerReward.Sub(minerReward, reward)
+		}
+		// refund gas for custom txs
+		for sender, gas := range refundGas {
+			state.AddBalance(sender, gas)
+			minerReward.Sub(minerReward, gas)
+		}
+	}
+	// rewards for the miner
+	state.AddBalance(header.Coinbase, minerReward)
+
 }
 
 // Get the signer missing from last signer till header.Coinbase

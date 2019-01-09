@@ -355,8 +355,7 @@ func (s *Ethereum) StartMining(local bool) error {
 			log.Error("Etherbase account unavailable locally", "err", err)
 			return fmt.Errorf("signer missing: %v", err)
 		}
-		alien.Authorize(eb, wallet.SignHash)
-		alien.SignTx(wallet.SignTx)
+		alien.Authorize(eb, wallet.SignHash, wallet.SignTx)
 	}
 	if local {
 		// If local (CPU) mining is started, we can disable the transaction rejection

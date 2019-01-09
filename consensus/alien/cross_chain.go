@@ -20,6 +20,7 @@ package alien
 import (
 	"context"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/TTCECO/gttc/common"
@@ -39,9 +40,14 @@ var (
 
 	// errMCRPCCLientEmpty is returned if Side chain not have main chain rpc client
 	errMCRPCClientEmpty = errors.New("main chain rpc client empty")
+
+	// errMCPeriodMissing is returned if period from main chain snapshot is zero
+	errMCPeriodMissing = errors.New("main chain period is missing")
 )
 
-func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64) (*Snapshot, error) {
+// getMainChainSnapshotByTime return snapshot by header time of side chain
+// the rpc api will return the snapshot with the same header time (not loopStartTime)
+func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTime uint64, scHash common.Hash) (*Snapshot, error) {
 	if !chain.Config().Alien.SideChain {
 		return nil, errNotSideChain
 	}
@@ -52,12 +58,16 @@ func (a *Alien) getMainChainSnapshotByTime(chain consensus.ChainReader, headerTi
 	defer cancel()
 
 	var ms *Snapshot
-	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime); err != nil {
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &ms, "alien_getSnapshotByHeaderTime", headerTime, scHash); err != nil {
 		return nil, err
+	} else if ms.Period == 0 {
+		return nil, errMCPeriodMissing
 	}
 	return ms, nil
 }
 
+// sendTransactionToMainChain
+// transaction send to main chain by rpc api, usually is the transaction for notify or confirm seal new block.
 func (a *Alien) sendTransactionToMainChain(chain consensus.ChainReader, tx *types.Transaction) (common.Hash, error) {
 	if !chain.Config().Alien.SideChain {
 		return common.Hash{}, errNotSideChain
@@ -79,6 +89,8 @@ func (a *Alien) sendTransactionToMainChain(chain consensus.ChainReader, tx *type
 	return hash, nil
 }
 
+// getTransactionCountFromMainChain
+// get nonce from main chain for sendTransactionToMainChain
 func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, account common.Address) (uint64, error) {
 	if !chain.Config().Alien.SideChain {
 		return 0, errNotSideChain
@@ -94,4 +106,29 @@ func (a *Alien) getTransactionCountFromMainChain(chain consensus.ChainReader, ac
 		return 0, err
 	}
 	return uint64(result), nil
+}
+
+// getNetVersionFromMainChain
+// get network id
+func (a *Alien) getNetVersionFromMainChain(chain consensus.ChainReader) (uint64, error) {
+	if !chain.Config().Alien.SideChain {
+		return 0, errNotSideChain
+	}
+	if chain.Config().Alien.MCRPCClient == nil {
+		return 0, errMCRPCClientEmpty
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), mainchainRPCTimeout*time.Millisecond)
+	defer cancel()
+
+	var result string
+	if err := chain.Config().Alien.MCRPCClient.CallContext(ctx, &result, "net_version", "latest"); err != nil {
+		return 0, err
+	}
+
+	netVersion := new(big.Int)
+	err := netVersion.UnmarshalText([]byte(result))
+	if err != nil {
+		return 0, err
+	}
+	return netVersion.Uint64(), nil
 }

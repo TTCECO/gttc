@@ -19,6 +19,8 @@
 package alien
 
 import (
+	"fmt"
+	"github.com/TTCECO/gttc/params"
 	"math/big"
 	"strconv"
 	"strings"
@@ -44,6 +46,7 @@ const (
 	ufoEventConfirm       = "confirm"
 	ufoEventPorposal      = "proposal"
 	ufoEventDeclare       = "declare"
+	ufoEventSetCoinbase   = "setcb"
 	ufoMinSplitLen        = 3
 	posPrefix             = 0
 	posVersion            = 1
@@ -52,6 +55,7 @@ const (
 	posEventConfirm       = 3
 	posEventProposal      = 3
 	posEventDeclare       = 3
+	posEventSetCoinbase   = 3
 	posEventConfirmNumber = 4
 
 	/*
@@ -60,14 +64,29 @@ const (
 	proposalTypeCandidateAdd                  = 1
 	proposalTypeCandidateRemove               = 2
 	proposalTypeMinerRewardDistributionModify = 3 // count in one thousand
+	proposalTypeSideChainAdd                  = 4
+	proposalTypeSideChainRemove               = 5
 
 	/*
 	 * proposal related
 	 */
 	maxValidationLoopCnt     = 123500 // About one month if seal each block per second & 21 super nodes
-	minValidationLoopCnt     = 12350  // About three days if seal each block per second & 21 super nodes
+	minValidationLoopCnt     = 1      //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
 	defaultValidationLoopCnt = 30875  // About one week if seal each block per second & 21 super nodes
 )
+
+// RefundGas :
+// refund gas to tx sender
+type RefundGas map[common.Address]*big.Int
+
+// RefundPair :
+type RefundPair struct {
+	Sender   common.Address
+	GasPrice *big.Int
+}
+
+// RefundHash :
+type RefundHash map[common.Hash]RefundPair
 
 // Vote :
 // vote come from custom tx which data like "ufo:1:event:vote"
@@ -95,24 +114,29 @@ type Confirmation struct {
 type Proposal struct {
 	Hash                   common.Hash    // tx hash
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
-	ImplementNumber        *big.Int       // block number to implement modification in this proposal
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
-	Proposer               common.Address //
-	Candidate              common.Address
-	MinerRewardPerThousand uint64
-	Declares               []*Declare // Declare this proposal received
-	ReceivedNumber         *big.Int   // block number of proposal received
+	Proposer               common.Address // proposer
+	Candidate              common.Address // candidate need to add/remove if candidateNeedPD == true
+	MinerRewardPerThousand uint64         // reward of miner + side chain miner
+	SCHash                 common.Hash    // side chain genesis parent hash need to add/remove
+	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
+	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0
+	// SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
+	Declares       []*Declare // Declare this proposal received (always empty in block header)
+	ReceivedNumber *big.Int   // block number of proposal received
 }
 
 func (p *Proposal) copy() *Proposal {
 	cpy := &Proposal{
 		Hash:                   p.Hash,
 		ValidationLoopCnt:      p.ValidationLoopCnt,
-		ImplementNumber:        new(big.Int).Set(p.ImplementNumber),
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
 		Candidate:              p.Candidate,
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
+		SCHash:                 p.SCHash,
+		SCBlockCountPerPeriod:  p.SCBlockCountPerPeriod,
+		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 	}
@@ -131,8 +155,50 @@ type Declare struct {
 	Decision     bool
 }
 
+// SCConfirmation is the confirmed tx send by side chain super node
+type SCConfirmation struct {
+	Hash     common.Hash
+	Coinbase common.Address // the side chain signer , may be diff from signer in main chain
+	Number   uint64
+	LoopInfo []string
+}
+
+func (s *SCConfirmation) copy() *SCConfirmation {
+	cpy := &SCConfirmation{
+		Hash:     s.Hash,
+		Coinbase: s.Coinbase,
+		Number:   s.Number,
+		LoopInfo: make([]string, len(s.LoopInfo)),
+	}
+	copy(cpy.LoopInfo, s.LoopInfo)
+	return cpy
+}
+
+// SCSetCoinbase is the tx send by main chain super node which can set coinbase for side chain
+type SCSetCoinbase struct {
+	Hash     common.Hash
+	Signer   common.Address
+	Coinbase common.Address
+}
+
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
+// HeaderExtra is the current struct
 type HeaderExtra struct {
+	CurrentBlockConfirmations []Confirmation
+	CurrentBlockVotes         []Vote
+	CurrentBlockProposals     []Proposal
+	CurrentBlockDeclares      []Declare
+	ModifyPredecessorVotes    []Vote
+	LoopStartTime             uint64
+	SignerQueue               []common.Address
+	SignerMissing             []common.Address
+	ConfirmedBlockNumber      uint64
+	SideChainConfirmations    []SCConfirmation
+	SideChainSetCoinbases     []SCSetCoinbase
+}
+
+// HeaderExtraBeforeTrantor is the struct of headerExtra before trantor
+type HeaderExtraBeforeTrantor struct {
 	CurrentBlockConfirmations []Confirmation
 	CurrentBlockVotes         []Vote
 	CurrentBlockProposals     []Proposal
@@ -144,20 +210,105 @@ type HeaderExtra struct {
 	ConfirmedBlockNumber      uint64
 }
 
+func copyToBeforeTrantor(val HeaderExtra) HeaderExtraBeforeTrantor {
+	return HeaderExtraBeforeTrantor{
+		val.CurrentBlockConfirmations,
+		val.CurrentBlockVotes,
+		val.CurrentBlockProposals,
+		val.CurrentBlockDeclares,
+		val.ModifyPredecessorVotes,
+		val.LoopStartTime,
+		val.SignerQueue,
+		val.SignerMissing,
+		val.ConfirmedBlockNumber,
+	}
+}
+
+func copyFromBeforeTrantor(val *HeaderExtra, headerExtraBeforeTrantor HeaderExtraBeforeTrantor) {
+	val.CurrentBlockConfirmations = make([]Confirmation, len(headerExtraBeforeTrantor.CurrentBlockConfirmations))
+	copy(val.CurrentBlockConfirmations, headerExtraBeforeTrantor.CurrentBlockConfirmations)
+
+	val.CurrentBlockVotes = make([]Vote, len(headerExtraBeforeTrantor.CurrentBlockVotes))
+	copy(val.CurrentBlockVotes, headerExtraBeforeTrantor.CurrentBlockVotes)
+
+	val.CurrentBlockProposals = make([]Proposal, len(headerExtraBeforeTrantor.CurrentBlockProposals))
+	copy(val.CurrentBlockProposals, headerExtraBeforeTrantor.CurrentBlockProposals)
+
+	val.CurrentBlockDeclares = make([]Declare, len(headerExtraBeforeTrantor.CurrentBlockDeclares))
+	copy(val.CurrentBlockDeclares, headerExtraBeforeTrantor.CurrentBlockDeclares)
+
+	val.ModifyPredecessorVotes = make([]Vote, len(headerExtraBeforeTrantor.ModifyPredecessorVotes))
+	copy(val.ModifyPredecessorVotes, headerExtraBeforeTrantor.ModifyPredecessorVotes)
+
+	val.LoopStartTime = headerExtraBeforeTrantor.LoopStartTime
+
+	val.SignerQueue = make([]common.Address, len(headerExtraBeforeTrantor.SignerQueue))
+	copy(val.SignerQueue, headerExtraBeforeTrantor.SignerQueue)
+
+	val.SignerMissing = make([]common.Address, len(headerExtraBeforeTrantor.SignerMissing))
+	copy(val.SignerMissing, headerExtraBeforeTrantor.SignerMissing)
+
+	val.ConfirmedBlockNumber = headerExtraBeforeTrantor.ConfirmedBlockNumber
+
+	val.SideChainConfirmations = make([]SCConfirmation, 0)
+	val.SideChainSetCoinbases = make([]SCSetCoinbase, 0)
+
+}
+
+// Encode HeaderExtra
+func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderExtra) ([]byte, error) {
+
+	var headerExtra interface{}
+	switch {
+	case config.IsTrantor(number):
+		headerExtra = val
+	default:
+		headerExtra = copyToBeforeTrantor(val)
+	}
+	return rlp.EncodeToBytes(headerExtra)
+
+}
+
+// Decode HeaderExtra
+func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, val *HeaderExtra) error {
+	var err error
+	switch {
+	case config.IsTrantor(number):
+		err = rlp.DecodeBytes(b, val)
+	default:
+		headerExtraBeforeTrantor := HeaderExtraBeforeTrantor{}
+		err = rlp.DecodeBytes(b, &headerExtraBeforeTrantor)
+		if err == nil {
+			copyFromBeforeTrantor(val, headerExtraBeforeTrantor)
+		}
+	}
+	return err
+}
+
+// Build side chain confirm data
+func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo []byte) []byte {
+	txData := []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d", ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm, scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64()))
+	return append(txData, lastLoopInfo...)
+}
+
 // Calculate Votes from transaction in this block, write into header.Extra
-func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction) (HeaderExtra, error) {
+func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, receipts []*types.Receipt) (HeaderExtra, RefundGas, error) {
 	// if predecessor voter make transaction and vote in this block,
 	// just process as vote, do it in snapshot.apply
 	var (
-		snap   *Snapshot
-		err    error
-		number uint64
+		snap       *Snapshot
+		err        error
+		number     uint64
+		refundGas  RefundGas
+		refundHash RefundHash
 	)
+	refundGas = make(map[common.Address]*big.Int)
+	refundHash = make(map[common.Hash]RefundPair)
 	number = header.Number.Uint64()
 	if number > 1 {
 		snap, err = a.snapshot(chain, number-1, header.ParentHash, nil, nil, defaultLoopCntRecalculateSigners)
 		if err != nil {
-			return headerExtra, err
+			return headerExtra, nil, err
 		}
 	}
 
@@ -180,8 +331,8 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								// check is vote or not
 								if txDataInfo[posEventVote] == ufoEventVote && (!candidateNeedPD || snap.isCandidate(*tx.To())) {
 									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
-								} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
-									headerExtra.CurrentBlockConfirmations = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender)
+								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
+									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
 								} else if txDataInfo[posEventProposal] == ufoEventPorposal && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, tx, txSender)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
@@ -199,10 +350,30 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						} else if txDataInfo[posCategory] == ufoCategoryLog {
 							// todo :
 						} else if txDataInfo[posCategory] == ufoCategorySC {
-							if len(txDataInfo) > ufoMinSplitLen+2 {
+							if len(txDataInfo) > ufoMinSplitLen {
 								if txDataInfo[posEventConfirm] == ufoEventConfirm {
-									// log.Info("Side chain confirm info", "hash", txDataInfo[ufoMinSplitLen+1])
-									// log.Info("Side chain confirm info", "number", txDataInfo[ufoMinSplitLen+2])
+									if len(txDataInfo) > ufoMinSplitLen+3 {
+										number := new(big.Int)
+										if err := number.UnmarshalText([]byte(txDataInfo[ufoMinSplitLen+2])); err != nil {
+											log.Trace("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
+											continue
+										}
+										if err := new(big.Int).UnmarshalText([]byte(txDataInfo[ufoMinSplitLen+3])); err != nil {
+											log.Trace("Side chain confirm info fail", "time", txDataInfo[ufoMinSplitLen+3])
+											continue
+										}
+										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
+											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), txDataInfo[ufoMinSplitLen+4:], tx, txSender, refundHash)
+
+									}
+								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
+									if len(txDataInfo) > ufoMinSplitLen+1 {
+										// the signer of main chain must send some value to coinbase of side chain for confirm tx of side chain
+										if tx.Value().Cmp(SignerBlockReward) >= 0 {
+											headerExtra.SideChainSetCoinbases = a.processSCEventSetCoinbase(headerExtra.SideChainSetCoinbases,
+												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), txSender, *tx.To())
+										}
+									}
 								}
 							}
 						}
@@ -217,18 +388,60 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 
 	}
 
-	return headerExtra, nil
+	for _, receipt := range receipts {
+		if pair, ok := refundHash[receipt.TxHash]; ok && receipt.Status == 1 {
+			pair.GasPrice.Mul(pair.GasPrice, big.NewInt(int64(receipt.GasUsed)))
+			refundGas = a.refundAddGas(refundGas, pair.Sender, pair.GasPrice)
+		}
+	}
+	return headerExtra, refundGas, nil
+}
+
+func (a *Alien) refundAddGas(refundGas RefundGas, address common.Address, value *big.Int) RefundGas {
+	if _, ok := refundGas[address]; ok {
+		refundGas[address].Add(refundGas[address], value)
+	} else {
+		refundGas[address] = value
+	}
+
+	return refundGas
+}
+
+func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo []string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {
+	scEventConfirmaions = append(scEventConfirmaions, SCConfirmation{
+		Hash:     hash,
+		Coinbase: txSender,
+		Number:   number,
+		LoopInfo: loopInfo,
+	})
+	refundHash[tx.Hash()] = RefundPair{txSender, tx.GasPrice()}
+	return scEventConfirmaions, refundHash
+}
+
+func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, hash common.Hash, signer common.Address, coinbase common.Address) []SCSetCoinbase {
+	scEventSetCoinbases = append(scEventSetCoinbases, SCSetCoinbase{
+		Hash:     hash,
+		Signer:   signer,
+		Coinbase: coinbase,
+	})
+	return scEventSetCoinbases
 }
 
 func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
+	// sample for add side chain proposal
+	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
+	// sample for declare
+	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:declare:hash:0x853e10706e6b9d39c5f4719018aa2417e8b852dec8ad18f9c592d526db64c725:decision:yes")})
 
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
 		ValidationLoopCnt:      defaultValidationLoopCnt,
-		ImplementNumber:        big.NewInt(1),
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
 		Candidate:              common.Address{},
+		SCHash:                 common.Hash{},
+		SCBlockCountPerPeriod:  1,
+		SCBlockRewardPerPeriod: 0,
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),
@@ -244,14 +457,22 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			} else {
 				proposal.ValidationLoopCnt = uint64(validationLoopCnt)
 			}
-		case "implement_number":
-			if implementNumber, err := strconv.Atoi(v); err != nil || implementNumber <= 0 {
+		case "schash":
+			proposal.SCHash.UnmarshalText([]byte(v))
+		case "sccount":
+			if scBlockCountPerPeriod, err := strconv.Atoi(v); err != nil {
 				return currentBlockProposals
 			} else {
-				proposal.ImplementNumber = big.NewInt(int64(implementNumber))
+				proposal.SCBlockCountPerPeriod = uint64(scBlockCountPerPeriod)
+			}
+		case "screward":
+			if scBlockRewardPerPeriod, err := strconv.Atoi(v); err != nil {
+				return currentBlockProposals
+			} else {
+				proposal.SCBlockRewardPerPeriod = uint64(scBlockRewardPerPeriod)
 			}
 		case "proposal_type":
-			if proposalType, err := strconv.Atoi(v); err != nil || (proposalType != proposalTypeCandidateAdd && proposalType != proposalTypeCandidateRemove && proposalType != proposalTypeMinerRewardDistributionModify) {
+			if proposalType, err := strconv.Atoi(v); err != nil || proposalType < proposalTypeCandidateAdd || proposalType > proposalTypeSideChainRemove {
 				return currentBlockProposals
 			} else {
 				proposal.ProposalType = uint64(proposalType)
@@ -317,39 +538,41 @@ func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB,
 	return currentBlockVotes
 }
 
-func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address) []Confirmation {
+func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address, refundHash RefundHash) ([]Confirmation, RefundHash) {
 	if len(txDataInfo) >= posEventConfirmNumber {
-		confirmedBlockNumber, err := strconv.Atoi(txDataInfo[posEventConfirmNumber])
-		if err != nil || number-uint64(confirmedBlockNumber) > a.config.MaxSignerCount || number-uint64(confirmedBlockNumber) < 0 {
-			return currentBlockConfirmations
+		confirmedBlockNumber := new(big.Int)
+		err := confirmedBlockNumber.UnmarshalText([]byte(txDataInfo[posEventConfirmNumber]))
+		if err != nil || number-confirmedBlockNumber.Uint64() > a.config.MaxSignerCount || number-confirmedBlockNumber.Uint64() < 0 {
+			return currentBlockConfirmations, refundHash
 		}
 		// check if the voter is in block
-		confirmedHeader := chain.GetHeaderByNumber(uint64(confirmedBlockNumber))
+		confirmedHeader := chain.GetHeaderByNumber(confirmedBlockNumber.Uint64())
 		if confirmedHeader == nil {
-			log.Info("Fail to get confirmedHeader")
-			return currentBlockConfirmations
+			//log.Info("Fail to get confirmedHeader")
+			return currentBlockConfirmations, refundHash
 		}
 		confirmedHeaderExtra := HeaderExtra{}
 		if extraVanity+extraSeal > len(confirmedHeader.Extra) {
-			return currentBlockConfirmations
+			return currentBlockConfirmations, refundHash
 		}
-		err = rlp.DecodeBytes(confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
+		err = decodeHeaderExtra(a.config, confirmedBlockNumber, confirmedHeader.Extra[extraVanity:len(confirmedHeader.Extra)-extraSeal], &confirmedHeaderExtra)
 		if err != nil {
 			log.Info("Fail to decode parent header", "err", err)
-			return currentBlockConfirmations
+			return currentBlockConfirmations, refundHash
 		}
 		for _, s := range confirmedHeaderExtra.SignerQueue {
 			if s == confirmer {
 				currentBlockConfirmations = append(currentBlockConfirmations, Confirmation{
 					Signer:      confirmer,
-					BlockNumber: big.NewInt(int64(confirmedBlockNumber)),
+					BlockNumber: new(big.Int).Set(confirmedBlockNumber),
 				})
+				refundHash[tx.Hash()] = RefundPair{confirmer, tx.GasPrice()}
 				break
 			}
 		}
 	}
 
-	return currentBlockConfirmations
+	return currentBlockConfirmations, refundHash
 }
 
 func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address, snap *Snapshot) []Vote {

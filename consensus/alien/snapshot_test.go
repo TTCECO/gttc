@@ -31,7 +31,6 @@ import (
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/params"
-	"github.com/TTCECO/gttc/rlp"
 )
 
 type testerTransaction struct {
@@ -896,6 +895,7 @@ func TestVoting(t *testing.T) {
 			MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
 			MaxSignerCount:  tt.maxSignerCount,
 			SelfVoteSigners: selfVoteSigners,
+			TrantorBlock:    big.NewInt(1),
 		}
 		params.AllAlienProtocolChanges.Alien = &alienConfig
 		alien := New(&alienConfig, db)
@@ -923,11 +923,13 @@ func TestVoting(t *testing.T) {
 						currentBlockProposals = append(currentBlockProposals, Proposal{
 							Hash:                   common.HexToHash(trans.txHash),
 							ValidationLoopCnt:      tt.vlCnt,
-							ImplementNumber:        big.NewInt(1),
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
 							Candidate:              accounts.address(trans.candidate),
 							MinerRewardPerThousand: minerRewardPerThousand,
+							SCHash:                 common.Hash{},
+							SCBlockCountPerPeriod:  1,
+							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
 						})
@@ -965,7 +967,9 @@ func TestVoting(t *testing.T) {
 
 			} else {
 				// decode parent header.extra
-				rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
+				//rlp.DecodeBytes(headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
+
+				decodeHeaderExtra(alien.config, headers[j-1].Number, headers[j-1].Extra[extraVanity:len(headers[j-1].Extra)-extraSeal], &currentHeaderExtra)
 				signer = currentHeaderExtra.SignerQueue[uint64(j)%tt.maxSignerCount]
 				// means header.Number % tt.maxSignerCount == 0
 				if (j+1)%int(tt.maxSignerCount) == 0 {
@@ -991,7 +995,9 @@ func TestVoting(t *testing.T) {
 			currentHeaderExtra.ModifyPredecessorVotes = modifyPredecessorVotes
 			currentHeaderExtra.CurrentBlockProposals = currentBlockProposals
 			currentHeaderExtra.CurrentBlockDeclares = currentBlockDeclares
-			currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
+			//currentHeaderExtraEnc, err := rlp.EncodeToBytes(currentHeaderExtra)
+			currentHeaderExtraEnc, err := encodeHeaderExtra(alien.config, big.NewInt(int64(j)+1), currentHeaderExtra)
+
 			if err != nil {
 				t.Errorf("test %d: failed to rlp encode to bytes: %v", i, err)
 				continue

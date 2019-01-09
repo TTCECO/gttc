@@ -116,26 +116,6 @@ var (
 		},
 	}
 
-	// UFOChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	UFOChainConfig = &ChainConfig{
-		ChainId:             big.NewInt(4),
-		HomesteadBlock:      big.NewInt(1),
-		EIP150Block:         big.NewInt(2),
-		EIP150Hash:          common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"),
-		EIP155Block:         big.NewInt(3),
-		EIP158Block:         big.NewInt(3),
-		ByzantiumBlock:      big.NewInt(1035301),
-		ConstantinopleBlock: nil,
-		Alien: &AlienConfig{
-			Period:           3,
-			Epoch:            30000,
-			MaxSignerCount:   21,
-			MinVoterBalance:  new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
-			GenesisTimestamp: 0,
-			SelfVoteSigners:  []common.Address{},
-		},
-	}
-
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
@@ -208,20 +188,33 @@ func (c *CliqueConfig) String() string {
 
 // AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
 type AlienConfig struct {
-	Period           uint64             `json:"period"`           // Number of seconds between blocks to enforce
-	Epoch            uint64             `json:"epoch"`            // Epoch length to reset votes and checkpoint
-	MaxSignerCount   uint64             `json:"maxSignersCount"`  // Max count of signers
-	MinVoterBalance  *big.Int           `json:"minVoterBalance"`  // Min voter balance to valid this vote
-	GenesisTimestamp uint64             `json:"genesisTimestamp"` // The LoopStartTime of first Block
-	SelfVoteSigners  []common.Address   `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
+	Period           uint64           `json:"period"`           // Number of seconds between blocks to enforce
+	Epoch            uint64           `json:"epoch"`            // Epoch length to reset votes and checkpoint
+	MaxSignerCount   uint64           `json:"maxSignersCount"`  // Max count of signers
+	MinVoterBalance  *big.Int         `json:"minVoterBalance"`  // Min voter balance to valid this vote
+	GenesisTimestamp uint64           `json:"genesisTimestamp"` // The LoopStartTime of first Block
+	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
+	SideChain        bool             // If side chain or not
 	BrowserDB        *tbdb.TTCBrowserDB // outside Database for blockchain browser
-	SideChain        bool               // If side chain or not
-	MCRPCClient      *rpc.Client        // Main chain rpc client for side chain
+	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
+
+	TrantorBlock  *big.Int `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
+	TerminusBlock *big.Int `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
 }
 
 // String implements the stringer interface, returning the consensus engine details.
-func (c *AlienConfig) String() string {
+func (a *AlienConfig) String() string {
 	return "alien"
+}
+
+// IsTrantor returns whether num is either equal to the Trantor block or greater.
+func (a *AlienConfig) IsTrantor(num *big.Int) bool {
+	return isForked(a.TrantorBlock, num)
+}
+
+// IsTerminus returns whether num is either equal to the Terminus block or greater.
+func (a *AlienConfig) IsTerminus(num *big.Int) bool {
+	return isForked(a.TerminusBlock, num)
 }
 
 // String implements the fmt.Stringer interface.
