@@ -506,8 +506,8 @@ func (self *worker) commitNewWork() {
 	}
 	self.push(work)
 	self.updateSnapshot()
-        // todo: add params into gttc, to decide if or not send this tx
-	if self.config.Alien != nil && !self.config.Alien.SideChain {
+	// todo: add params into gttc, to decide if or not send this tx
+	if self.config.Alien != nil && self.config.Alien.PBFTEnable {
 		err = self.sendConfirmTx(parent.Number())
 		if err != nil {
 			log.Info("Fail to Sign the transaction by coinbase", "err", err)

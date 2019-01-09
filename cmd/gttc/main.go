@@ -143,6 +143,10 @@ var (
 		utils.WhisperMinPOWFlag,
 	}
 
+	pbftFlags = []cli.Flag{
+		utils.PBFTEnableFlag,
+	}
+
 	scaFlags = []cli.Flag{
 		utils.SCAEnableFlag,
 		utils.SCAMainRPCAddrFlag,
@@ -191,6 +195,7 @@ func init() {
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, whisperFlags...)
+	app.Flags = append(app.Flags, pbftFlags...)
 	app.Flags = append(app.Flags, scaFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
@@ -317,6 +322,10 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		if err := stack.Service(&ethereum); err != nil {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
+		if ethereum.BlockChain().Config().Alien != nil {
+			ethereum.BlockChain().Config().Alien.PBFTEnable = ctx.GlobalBool(utils.PBFTEnableFlag.Name)
+		}
+
 		// Use a reduced number of threads if requested
 		if threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name); threads > 0 {
 			type threaded interface {

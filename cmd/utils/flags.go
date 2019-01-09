@@ -534,6 +534,12 @@ var (
 		Value: whisper.DefaultMinimumPoW,
 	}
 
+	// PBFT settings
+	PBFTEnableFlag = cli.BoolFlag{
+		Name: "pbft",
+		Usage: "PBFT miner coinbase send confirm transaction",
+	}
+
 	// Data side chain settings
 	SCAEnableFlag = cli.BoolFlag{
 		Name:  "sca",
