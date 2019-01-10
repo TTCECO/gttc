@@ -90,6 +90,9 @@ func New(ctx *node.ServiceContext, config *eth.Config) (*LightEthereum, error) {
 		return nil, genesisErr
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
+	if chainConfig.Alien != nil {
+		log.Info("Initialised alien configuration", "config", *chainConfig.Alien)
+	}
 
 	peers := newPeerSet()
 	quitSync := make(chan struct{})

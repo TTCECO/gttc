@@ -118,7 +118,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		return nil, genesisErr
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
-
+	if chainConfig.Alien != nil {
+		log.Info("Initialised alien configuration", "config", *chainConfig.Alien)
+	}
 	eth := &Ethereum{
 		config:         config,
 		chainDb:        chainDb,
