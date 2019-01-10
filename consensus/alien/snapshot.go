@@ -860,10 +860,20 @@ func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *bi
 func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
 	rewards := make(map[common.Address]*big.Int)
 	allStake := big.NewInt(0)
-	for voter, vote := range s.Votes {
-		if vote.Candidate.Str() == coinbase.Str() {
-			allStake.Add(allStake, vote.Stake)
-			rewards[voter] = new(big.Int).Set(vote.Stake)
+
+	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
+		for voter, vote := range s.Votes {
+			if vote.Candidate.Str() == coinbase.Str() && s.Voters[vote.Voter].Uint64() < s.Number-s.config.MaxSignerCount {
+				allStake.Add(allStake, vote.Stake)
+				rewards[voter] = new(big.Int).Set(vote.Stake)
+			}
+		}
+	} else {
+		for voter, vote := range s.Votes {
+			if vote.Candidate.Str() == coinbase.Str() {
+				allStake.Add(allStake, vote.Stake)
+				rewards[voter] = new(big.Int).Set(vote.Stake)
+			}
 		}
 	}
 	for _, stake := range rewards {
