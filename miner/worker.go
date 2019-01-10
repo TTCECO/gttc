@@ -261,10 +261,15 @@ func (self *worker) update() {
 
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
-			self.uncleMu.Lock()
-			self.possibleUncles[ev.Block.Hash()] = ev.Block
-			self.uncleMu.Unlock()
-
+			if self.config.Alien != nil {
+				// uncle block useless in Alien consensus
+			} else if self.config.Clique != nil {
+				// uncle block useless in Clique consensus
+			} else {
+				self.uncleMu.Lock()
+				self.possibleUncles[ev.Block.Hash()] = ev.Block
+				self.uncleMu.Unlock()
+			}
 		// Handle NewTxsEvent
 		case ev := <-self.txsCh:
 			// Apply transactions to the pending state if we're not mining.
