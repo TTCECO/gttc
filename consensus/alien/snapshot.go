@@ -439,7 +439,7 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, h
 	}
 }
 
-func (s *Snapshot) calculateConfirmedNumber(record *SCRecord, minConfirmedSignerCount int) (uint64, map[uint64]common.Address) {
+func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSignerCount int) (uint64, map[uint64]common.Address) {
 	// todo : add params scHash, so can check if the address in SCRecord is belong to this side chain
 
 	confirmedNumber := record.LastConfirmedNumber
@@ -509,7 +509,7 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 		if _, ok := s.SCAllReward[scHash][headerNumber.Uint64()]; !ok {
 			s.SCAllReward[scHash][headerNumber.Uint64()] = make(map[common.Address]uint64)
 		}
-		confirmedNumber, confirmedCoinbase := s.calculateConfirmedNumber(record, minConfirmedSignerCount)
+		confirmedNumber, confirmedCoinbase := s.calculateSCConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
 			// todo: map coinbase of side chain to coin base of main chain here
 			lastSCCoinbase := common.Address{}
