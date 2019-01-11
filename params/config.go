@@ -194,9 +194,10 @@ type AlienConfig struct {
 	MinVoterBalance  *big.Int         `json:"minVoterBalance"`  // Min voter balance to valid this vote
 	GenesisTimestamp uint64           `json:"genesisTimestamp"` // The LoopStartTime of first Block
 	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
-	SideChain        bool             // If side chain or not
+	SideChain        bool             `json:"sideChain"`        // If side chain or not
 	BrowserDB        *tbdb.TTCBrowserDB // outside Database for blockchain browser
 	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
+	PBFTEnable       bool             `json:"pbft"` //
 
 	TrantorBlock  *big.Int `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
 	TerminusBlock *big.Int `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)

@@ -577,6 +577,11 @@ var (
 		Usage: "Enable browser web port",
 		Value: 80,
 	}
+	// PBFT settings
+	PBFTEnableFlag = cli.BoolFlag{
+		Name: "pbft",
+		Usage: "PBFT miner coinbase send confirm transaction",
+	}
 	// Data side chain settings
 	SCAEnableFlag = cli.BoolFlag{
 		Name:  "sca",

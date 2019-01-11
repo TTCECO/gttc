@@ -216,6 +216,10 @@ var AppHelpFlagGroups = []flagGroup{
 		Flags: whisperFlags,
 	},
 	{
+		Name:  "PBFT",
+		Flags: pbftFlags,
+	},
+	{
 		Name:  "SIDE CHAIN FOR APP",
 		Flags: scaFlags,
 	},

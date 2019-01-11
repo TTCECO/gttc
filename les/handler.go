@@ -457,7 +457,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				// Hash based traversal towards the leaf block
 				var (
 					current = origin.Number.Uint64()
-					next = current + query.Skip + 1
+					next    = current + query.Skip + 1
 				)
 				if next <= current {
 					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")

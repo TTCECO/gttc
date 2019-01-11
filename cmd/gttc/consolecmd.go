@@ -38,7 +38,7 @@ var (
 		Action:   utils.MigrateFlags(localConsole),
 		Name:     "console",
 		Usage:    "Start an interactive JavaScript environment",
-		Flags:    append(append(append(append(nodeFlags, rpcFlags...), consoleFlags...), whisperFlags...), scaFlags...),
+		Flags:    append(append(append(append(append(nodeFlags, rpcFlags...), consoleFlags...), whisperFlags...), pbftFlags...), scaFlags...),
 		Category: "CONSOLE COMMANDS",
 		Description: `
 The Geth console is an interactive shell for the JavaScript runtime environment

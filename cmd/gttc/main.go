@@ -157,6 +157,10 @@ var (
 		utils.BrowserWebEnabledFlag,
 		utils.BrowserWebPortFlag,
 	}
+	pbftFlags = []cli.Flag{
+		utils.PBFTEnableFlag,
+	}
+
 	scaFlags = []cli.Flag{
 		utils.SCAEnableFlag,
 		utils.SCAMainRPCAddrFlag,
@@ -206,6 +210,8 @@ func init() {
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, whisperFlags...)
 	app.Flags = append(app.Flags, browserFlags...)
+	app.Flags = append(app.Flags, pbftFlags...)
+	app.Flags = append(app.Flags, scaFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())
