@@ -185,15 +185,13 @@ func (c *CliqueConfig) String() string {
 	return "clique"
 }
 
-// AlienSelfVote self vote for light node
-type AlienSelfVote struct {
-	Signer common.Address `json:"signer"`
-	Stake  string         `json:"stake"`
+type GenesisAccount struct {
+	Balance string `json:"balance"`
 }
 
 // AlienLightConfig is the config for light node of alien
 type AlienLightConfig struct {
-	SelfVotes []AlienSelfVote `json:"selfVotes"`
+	Alloc map[common.UnprefixedAddress]GenesisAccount `json:"alloc"`
 }
 
 // AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
@@ -210,7 +208,7 @@ type AlienConfig struct {
 
 	TrantorBlock  *big.Int          `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
 	TerminusBlock *big.Int          `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
-	LightConfig   *AlienLightConfig `json:"lightConfig"`
+	LightConfig   *AlienLightConfig `json:"lightConfig",omitempty`
 }
 
 // String implements the stringer interface, returning the consensus engine details.

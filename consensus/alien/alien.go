@@ -790,16 +790,18 @@ func (a *Alien) ApplyGenesis(chain consensus.ChainReader, genesisHash common.Has
 	if a.config.LightConfig != nil {
 		var genesisVotes []*Vote
 		alreadyVote := make(map[common.Address]struct{})
-		for _, selfVote := range a.config.LightConfig.SelfVotes {
-			stake := big.NewInt(0)
-			stake.UnmarshalText([]byte(selfVote.Stake))
-			if _, ok := alreadyVote[selfVote.Signer]; !ok {
-				genesisVotes = append(genesisVotes, &Vote{
-					Voter:     selfVote.Signer,
-					Candidate: selfVote.Signer,
-					Stake:     stake,
-				})
-				alreadyVote[selfVote.Signer] = struct{}{}
+		for _, voter := range a.config.SelfVoteSigners {
+			if genesisAccount, ok := a.config.LightConfig.Alloc[common.UnprefixedAddress(voter)]; ok {
+				if _, ok := alreadyVote[voter]; !ok {
+					stake := new(big.Int)
+					stake.UnmarshalText([]byte(genesisAccount.Balance))
+					genesisVotes = append(genesisVotes, &Vote{
+						Voter:     voter,
+						Candidate: voter,
+						Stake:     stake,
+					})
+					alreadyVote[voter] = struct{}{}
+				}
 			}
 		}
 		// Assemble the voting snapshot to check which votes make sense
