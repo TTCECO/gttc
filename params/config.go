@@ -208,7 +208,7 @@ type AlienConfig struct {
 
 	TrantorBlock  *big.Int          `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
 	TerminusBlock *big.Int          `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
-	LightConfig   *AlienLightConfig `json:"lightConfig",omitempty`
+	LightConfig   *AlienLightConfig `json:"lightConfig,omitempty"`
 }
 
 // String implements the stringer interface, returning the consensus engine details.
