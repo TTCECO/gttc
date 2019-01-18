@@ -185,6 +185,17 @@ func (c *CliqueConfig) String() string {
 	return "clique"
 }
 
+// AlienSelfVote self vote for light node
+type AlienSelfVote struct {
+	Signer common.Address `json:"signer"`
+	Stake  string         `json:"stake"`
+}
+
+// AlienLightConfig is the config for light node of alien
+type AlienLightConfig struct {
+	SelfVotes []AlienSelfVote `json:"selfVotes"`
+}
+
 // AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
 type AlienConfig struct {
 	Period           uint64           `json:"period"`           // Number of seconds between blocks to enforce
@@ -197,9 +208,9 @@ type AlienConfig struct {
 	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
 	PBFTEnable       bool             `json:"pbft"` //
 
-	TrantorBlock  *big.Int `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
-	TerminusBlock *big.Int `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
-
+	TrantorBlock  *big.Int          `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
+	TerminusBlock *big.Int          `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
+	LightConfig   *AlienLightConfig `json:"lightConfig"`
 }
 
 // String implements the stringer interface, returning the consensus engine details.

@@ -130,6 +130,9 @@ var (
 
 	// errInvalidNeighborSigner is returned if two neighbor block signed by same miner and time diff less period
 	errInvalidNeighborSigner = errors.New("invalid neighbor signer")
+
+	// errMissingGenesisLightConfig is returned only in light syncmode if light config missing
+	errMissingGenesisLightConfig = errors.New("light config in genesis is missing")
 )
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -780,6 +783,32 @@ func (a *Alien) Authorize(signer common.Address, signFn SignerFn, signTxFn SignT
 	a.signer = signer
 	a.signFn = signFn
 	a.signTxFn = signTxFn
+}
+
+// ApplyGenesis
+func (a *Alien) ApplyGenesis(chain consensus.ChainReader, genesisHash common.Hash) error {
+	if a.config.LightConfig != nil {
+		var genesisVotes []*Vote
+		alreadyVote := make(map[common.Address]struct{})
+		for _, selfVote := range a.config.LightConfig.SelfVotes {
+			stake := big.NewInt(0)
+			stake.UnmarshalText([]byte(selfVote.Stake))
+			if _, ok := alreadyVote[selfVote.Signer]; !ok {
+				genesisVotes = append(genesisVotes, &Vote{
+					Voter:     selfVote.Signer,
+					Candidate: selfVote.Signer,
+					Stake:     stake,
+				})
+				alreadyVote[selfVote.Signer] = struct{}{}
+			}
+		}
+		// Assemble the voting snapshot to check which votes make sense
+		if _, err := a.snapshot(chain, 0, genesisHash, nil, genesisVotes, defaultLoopCntRecalculateSigners); err != nil {
+			return err
+		}
+		return nil
+	}
+	return errMissingGenesisLightConfig
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
