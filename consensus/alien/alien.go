@@ -726,8 +726,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		// write signerQueue in first header, from self vote signers in genesis block
 		if number == 1 {
 			currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
-			for i := 0; i < int(a.config.MaxSignerCount); i++ {
-				currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+			if len(a.config.SelfVoteSigners) > 0 {
+				for i := 0; i < int(a.config.MaxSignerCount); i++ {
+					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+				}
+
 			}
 		}
 

@@ -146,8 +146,10 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		snap.Candidates[vote.Voter] = candidateStateNormal
 	}
 
-	for i := 0; i < int(config.MaxSignerCount); i++ {
-		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
+	if len(config.SelfVoteSigners) > 0 {
+		for i := 0; i < int(config.MaxSignerCount); i++ {
+			snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
+		}
 	}
 
 	return snap
