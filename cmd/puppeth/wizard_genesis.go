@@ -105,6 +105,7 @@ func (w *wizard) makeGenesis() {
 		genesis.Config.Alien = &params.AlienConfig{
 			Period:           3,
 			Epoch:            30000,
+			TrantorBlock:     new(big.Int).Add(big.NewInt(1), genesis.Config.ByzantiumBlock),
 			MaxSignerCount:   21,
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
 			GenesisTimestamp: uint64(time.Now().Unix()) + (60 * 5), // Add five minutes

@@ -19,6 +19,7 @@ package light
 import (
 	"context"
 	"errors"
+	"github.com/TTCECO/gttc/consensus/alien"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -93,6 +94,9 @@ func NewLightChain(odr OdrBackend, config *params.ChainConfig, engine consensus.
 	bc.hc, err = core.NewHeaderChain(odr.Database(), config, bc.engine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
+	}
+	if alien, ok := bc.hc.Engine().(*alien.Alien); ok {
+		alien.ApplyGenesis(bc.hc, bc.hc.CurrentHeader().Root)
 	}
 	bc.genesisBlock, _ = bc.GetBlockByNumber(NoOdr, 0)
 	if bc.genesisBlock == nil {

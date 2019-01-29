@@ -132,6 +132,9 @@ var (
 
 	// errInvalidNeighborSigner is returned if two neighbor block signed by same miner and time diff less period
 	errInvalidNeighborSigner = errors.New("invalid neighbor signer")
+
+	// errMissingGenesisLightConfig is returned only in light syncmode if light config missing
+	errMissingGenesisLightConfig = errors.New("light config in genesis is missing")
 )
 
 // TxRecord is the record of one transaction. The data save into MongoDB for browser
@@ -848,6 +851,34 @@ func (a *Alien) Authorize(signer common.Address, signFn SignerFn, signTxFn SignT
 	a.signer = signer
 	a.signFn = signFn
 	a.signTxFn = signTxFn
+}
+
+// ApplyGenesis
+func (a *Alien) ApplyGenesis(chain consensus.ChainReader, genesisHash common.Hash) error {
+	if a.config.LightConfig != nil {
+		var genesisVotes []*Vote
+		alreadyVote := make(map[common.Address]struct{})
+		for _, voter := range a.config.SelfVoteSigners {
+			if genesisAccount, ok := a.config.LightConfig.Alloc[common.UnprefixedAddress(voter)]; ok {
+				if _, ok := alreadyVote[voter]; !ok {
+					stake := new(big.Int)
+					stake.UnmarshalText([]byte(genesisAccount.Balance))
+					genesisVotes = append(genesisVotes, &Vote{
+						Voter:     voter,
+						Candidate: voter,
+						Stake:     stake,
+					})
+					alreadyVote[voter] = struct{}{}
+				}
+			}
+		}
+		// Assemble the voting snapshot to check which votes make sense
+		if _, err := a.snapshot(chain, 0, genesisHash, nil, genesisVotes, defaultLoopCntRecalculateSigners); err != nil {
+			return err
+		}
+		return nil
+	}
+	return errMissingGenesisLightConfig
 }
 
 // Seal implements consensus.Engine, attempting to create a sealed block using
