@@ -577,15 +577,18 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 					}
 				}
 				txRecord := TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
-					from.Hex(), txTo,
+					strings.ToLower(from.Hex()), strings.ToLower(txTo),
 					tx.Value().String(), txData,
 					tx.Gas(), tx.GasPrice().String(), txCategory}
 
 				txsData = append(txsData, &txRecord)
 			}
-			err := chain.Config().Alien.BrowserDB.MongoSave("txs", txsData...)
-			if err != nil {
-				log.Info("save transaction into mongodb fail ", "error", err)
+			if len(txsData) > 0 {
+
+				err := chain.Config().Alien.BrowserDB.MongoSave("txs", txsData...)
+				if err != nil {
+					log.Info("save transaction into mongodb fail ", "error", err)
+				}
 			}
 		}
 	}
