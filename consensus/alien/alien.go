@@ -564,6 +564,12 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 				if len(txDataInfo) > ufoMinSplitLen {
 					if txDataInfo[posCategory] == ufoCategoryLog {
 						txCategory = 5
+					} else if txDataInfo[posCategory] == ufoCategorySC {
+						if txDataInfo[posEventConfirm] == ufoEventConfirm {
+							txCategory = 6
+						} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase {
+							txCategory = 7
+						}
 					} else if txDataInfo[posCategory] == ufoCategoryEvent {
 						if txDataInfo[posEventVote] == ufoEventVote {
 							txCategory = 1
