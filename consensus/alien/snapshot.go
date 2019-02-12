@@ -792,16 +792,14 @@ func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, heade
 
 // inturn returns if a signer at a given block height is in-turn or not.
 func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
-
 	// if all node stop more than period of one loop
-	loopIndex := int((headerTime-s.LoopStartTime)/s.config.Period) % len(s.Signers)
-	if loopIndex >= len(s.Signers) {
-		return false
-	} else if *s.Signers[loopIndex] != signer {
-		return false
-
+	if signersCount := len(s.Signers); signersCount > 0 {
+		if loopIndex := ((headerTime - s.LoopStartTime) / s.config.Period) % uint64(signersCount); *s.Signers[loopIndex] == signer {
+			return true
+		}
 	}
-	return true
+	return false
+
 }
 
 // check if address belong to voter
