@@ -488,6 +488,19 @@ func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSign
 		}
 	}
 
+	// for calculate side chain reward
+	// if the side chain count per period is more than one
+	// then the reward should calculate continue till one coinbase finished.
+	if record.CountPerPeriod > 1 && confirmedNumber > record.LastConfirmedNumber {
+		if lastConfirmedCoinbase, ok := confirmedCoinbase[confirmedNumber]; ok {
+			for i := confirmedNumber - 1; i > confirmedNumber-record.CountPerPeriod; i-- {
+				if lastConfirmedCoinbase != confirmedCoinbase[i] {
+					confirmedNumber = i
+				}
+			}
+		}
+	}
+
 	return confirmedNumber, confirmedCoinbase
 }
 
