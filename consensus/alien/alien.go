@@ -926,8 +926,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 			minerReward.Sub(minerReward, gas)
 		}
 	}
-	// rewards for the miner
-	state.AddBalance(header.Coinbase, minerReward)
+
+	// rewards for the miner, check minerReward value for refund gas
+	if minerReward.Cmp(big.NewInt(0)) > 0 {
+		state.AddBalance(header.Coinbase, minerReward)
+	}
 
 }
 

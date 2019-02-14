@@ -903,8 +903,8 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) map[common.Address]*b
 				// check confirm is exist, to get countPerPeriod and rewardPerPeriod
 				if confirmation, ok := s.SCConfirmation[scHash]; ok {
 					// calculate the side chain reward base on RewardPerPeriod(/100) and record.RewardPerPeriod
-					for addr, scre := range reward {
-						singleReward := new(big.Int).SetUint64(scre * confirmation.RewardPerPeriod)
+					for addr, score := range reward {
+						singleReward := new(big.Int).SetUint64(score * confirmation.RewardPerPeriod)
 						singleReward.Div(singleReward, scRewardSum)
 						singleReward.Mul(singleReward, minerReward)
 						if _, ok := rewards[addr]; ok {
