@@ -496,6 +496,12 @@ func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSign
 			for i := confirmedNumber - 1; i > confirmedNumber-record.CountPerPeriod; i-- {
 				if lastConfirmedCoinbase != confirmedCoinbase[i] {
 					confirmedNumber = i
+					break
+				}
+			}
+			for i := confirmedNumber + 1; i < confirmedNumber+record.CountPerPeriod; i++ {
+				if _, ok = confirmedCoinbase[i]; ok {
+					delete(confirmedCoinbase, i)
 				}
 			}
 		}
