@@ -902,7 +902,6 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
-
 	minerReward := new(big.Int).Set(blockReward)
 	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
 	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
@@ -915,7 +914,8 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	}
 
 	if config.Alien.IsTrantor(header.Number) {
-		scReward, minerReward := snap.calculateSCReward(minerReward)
+		scReward, minerLeft := snap.calculateSCReward(minerReward)
+		minerReward.Set(minerLeft)
 		// rewards for the side chain coinbase
 		for scCoinbase, reward := range scReward {
 			state.AddBalance(scCoinbase, reward)
