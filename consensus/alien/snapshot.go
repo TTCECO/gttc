@@ -475,8 +475,8 @@ func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSign
 		}
 	}
 
-	for info, count := range confirmedRecordMap {
-		if len(count) >= minConfirmedSignerCount {
+	for info, confirm := range confirmedRecordMap {
+		if len(confirm) >= minConfirmedSignerCount {
 			infos := strings.Split(info, sep)
 			for i := 0; i+1 < len(infos); i += 2 {
 				err := tmpHeaderNum.UnmarshalText([]byte(infos[i]))
