@@ -915,10 +915,10 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	}
 
 	if config.Alien.IsTrantor(header.Number) {
+		scReward, minerReward := snap.calculateSCReward(minerReward)
 		// rewards for the side chain coinbase
-		for scCoinbase, reward := range snap.calculateSCReward(minerReward) {
+		for scCoinbase, reward := range scReward {
 			state.AddBalance(scCoinbase, reward)
-			minerReward.Sub(minerReward, reward)
 		}
 		// refund gas for custom txs
 		for sender, gas := range refundGas {
