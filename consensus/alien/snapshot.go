@@ -906,11 +906,12 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*
 			if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
 				// check confirm is exist, to get countPerPeriod and rewardPerPeriod
 				if confirmation, ok := s.SCConfirmation[scHash]; ok {
-					// calculate the side chain reward base on RewardPerPeriod(/100) and record.RewardPerPeriod
+					// calculate the side chain reward base on score/100 and record.RewardPerPeriod
 					for addr, score := range reward {
 						singleReward := new(big.Int).SetUint64(score * confirmation.RewardPerPeriod)
-						singleReward.Div(singleReward, scRewardSum)
 						singleReward.Mul(singleReward, minerReward)
+						singleReward.Div(singleReward, new(big.Int).SetUint64(100)) // for score/100
+						singleReward.Div(singleReward, scRewardSum)                 // for record.RewardPerPeriod/ 1000
 						if _, ok := rewards[addr]; ok {
 							rewards[addr].Add(rewards[addr], singleReward)
 						} else {
