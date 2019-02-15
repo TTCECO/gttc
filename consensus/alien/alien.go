@@ -162,9 +162,9 @@ type SignTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Trans
 // Note, the method requires the extra data to be at least 65 bytes, otherwise it
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
-func sigHash(header *types.Header) (hash common.Hash) {
+func sigHash(header *types.Header) (hash common.Hash, err error) {
 	hasher := sha3.NewKeccak256()
-	rlp.Encode(hasher, []interface{}{
+	if err := rlp.Encode(hasher, []interface{}{
 		header.ParentHash,
 		header.UncleHash,
 		header.Coinbase,
@@ -180,9 +180,12 @@ func sigHash(header *types.Header) (hash common.Hash) {
 		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
 		header.MixDigest,
 		header.Nonce,
-	})
+	}); err != nil {
+		return common.Hash{}, err
+	}
+
 	hasher.Sum(hash[:0])
-	return hash
+	return hash, nil
 }
 
 // ecrecover extracts the Ethereum account address from a signed header.
@@ -199,7 +202,11 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address
-	pubkey, err := crypto.Ecrecover(sigHash(header).Bytes(), signature)
+	headerSigHash, err := sigHash(header)
+	if err != nil {
+		return common.Address{}, err
+	}
+	pubkey, err := crypto.Ecrecover(headerSigHash.Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -867,7 +874,12 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	}
 
 	// Sign all the things!
-	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+	headerSigHash, err := sigHash(header)
+	if err != nil {
+		return nil, err
+	}
+
+	sighash, err := signFn(accounts.Account{Address: signer}, headerSigHash.Bytes())
 	if err != nil {
 		return nil, err
 	}
