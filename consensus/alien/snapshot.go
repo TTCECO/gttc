@@ -653,6 +653,9 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 					if _, ok := s.SCConfirmation[proposal.SCHash]; ok {
 						delete(s.SCConfirmation, proposal.SCHash)
 					}
+				case proposalTypeMinVoterBalanceModify:
+					minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
+
 				}
 			} else {
 				// reach the target header number, but not success

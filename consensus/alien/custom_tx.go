@@ -66,6 +66,7 @@ const (
 	proposalTypeMinerRewardDistributionModify = 3 // count in one thousand
 	proposalTypeSideChainAdd                  = 4
 	proposalTypeSideChainRemove               = 5
+	proposalTypeMinVoterBalanceModify         = 6
 
 	/*
 	 * proposal related
@@ -122,8 +123,9 @@ type Proposal struct {
 	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
 	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0
 	// SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
-	Declares       []*Declare // Declare this proposal received (always empty in block header)
-	ReceivedNumber *big.Int   // block number of proposal received
+	Declares        []*Declare // Declare this proposal received (always empty in block header)
+	ReceivedNumber  *big.Int   // block number of proposal received
+	MinVoterBalance uint64     // value of minVoterBalance , need to mul big.Int(1e+18)
 }
 
 func (p *Proposal) copy() *Proposal {
@@ -139,6 +141,7 @@ func (p *Proposal) copy() *Proposal {
 		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
+		MinVoterBalance:        p.MinVoterBalance,
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -445,6 +448,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),
+		MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -486,6 +490,13 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 				return currentBlockProposals
 			} else {
 				proposal.MinerRewardPerThousand = uint64(mrpt)
+			}
+		case "mvb":
+			// minVoterBalance
+			if mvb, err := strconv.Atoi(v); err != nil || mvb <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.MinVoterBalance = uint64(mvb)
 			}
 
 		}

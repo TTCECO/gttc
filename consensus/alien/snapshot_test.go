@@ -930,6 +930,7 @@ func TestVoting(t *testing.T) {
 							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
+							MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 						})
 					}
 				} else if trans.isDeclare {
