@@ -53,10 +53,10 @@ const (
 // Alien delegated-proof-of-stake protocol constants.
 var (
 	SignerBlockReward                = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
-	defaultEpochLength               = uint64(3000000)   // Default number of blocks after which vote's period of validity
+	defaultEpochLength               = uint64(201600)    // Default number of blocks after which vote's period of validity, About one week if period is 3
 	defaultBlockPeriod               = uint64(3)         // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount            = uint64(21)        //
-	defaultMinVoterBalance           = new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e+18))
+	minVoterBalance                  = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18))
 	extraVanity                      = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal                        = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
 	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
@@ -177,9 +177,9 @@ type SignTxFn func(accounts.Account, *types.Transaction, *big.Int) (*types.Trans
 // Note, the method requires the extra data to be at least 65 bytes, otherwise it
 // panics. This is done to avoid accidentally using both forms (signature present
 // or not), which could be abused to produce different hashes for the same header.
-func sigHash(header *types.Header) (hash common.Hash) {
+func sigHash(header *types.Header) (hash common.Hash, err error) {
 	hasher := sha3.NewKeccak256()
-	rlp.Encode(hasher, []interface{}{
+	if err := rlp.Encode(hasher, []interface{}{
 		header.ParentHash,
 		header.UncleHash,
 		header.Coinbase,
@@ -195,9 +195,12 @@ func sigHash(header *types.Header) (hash common.Hash) {
 		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
 		header.MixDigest,
 		header.Nonce,
-	})
+	}); err != nil {
+		return common.Hash{}, err
+	}
+
 	hasher.Sum(hash[:0])
-	return hash
+	return hash, nil
 }
 
 // ecrecover extracts the Ethereum account address from a signed header.
@@ -214,7 +217,11 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address
-	pubkey, err := crypto.Ecrecover(sigHash(header).Bytes(), signature)
+	headerSigHash, err := sigHash(header)
+	if err != nil {
+		return common.Address{}, err
+	}
+	pubkey, err := crypto.Ecrecover(headerSigHash.Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -239,8 +246,8 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	if conf.MaxSignerCount == 0 {
 		conf.MaxSignerCount = defaultMaxSignerCount
 	}
-	if conf.MinVoterBalance.Uint64() == 0 {
-		conf.MinVoterBalance = defaultMinVoterBalance
+	if conf.MinVoterBalance.Uint64() > 0 {
+		minVoterBalance = conf.MinVoterBalance
 	}
 
 	// Allocate the snapshot caches and create the engine
@@ -803,8 +810,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		// write signerQueue in first header, from self vote signers in genesis block
 		if number == 1 {
 			currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
-			for i := 0; i < int(a.config.MaxSignerCount); i++ {
-				currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+			if len(a.config.SelfVoteSigners) > 0 {
+				for i := 0; i < int(a.config.MaxSignerCount); i++ {
+					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+				}
+
 			}
 		}
 
@@ -941,7 +951,12 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 	}
 
 	// Sign all the things!
-	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+	headerSigHash, err := sigHash(header)
+	if err != nil {
+		return nil, err
+	}
+
+	sighash, err := signFn(accounts.Account{Address: signer}, headerSigHash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -976,7 +991,6 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(SignerBlockReward, uint(yearCount))
-
 	minerReward := new(big.Int).Set(blockReward)
 	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
 	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
@@ -989,10 +1003,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	}
 
 	if config.Alien.IsTrantor(header.Number) {
+		scReward, minerLeft := snap.calculateSCReward(minerReward)
+		minerReward.Set(minerLeft)
 		// rewards for the side chain coinbase
-		for scCoinbase, reward := range snap.calculateSCReward(minerReward) {
+		for scCoinbase, reward := range scReward {
 			state.AddBalance(scCoinbase, reward)
-			minerReward.Sub(minerReward, reward)
 		}
 		// refund gas for custom txs
 		for sender, gas := range refundGas {
@@ -1000,8 +1015,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 			minerReward.Sub(minerReward, gas)
 		}
 	}
-	// rewards for the miner
-	state.AddBalance(header.Coinbase, minerReward)
+
+	// rewards for the miner, check minerReward value for refund gas
+	if minerReward.Cmp(big.NewInt(0)) > 0 {
+		state.AddBalance(header.Coinbase, minerReward)
+	}
 
 }
 

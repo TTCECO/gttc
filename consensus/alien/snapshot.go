@@ -147,8 +147,10 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		snap.Candidates[vote.Voter] = candidateStateNormal
 	}
 
-	for i := 0; i < int(config.MaxSignerCount); i++ {
-		snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
+	if len(config.SelfVoteSigners) > 0 {
+		for i := 0; i < int(config.MaxSignerCount); i++ {
+			snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
+		}
 	}
 
 	return snap
@@ -551,8 +553,8 @@ func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSign
 		}
 	}
 
-	for info, count := range confirmedRecordMap {
-		if len(count) >= minConfirmedSignerCount {
+	for info, confirm := range confirmedRecordMap {
+		if len(confirm) >= minConfirmedSignerCount {
 			infos := strings.Split(info, sep)
 			for i := 0; i+1 < len(infos); i += 2 {
 				err := tmpHeaderNum.UnmarshalText([]byte(infos[i]))
@@ -560,6 +562,25 @@ func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSign
 					continue
 				}
 				confirmedCoinbase[tmpHeaderNum.Uint64()] = common.HexToAddress(infos[i+1])
+			}
+		}
+	}
+
+	// for calculate side chain reward
+	// if the side chain count per period is more than one
+	// then the reward should calculate continue till one coinbase finished.
+	if record.CountPerPeriod > 1 && confirmedNumber > record.LastConfirmedNumber {
+		if lastConfirmedCoinbase, ok := confirmedCoinbase[confirmedNumber]; ok {
+			for i := confirmedNumber - 1; i > confirmedNumber-record.CountPerPeriod; i-- {
+				if lastConfirmedCoinbase != confirmedCoinbase[i] {
+					confirmedNumber = i
+					break
+				}
+			}
+			for i := confirmedNumber + 1; i < confirmedNumber+record.CountPerPeriod; i++ {
+				if _, ok = confirmedCoinbase[i]; ok {
+					delete(confirmedCoinbase, i)
+				}
 			}
 		}
 	}
@@ -710,6 +731,11 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 					if _, ok := s.SCConfirmation[proposal.SCHash]; ok {
 						delete(s.SCConfirmation, proposal.SCHash)
 					}
+				case proposalTypeMinVoterBalanceModify:
+					minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
+				default:
+					// delete unknown proposal type
+					delete(s.Proposals, hashKey)
 				}
 			} else {
 				// reach the target header number, but not success
@@ -868,16 +894,14 @@ func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, heade
 
 // inturn returns if a signer at a given block height is in-turn or not.
 func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
-
 	// if all node stop more than period of one loop
-	loopIndex := int((headerTime-s.LoopStartTime)/s.config.Period) % len(s.Signers)
-	if loopIndex >= len(s.Signers) {
-		return false
-	} else if *s.Signers[loopIndex] != signer {
-		return false
-
+	if signersCount := len(s.Signers); signersCount > 0 {
+		if loopIndex := ((headerTime - s.LoopStartTime) / s.config.Period) % uint64(signersCount); *s.Signers[loopIndex] == signer {
+			return true
+		}
 	}
-	return true
+	return false
+
 }
 
 // check if address belong to voter
@@ -962,16 +986,20 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 	return rewards
 }
 
-func (s *Snapshot) calculateSCReward(minerReward *big.Int) map[common.Address]*big.Int {
+func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*big.Int, *big.Int) {
 	// rewards for side chain
 	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
 		// need to deal with sum of record.RewardPerPeriod for all side chain is larger than 100% situation
 		scRewardSum := big.NewInt(0)
+		minerLeft := big.NewInt(0)
 		for _, record := range s.SCConfirmation {
 			scRewardSum.Add(scRewardSum, new(big.Int).SetUint64(record.RewardPerPeriod))
 		}
 		if scRewardSum.Uint64() < 1000 {
+			minerLeft.Mul(minerReward, scRewardSum)
+			minerLeft.Sub(minerReward, minerLeft)
 			scRewardSum.SetUint64(1000)
+			minerLeft.Div(minerLeft, scRewardSum)
 		}
 
 		rewards := make(map[common.Address]*big.Int)
@@ -980,11 +1008,12 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) map[common.Address]*b
 			if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
 				// check confirm is exist, to get countPerPeriod and rewardPerPeriod
 				if confirmation, ok := s.SCConfirmation[scHash]; ok {
-					// calculate the side chain reward base on RewardPerPeriod(/100) and record.RewardPerPeriod
-					for addr, scre := range reward {
-						singleReward := new(big.Int).SetUint64(scre * confirmation.RewardPerPeriod)
-						singleReward.Div(singleReward, scRewardSum)
+					// calculate the side chain reward base on score/100 and record.RewardPerPeriod
+					for addr, score := range reward {
+						singleReward := new(big.Int).SetUint64(score * confirmation.RewardPerPeriod)
 						singleReward.Mul(singleReward, minerReward)
+						singleReward.Div(singleReward, new(big.Int).SetUint64(100)) // for score/100
+						singleReward.Div(singleReward, scRewardSum)                 // for record.RewardPerPeriod/ 1000
 						if _, ok := rewards[addr]; ok {
 							rewards[addr].Add(rewards[addr], singleReward)
 						} else {
@@ -994,7 +1023,7 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) map[common.Address]*b
 				}
 			}
 		}
-		return rewards
+		return rewards, minerLeft
 	}
-	return nil
+	return nil, minerReward
 }

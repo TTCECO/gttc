@@ -87,7 +87,8 @@ func (ap *testerAccountPool) sign(header *types.Header, signer string) {
 		ap.accounts[signer], _ = crypto.GenerateKey()
 	}
 	// Sign the header and embed the signature in extra data
-	sig, _ := crypto.Sign(sigHash(header).Bytes(), ap.accounts[signer])
+	headerSigHash, _ := sigHash(header)
+	sig, _ := crypto.Sign(headerSigHash.Bytes(), ap.accounts[signer])
 	copy(header.Extra[len(header.Extra)-65:], sig)
 }
 
@@ -932,6 +933,7 @@ func TestVoting(t *testing.T) {
 							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
 							ReceivedNumber:         big.NewInt(int64(j)),
+							MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 						})
 					}
 				} else if trans.isDeclare {

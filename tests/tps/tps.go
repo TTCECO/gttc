@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	fromAddress = "0xb7055b228EFE49219231ef3F3A384f3062570Ab1"
-	pKey        = "65f9e4ee1dbfc4a751dc4e2f6037a8760ce203e1342f84a55f6266d52ae3c96f"
+	fromAddress = "0x74883A82Eb05c1EFfF9C40F6101b7D8E7DE52504"
+	pKey        = "4dba440cab5a1768a5573ff0eba2700fffcd189c0a98383add184b271be7f3da"
 	toAddress   = "0x2a84f498d27805D49a92277eDBe670b83036F14A"
 
-	defaultCount     = 10000
-	defaultPortStart = 8501
-	portLen          = 2
+	defaultCount      = 10000
+	defaultPortStart  = 8501
+	defaultPortLength = 1
 )
 
 func main() {
@@ -42,6 +42,15 @@ func main() {
 		}
 	}
 	fmt.Println("start port : ", portStart)
+
+	portLen := defaultPortLength
+	if len(os.Args) > 3 {
+		argPortLength, err := strconv.ParseInt(os.Args[3], 10, 64)
+		if err == nil {
+			portLen = int(argPortLength)
+		}
+	}
+	fmt.Println("start Len : ", portLen)
 
 	cl := []*rpc.Client{}
 	for i := 0; i < portLen; i++ {
@@ -105,7 +114,7 @@ func main() {
 	wait := make(chan bool, portLen)
 	for i := 0; i < portLen; i++ {
 
-		go startSendTx(cl, txDataList, i, wait)
+		go startSendTx(cl, txDataList, i, portLen, wait)
 	}
 
 	for i := 0; i < portLen; i++ {
@@ -115,7 +124,7 @@ func main() {
 	return
 }
 
-func startSendTx(cl []*rpc.Client, txDataList [][]byte, mod int, finish chan<- bool) {
+func startSendTx(cl []*rpc.Client, txDataList [][]byte, mod int, portLen int, finish chan<- bool) {
 	var result string
 	for i := range txDataList {
 		if i%portLen == mod {

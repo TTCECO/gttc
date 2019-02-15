@@ -20,5 +20,5 @@ cmd/gttc/gttc
 cmd/gttc/gttc_browser
 cmd/puppeth/puppeth
 tests/tps/tps
-
+tests/sc/sc
 

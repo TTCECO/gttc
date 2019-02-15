@@ -66,13 +66,14 @@ const (
 	proposalTypeMinerRewardDistributionModify = 3 // count in one thousand
 	proposalTypeSideChainAdd                  = 4
 	proposalTypeSideChainRemove               = 5
+	proposalTypeMinVoterBalanceModify         = 6
 
 	/*
 	 * proposal related
 	 */
-	maxValidationLoopCnt     = 123500 // About one month if seal each block per second & 21 super nodes
-	minValidationLoopCnt     = 1      //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
-	defaultValidationLoopCnt = 30875  // About one week if seal each block per second & 21 super nodes
+	maxValidationLoopCnt     = 50000 // About one month if period = 3 & 21 super nodes
+	minValidationLoopCnt     = 4     //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
+	defaultValidationLoopCnt = 10000 // About one week if period = 3 & 21 super nodes
 )
 
 // RefundGas :
@@ -122,8 +123,9 @@ type Proposal struct {
 	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
 	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0
 	// SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
-	Declares       []*Declare // Declare this proposal received (always empty in block header)
-	ReceivedNumber *big.Int   // block number of proposal received
+	Declares        []*Declare // Declare this proposal received (always empty in block header)
+	ReceivedNumber  *big.Int   // block number of proposal received
+	MinVoterBalance uint64     // value of minVoterBalance , need to mul big.Int(1e+18)
 }
 
 func (p *Proposal) copy() *Proposal {
@@ -139,6 +141,7 @@ func (p *Proposal) copy() *Proposal {
 		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
+		MinVoterBalance:        p.MinVoterBalance,
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -445,6 +448,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
 		ReceivedNumber:         big.NewInt(0),
+		MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -472,7 +476,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 				proposal.SCBlockRewardPerPeriod = uint64(scBlockRewardPerPeriod)
 			}
 		case "proposal_type":
-			if proposalType, err := strconv.Atoi(v); err != nil || proposalType < proposalTypeCandidateAdd || proposalType > proposalTypeSideChainRemove {
+			if proposalType, err := strconv.Atoi(v); err != nil {
 				return currentBlockProposals
 			} else {
 				proposal.ProposalType = uint64(proposalType)
@@ -486,6 +490,13 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 				return currentBlockProposals
 			} else {
 				proposal.MinerRewardPerThousand = uint64(mrpt)
+			}
+		case "mvb":
+			// minVoterBalance
+			if mvb, err := strconv.Atoi(v); err != nil || mvb <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.MinVoterBalance = uint64(mvb)
 			}
 
 		}
@@ -522,7 +533,7 @@ func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, txDataInfo [
 }
 
 func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address) []Vote {
-	if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
+	if state.GetBalance(voter).Cmp(minVoterBalance) > 0 {
 
 		a.lock.RLock()
 		stake := state.GetBalance(voter)
