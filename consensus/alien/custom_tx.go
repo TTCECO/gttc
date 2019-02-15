@@ -476,7 +476,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 				proposal.SCBlockRewardPerPeriod = uint64(scBlockRewardPerPeriod)
 			}
 		case "proposal_type":
-			if proposalType, err := strconv.Atoi(v); err != nil || proposalType < proposalTypeCandidateAdd || proposalType > proposalTypeSideChainRemove {
+			if proposalType, err := strconv.Atoi(v); err != nil {
 				return currentBlockProposals
 			} else {
 				proposal.ProposalType = uint64(proposalType)
