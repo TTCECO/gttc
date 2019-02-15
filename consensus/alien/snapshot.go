@@ -655,7 +655,9 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 					}
 				case proposalTypeMinVoterBalanceModify:
 					minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
-
+				default:
+					// delete unknown proposal type
+					delete(s.Proposals, hashKey)
 				}
 			} else {
 				// reach the target header number, but not success
