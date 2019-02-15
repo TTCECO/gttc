@@ -50,10 +50,11 @@ const (
 
 // Alien delegated-proof-of-stake protocol constants.
 var (
-	SignerBlockReward                = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
-	defaultEpochLength               = uint64(3000000)   // Default number of blocks after which vote's period of validity
-	defaultBlockPeriod               = uint64(3)         // Default minimum difference between two consecutive block's timestamps
-	defaultMaxSignerCount            = uint64(21)        //
+	SignerBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block first year
+	defaultEpochLength = uint64(201600)    // Default number of blocks after which vote's period of validity
+	// About one week if period is 3
+	defaultBlockPeriod               = uint64(3)  // Default minimum difference between two consecutive block's timestamps
+	defaultMaxSignerCount            = uint64(21) //
 	minVoterBalance                  = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18))
 	extraVanity                      = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal                        = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
