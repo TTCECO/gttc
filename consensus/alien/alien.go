@@ -54,7 +54,7 @@ var (
 	defaultEpochLength               = uint64(3000000)   // Default number of blocks after which vote's period of validity
 	defaultBlockPeriod               = uint64(3)         // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount            = uint64(21)        //
-	defaultMinVoterBalance           = new(big.Int).Mul(big.NewInt(10000), big.NewInt(1e+18))
+	minVoterBalance                  = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18))
 	extraVanity                      = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal                        = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
 	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
@@ -224,8 +224,8 @@ func New(config *params.AlienConfig, db ethdb.Database) *Alien {
 	if conf.MaxSignerCount == 0 {
 		conf.MaxSignerCount = defaultMaxSignerCount
 	}
-	if conf.MinVoterBalance.Uint64() == 0 {
-		conf.MinVoterBalance = defaultMinVoterBalance
+	if conf.MinVoterBalance.Uint64() > 0 {
+		minVoterBalance = conf.MinVoterBalance
 	}
 
 	// Allocate the snapshot caches and create the engine

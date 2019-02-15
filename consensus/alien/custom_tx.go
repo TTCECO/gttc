@@ -522,7 +522,7 @@ func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, txDataInfo [
 }
 
 func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address) []Vote {
-	if state.GetBalance(voter).Cmp(a.config.MinVoterBalance) > 0 {
+	if state.GetBalance(voter).Cmp(minVoterBalance) > 0 {
 
 		a.lock.RLock()
 		stake := state.GetBalance(voter)

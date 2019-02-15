@@ -107,7 +107,7 @@ func (w *wizard) makeGenesis() {
 			Epoch:            30000,
 			TrantorBlock:     new(big.Int).Add(big.NewInt(1), genesis.Config.ByzantiumBlock),
 			MaxSignerCount:   21,
-			MinVoterBalance:  new(big.Int).Mul(big.NewInt(10000), big.NewInt(1000000000000000000)),
+			MinVoterBalance:  new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18)),
 			GenesisTimestamp: uint64(time.Now().Unix()) + (60 * 5), // Add five minutes
 			SelfVoteSigners:  []common.Address{},
 		}
@@ -125,8 +125,8 @@ func (w *wizard) makeGenesis() {
 
 		fmt.Println()
 		fmt.Println("What is the minimize balance for valid voter ? (default = 10000TTC)")
-		genesis.Config.Alien.MinVoterBalance = new(big.Int).Mul(big.NewInt(int64(w.readDefaultInt(10000))),
-			big.NewInt(1000000000000000000))
+		genesis.Config.Alien.MinVoterBalance = new(big.Int).Mul(big.NewInt(int64(w.readDefaultInt(1000))),
+			big.NewInt(1e+18))
 
 		fmt.Println()
 		fmt.Println("How many minutes delay to create first block ? (default = 5 minutes)")
