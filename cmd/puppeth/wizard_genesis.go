@@ -104,7 +104,7 @@ func (w *wizard) makeGenesis() {
 		genesis.Difficulty = big.NewInt(1)
 		genesis.Config.Alien = &params.AlienConfig{
 			Period:           3,
-			Epoch:            30000,
+			Epoch:            201600,
 			TrantorBlock:     new(big.Int).Add(big.NewInt(1), genesis.Config.ByzantiumBlock),
 			MaxSignerCount:   21,
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18)),
@@ -112,19 +112,19 @@ func (w *wizard) makeGenesis() {
 			SelfVoteSigners:  []common.Address{},
 		}
 		fmt.Println()
-		fmt.Println("How many seconds should blocks take? (default = 6)")
-		genesis.Config.Alien.Period = uint64(w.readDefaultInt(6))
+		fmt.Println("How many seconds should blocks take? (default = 3)")
+		genesis.Config.Alien.Period = uint64(w.readDefaultInt(3))
 
 		fmt.Println()
-		fmt.Println("How many blocks create for one epoch? (default = 30000)")
-		genesis.Config.Alien.Epoch = uint64(w.readDefaultInt(30000))
+		fmt.Println("How many blocks create for one epoch? (default = 201600)")
+		genesis.Config.Alien.Epoch = uint64(w.readDefaultInt(201600))
 
 		fmt.Println()
 		fmt.Println("What is the max number of signers? (default = 21)")
 		genesis.Config.Alien.MaxSignerCount = uint64(w.readDefaultInt(21))
 
 		fmt.Println()
-		fmt.Println("What is the minimize balance for valid voter ? (default = 10000TTC)")
+		fmt.Println("What is the minimize balance for valid voter ? (default = 1000TTC)")
 		genesis.Config.Alien.MinVoterBalance = new(big.Int).Mul(big.NewInt(int64(w.readDefaultInt(1000))),
 			big.NewInt(1e+18))
 
@@ -168,9 +168,9 @@ func (w *wizard) makeGenesis() {
 		break
 	}
 	// Add a batch of precompile balances to avoid them getting deleted
-	for i := int64(0); i < 256; i++ {
-		genesis.Alloc[common.BigToAddress(big.NewInt(i))] = core.GenesisAccount{Balance: big.NewInt(1)}
-	}
+	//for i := int64(0); i < 256; i++ {
+	//	genesis.Alloc[common.BigToAddress(big.NewInt(i))] = core.GenesisAccount{Balance: big.NewInt(1)}
+	//}
 	// Query the user for some custom extras
 	fmt.Println()
 	fmt.Println("Specify your chain/network ID if you want an explicit one (default = random)")
