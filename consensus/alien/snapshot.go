@@ -917,12 +917,15 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*
 		for _, record := range s.SCConfirmation {
 			scRewardSum.Add(scRewardSum, new(big.Int).SetUint64(record.RewardPerPeriod))
 		}
-		if scRewardSum.Uint64() < 1000 {
+		if scRewardSum.Uint64() == 0 {
+			minerLeft.Set(minerReward)
+		} else if scRewardSum.Uint64() < 1000 {
 			minerLeft.Mul(minerReward, scRewardSum)
 			minerLeft.Sub(minerReward, minerLeft)
 			scRewardSum.SetUint64(1000)
 			minerLeft.Div(minerLeft, scRewardSum)
 		}
+		// if scRewardSum.Uint64() >= 1000 minerLeft is 0
 
 		rewards := make(map[common.Address]*big.Int)
 		for scHash, scReward := range s.SCAllReward {
