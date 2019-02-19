@@ -924,25 +924,28 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 }
 
 func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*big.Int, *big.Int) {
+
+	minerLeft := new(big.Int).Set(minerReward)
 	// rewards for side chain
 	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
 		// need to deal with sum of record.RewardPerPeriod for all side chain is larger than 100% situation
 		scRewardSum := big.NewInt(0)
-		minerLeft := big.NewInt(0)
+		rewards := make(map[common.Address]*big.Int)
+
 		for _, record := range s.SCConfirmation {
 			scRewardSum.Add(scRewardSum, new(big.Int).SetUint64(record.RewardPerPeriod))
 		}
-		if scRewardSum.Uint64() == 0 {
-			minerLeft.Set(minerReward)
-		} else if scRewardSum.Uint64() < 1000 {
-			minerLeft.Mul(minerReward, scRewardSum)
-			minerLeft.Sub(minerReward, minerLeft)
-			scRewardSum.SetUint64(1000)
-			minerLeft.Div(minerLeft, scRewardSum)
-		}
-		// if scRewardSum.Uint64() >= 1000 minerLeft is 0
 
-		rewards := make(map[common.Address]*big.Int)
+		if scRewardSum.Uint64() > 0 && scRewardSum.Uint64() < 1000 {
+			minerReward.Mul(minerReward, scRewardSum)
+			minerReward.Div(minerReward, big.NewInt(1000))
+			minerLeft.Sub(minerLeft, minerReward)
+		} else if scRewardSum.Uint64() >= 1000 {
+			minerLeft.SetUint64(0)
+		} else {
+			return rewards, minerLeft
+		}
+
 		for scHash, scReward := range s.SCAllReward {
 			// check reward for the block number is exist
 			if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
@@ -965,5 +968,5 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*
 		}
 		return rewards, minerLeft
 	}
-	return nil, minerReward
+	return nil, minerLeft
 }
