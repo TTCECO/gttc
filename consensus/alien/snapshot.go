@@ -741,6 +741,9 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 				case proposalTypeSideChainAdd:
 					if _, ok := s.SCConfirmation[proposal.SCHash]; !ok {
 						s.SCConfirmation[proposal.SCHash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0, proposal.SCBlockCountPerPeriod, proposal.SCBlockRewardPerPeriod}
+					} else {
+						s.SCConfirmation[proposal.SCHash].CountPerPeriod = proposal.SCBlockCountPerPeriod
+						s.SCConfirmation[proposal.SCHash].RewardPerPeriod = proposal.SCBlockRewardPerPeriod
 					}
 				case proposalTypeSideChainRemove:
 					if _, ok := s.SCConfirmation[proposal.SCHash]; ok {
