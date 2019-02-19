@@ -46,9 +46,10 @@ const (
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 	// reward for side chain
-	scRewardDelayLoopCount   = 2                          //
-	scRewardExpiredLoopCount = scRewardDelayLoopCount + 4 //
-	scMaxCountPerPeriod      = 6
+	scRewardDelayLoopCount     = 2                          //
+	scRewardExpiredLoopCount   = scRewardDelayLoopCount + 4 //
+	scMaxCountPerPeriod        = 6
+	scMaxConfirmedRecordLength = defaultOfficialMaxSignerCount * 200 // max record length for each side chain
 )
 
 var (
@@ -437,8 +438,22 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, h
 	}
 	// calculate the side chain reward in each loop
 	if (headerNumber.Uint64()+1)%s.config.MaxSignerCount == 0 {
+		s.checkSCConfirmedRecordLength()
 		s.updateSCConfirmation(headerNumber)
 	}
+}
+
+func (s *Snapshot) checkSCConfirmedRecordLength() {
+	// if size of confirmed record from one side chain larger than scMaxConfirmedRecordLength
+	// we reset the record info of this side chain, good enough for now
+	for hash, scRecord := range s.SCConfirmation {
+		if len(scRecord.Record) > scMaxConfirmedRecordLength {
+			s.SCConfirmation[hash].Record = make(map[uint64][]*SCConfirmation)
+			s.SCConfirmation[hash].LastConfirmedNumber = 0
+			s.SCConfirmation[hash].MaxHeaderNumber = 0
+		}
+	}
+
 }
 
 func (s *Snapshot) calculateSCConfirmedNumber(record *SCRecord, minConfirmedSignerCount int) (uint64, map[uint64]common.Address) {
