@@ -140,7 +140,11 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			sort.Sort(SignerSlice(signerThirdLevelSlice))
 			signerSlice = append(signerSlice, signerThirdLevelSlice[:4]...)
 			// choose 1 from last
-			for i, tallyItem := range tallySlice[defaultOfficialThirdLevelCount:] {
+			maxValidCount := defaultOfficialMaxValidCount
+			if maxValidCount > len(tallySlice) {
+				maxValidCount = len(tallySlice)
+			}
+			for i, tallyItem := range tallySlice[defaultOfficialThirdLevelCount:maxValidCount] {
 				signerLastLevelSlice = append(signerLastLevelSlice, SignerItem{tallyItem.addr, s.HistoryHash[len(s.HistoryHash)-1-i]})
 			}
 			sort.Sort(SignerSlice(signerLastLevelSlice))

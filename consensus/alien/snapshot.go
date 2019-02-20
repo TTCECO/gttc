@@ -42,6 +42,7 @@ const (
 	defaultOfficialFirstLevelCount  = 10   // official first level , 100% in signer queue
 	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
+	defaultOfficialMaxValidCount    = 50   // official max valid candidate count, sort by vote
 	// the credit of one signer is at least minCalSignerQueueCredit
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
