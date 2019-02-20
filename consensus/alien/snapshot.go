@@ -33,16 +33,16 @@ import (
 )
 
 const (
-	defaultFullCredit               = 1000 // no punished
-	missingPublishCredit            = 100  // punished for missing one block seal
-	signRewardCredit                = 10   // seal one block
-	autoRewardCredit                = 1    // credit auto recover for each block
-	minCalSignerQueueCredit         = 300  // when calculate the signerQueue
-	defaultOfficialMaxSignerCount   = 21   // official max signer count
-	defaultOfficialFirstLevelCount  = 10   // official first level , 100% in signer queue
-	defaultOfficialSecondLevelCount = 20   // official second level, 60% in signer queue
-	defaultOfficialThirdLevelCount  = 30   // official third level, 40% in signer queue
-	defaultOfficialMaxValidCount    = 50   // official max valid candidate count, sort by vote
+	defaultFullCredit               = 28800 // no punished
+	missingPublishCredit            = 100   // punished for missing one block seal
+	signRewardCredit                = 10    // seal one block
+	autoRewardCredit                = 1     // credit auto recover for each block
+	minCalSignerQueueCredit         = 10000 // when calculate the signerQueue
+	defaultOfficialMaxSignerCount   = 21    // official max signer count
+	defaultOfficialFirstLevelCount  = 10    // official first level , 100% in signer queue
+	defaultOfficialSecondLevelCount = 20    // official second level, 60% in signer queue
+	defaultOfficialThirdLevelCount  = 30    // official third level, 40% in signer queue
+	defaultOfficialMaxValidCount    = 50    // official max valid candidate count, sort by vote
 	// the credit of one signer is at least minCalSignerQueueCredit
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
