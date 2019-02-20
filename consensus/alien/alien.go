@@ -506,7 +506,11 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			}
 
 			// verify missing signer for punish
-			parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
+			newLoop := false
+			if number%a.config.MaxSignerCount == 0 {
+				newLoop = true
+			}
+			parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
 			if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 				return errPunishedMissing
 			}
@@ -712,7 +716,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		currentHeaderExtra.ConfirmedBlockNumber = parentHeaderExtra.ConfirmedBlockNumber
 		currentHeaderExtra.SignerQueue = parentHeaderExtra.SignerQueue
 		currentHeaderExtra.LoopStartTime = parentHeaderExtra.LoopStartTime
-		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra)
+		newLoop := false
+		if number%a.config.MaxSignerCount == 0 {
+			newLoop = true
+		}
+		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
 	}
 
 	// calculate votes write into header.extra
@@ -949,21 +957,34 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Get the signer missing from last signer till header.Coinbase
-func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra) []common.Address {
+func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra, newLoop bool) []common.Address {
 
 	var signerMissing []common.Address
-	recordMissing := false
-	for _, signer := range extra.SignerQueue {
-		if signer == lastSigner {
-			recordMissing = true
-			continue
+
+	if newLoop {
+		for i, qlen := 0, len(extra.SignerQueue); i < len(extra.SignerQueue); i++ {
+			if lastSigner == extra.SignerQueue[qlen-1-i] {
+				break
+			} else {
+				signerMissing = append(signerMissing, extra.SignerQueue[qlen-1-i])
+			}
 		}
-		if signer == currentSigner {
-			break
+	} else {
+		recordMissing := false
+		for _, signer := range extra.SignerQueue {
+			if signer == lastSigner {
+				recordMissing = true
+				continue
+			}
+			if signer == currentSigner {
+				break
+			}
+			if recordMissing {
+				signerMissing = append(signerMissing, signer)
+			}
 		}
-		if recordMissing {
-			signerMissing = append(signerMissing, signer)
-		}
+
 	}
+
 	return signerMissing
 }
