@@ -355,18 +355,17 @@ func (s *Snapshot) copyBrowserData(header *types.Header, driver string) map[stri
 	cpy["coinbase"] = header.Coinbase.Hex()
 	cpy["hash"] = s.Hash.Hex()
 	if driver == browserdb.FirestoreDriver {
-		cpy["number"] = s.Number
-		cpy["gasLimit"] = header.GasLimit
-		cpy["gasUsed"] = header.GasUsed
-		cpy["headerTime"] = s.HeaderTime
-		cpy["loopStartTime"] = s.LoopStartTime
-	}else{
 		cpy["number"] = int64(s.Number)
 		cpy["gasLimit"] = int64(header.GasLimit)
 		cpy["gasUsed"] = int64(header.GasUsed)
 		cpy["headerTime"] = int64(s.HeaderTime)
 		cpy["loopStartTime"] = int64(s.LoopStartTime)
-
+	}else{
+		cpy["number"] = s.Number
+		cpy["gasLimit"] = header.GasLimit
+		cpy["gasUsed"] = header.GasUsed
+		cpy["headerTime"] = s.HeaderTime
+		cpy["loopStartTime"] = s.LoopStartTime
 	}
 	return cpy
 }
