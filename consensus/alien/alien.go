@@ -138,7 +138,7 @@ var (
 )
 
 // TxRecord is the record of one transaction. The data save into MongoDB for browser
-type TxRecord struct {
+type TxRecordMongo struct {
 	Number   uint64
 	Hash     string
 	From     string
@@ -148,6 +148,19 @@ type TxRecord struct {
 	Gas      uint64
 	GasPrice string
 	Category uint64
+}
+
+// TxRecord is the record of one transaction. The data save into Firestore for browser
+type TxRecordFirestore struct {
+	Number   int64
+	Hash     string
+	From     string
+	To       string
+	Value    string
+	Data     string
+	Gas      int64
+	GasPrice string
+	Category int64
 }
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -549,7 +562,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	//
-	if chain.Config().Alien.BrowserDB != nil && chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MongoDriver {
+	if chain.Config().Alien.BrowserDB != nil {
 
 		var parent *types.Header
 		if len(parents) > 0 {
@@ -559,7 +572,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		}
 		parentBlock := chain.GetBlock(parent.Hash(), parent.Number.Uint64())
 		// check hash if exist in snapshot table
-		if parentBlock != nil && !chain.Config().Alien.BrowserDB.MongoExist("txs", map[string]interface{}{"number": parent.Number.Uint64()}) {
+		if parentBlock != nil {
 			var txsData []interface{}
 			for _, tx := range parentBlock.Transactions() {
 				signer := types.NewEIP155Signer(tx.ChainId())
@@ -593,19 +606,41 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 						}
 					}
 				}
-				txRecord := TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
-					strings.ToLower(from.Hex()), strings.ToLower(txTo),
-					tx.Value().String(), txData,
-					tx.Gas(), tx.GasPrice().String(), txCategory}
+				if chain.Config().Alien.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
+					txRecord := TxRecordFirestore{int64(parent.Number.Uint64()), tx.Hash().Hex(),
+						strings.ToLower(from.Hex()), strings.ToLower(txTo),
+						tx.Value().String(), txData,
+						int64(tx.Gas()), tx.GasPrice().String(), int64(txCategory)}
+					txsData = append(txsData, &txRecord)
 
-				txsData = append(txsData, &txRecord)
+				} else if chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MongoDriver {
+					txRecord := TxRecordMongo{parent.Number.Uint64(), tx.Hash().Hex(),
+						strings.ToLower(from.Hex()), strings.ToLower(txTo),
+						tx.Value().String(), txData,
+						tx.Gas(), tx.GasPrice().String(), txCategory}
+
+					txsData = append(txsData, &txRecord)
+				}
 			}
 			if len(txsData) > 0 {
 
-				err := chain.Config().Alien.BrowserDB.MongoSave("txs", txsData...)
-				if err != nil {
-					log.Info("save transaction into mongodb fail ", "error", err)
+				if chain.Config().Alien.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
+					for _, tx := range txsData {
+						if record, ok := tx.(*TxRecordFirestore); ok {
+							txData := map[string]interface{}{"Number": record.Number, "Hash": record.Hash, "From": record.From, "To": record.To,
+								"Value": record.Value, "Data": record.Data, "Gas": record.Gas, "GasPrice": record.GasPrice, "Category": record.Category}
+							if err := chain.Config().Alien.BrowserDB.FirestoreUpsert("txs", record.Hash, txData); err != nil {
+								log.Info("save transaction into firestore fail ", "error", err)
+
+							}
+						}
+					}
+				} else if chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MongoDriver {
+					if err := chain.Config().Alien.BrowserDB.MongoSave("txs", txsData...); err != nil {
+						log.Info("save transaction into mongodb fail ", "error", err)
+					}
 				}
+
 			}
 		}
 	}

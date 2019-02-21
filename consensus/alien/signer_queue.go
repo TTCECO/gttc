@@ -134,8 +134,8 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			conditionData := map[string]interface{}{"number": s.Number + 1}
 
 			if s.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
-				delete(tallyData,"number")
-				if err := s.config.BrowserDB.FirestoreUpsert("tally", strconv.FormatUint(s.Number+1,10), tallyData); err != nil {
+				delete(tallyData, "number")
+				if err := s.config.BrowserDB.FirestoreUpsert("tally", strconv.FormatUint(s.Number+1, 10), tallyData); err != nil {
 					log.Error("firestore err", "err", err)
 				}
 			} else if s.config.BrowserDB.GetDriver() == browserdb.MongoDriver {

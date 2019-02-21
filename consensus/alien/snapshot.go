@@ -290,7 +290,7 @@ func (s *Snapshot) copyBrowserData(header *types.Header, driver string) map[stri
 			cpyVoters[voter.Hex()] = int64(number.Uint64())
 		}
 		cpy["voters"] = cpyVoters
-	}else {
+	} else {
 		cpyPunished := make(map[string]uint64)
 		for signer, punished := range s.Punished {
 			cpyPunished[signer.Hex()] = punished
@@ -360,7 +360,7 @@ func (s *Snapshot) copyBrowserData(header *types.Header, driver string) map[stri
 		cpy["gasUsed"] = int64(header.GasUsed)
 		cpy["headerTime"] = int64(s.HeaderTime)
 		cpy["loopStartTime"] = int64(s.LoopStartTime)
-	}else{
+	} else {
 		cpy["number"] = s.Number
 		cpy["gasLimit"] = header.GasLimit
 		cpy["gasUsed"] = header.GasUsed
@@ -459,11 +459,11 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 			if snap.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
 
 				if err := s.config.BrowserDB.FirestoreUpsert("snapshot", header.Hash().Hex(), snap.copyBrowserData(header, browserdb.FirestoreDriver)); err != nil {
-					log.Error("Firestore fail ","err", err )
+					log.Error("Firestore fail ", "err", err)
 				}
-			}else if snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
+			} else if snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
 				if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
-					if err := snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header,browserdb.MongoDriver )); err != nil {
+					if err := snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header, browserdb.MongoDriver)); err != nil {
 						// todo
 					}
 				}
