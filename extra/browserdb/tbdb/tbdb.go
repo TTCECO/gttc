@@ -137,3 +137,8 @@ func (b *TTCBrowserDB) MongoExist(collection string, condition bson.M) bool {
 }
 
 // Firestore operate
+func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[string]interface{}) error {
+	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data, firestore.MergeAll)
+	// [END fs_update_create_if_missing]
+	return err
+}

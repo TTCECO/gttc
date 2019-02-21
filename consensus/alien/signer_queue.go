@@ -20,11 +20,11 @@ package alien
 
 import (
 	"bytes"
+	"github.com/TTCECO/gttc/extra/browserdb"
 	"math/big"
 	"sort"
 
 	"github.com/TTCECO/gttc/common"
-	"github.com/TTCECO/gttc/extra/browserdb"
 	"github.com/TTCECO/gttc/log"
 )
 
@@ -124,7 +124,7 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			queueLength = len(tallySlice)
 		}
 
-		if s.config.BrowserDB != nil && s.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
+		if s.config.BrowserDB != nil {
 			orderedTally := make([]interface{}, len(tallySlice))
 			for i, t := range tallySlice {
 				orderedTally[i] = map[string]string{"address": t.addr.Hex(), "stake": new(big.Int).Set(t.stake).String()}
@@ -132,10 +132,15 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			tallyData := map[string]interface{}{"nextTallyOrder": []interface{}{orderedTally}, "number": s.Number + 1}
 			conditionData := map[string]interface{}{"number": s.Number + 1}
 
-			if !s.config.BrowserDB.MongoExist("tally", conditionData) {
-				_, err := s.config.BrowserDB.MongoUpsert("tally", conditionData, tallyData)
-				if err != nil {
-					log.Error("db err", "err", err)
+			if s.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
+				if err := s.config.BrowserDB.FirestoreUpsert("tally", string(s.Number+1), tallyData); err != nil {
+					log.Error("firestore err", "err", err)
+				}
+			} else if s.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
+				if !s.config.BrowserDB.MongoExist("tally", conditionData) {
+					if _, err := s.config.BrowserDB.MongoUpsert("tally", conditionData, tallyData); err != nil {
+						log.Error("mongodb err", "err", err)
+					}
 				}
 			}
 
