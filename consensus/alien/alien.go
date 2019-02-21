@@ -596,6 +596,9 @@ func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Heade
 		extraTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
 		for i := uint64(0); i < a.config.MaxSignerCount*2*(mcPeriod/a.config.Period); i++ {
 			header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+			if header == nil {
+				return []byte{}, consensus.ErrUnknownAncestor
+			}
 			newTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
 			if newTime > extraTime {
 				if !inLastLoop {
