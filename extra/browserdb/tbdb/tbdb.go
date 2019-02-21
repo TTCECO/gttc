@@ -37,7 +37,7 @@ type TTCBrowserDB struct {
 func (b *TTCBrowserDB) Open(driver string, ip string, port int, user string, password string, DBName string) error {
 	b.driver = strings.ToLower(driver)
 
-	if b.driver == browserdb.MYSQL_DRIVER {
+	if b.driver == browserdb.MySQLDriver {
 		db, err := sql.Open(driver, fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", user, password, ip, port, DBName))
 		if err != nil {
 			return err
@@ -47,7 +47,7 @@ func (b *TTCBrowserDB) Open(driver string, ip string, port int, user string, pas
 			return err
 		}
 		b.mysqlDB = db
-	} else if b.driver == browserdb.MONGO_DRIVER {
+	} else if b.driver == browserdb.MongoDriver {
 		session, err := mgo.Dial(fmt.Sprintf("%s:%s@%s:%d", user, password, ip, port))
 		if err != nil {
 			return err
@@ -64,9 +64,9 @@ func (b *TTCBrowserDB) Open(driver string, ip string, port int, user string, pas
 }
 
 func (b *TTCBrowserDB) Close() error {
-	if b.driver == browserdb.MYSQL_DRIVER && b.mysqlDB != nil {
+	if b.driver == browserdb.MySQLDriver && b.mysqlDB != nil {
 		return b.mysqlDB.Close()
-	} else if b.driver == browserdb.MONGO_DRIVER && b.mongoSession != nil {
+	} else if b.driver == browserdb.MongoDriver && b.mongoSession != nil {
 		b.mongoSession.Close()
 		return nil
 	} else {

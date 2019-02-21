@@ -420,7 +420,7 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		}
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
-		if snap.config.BrowserDB != nil && snap.config.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+		if snap.config.BrowserDB != nil && snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
 			if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
 				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
 				if err != nil {

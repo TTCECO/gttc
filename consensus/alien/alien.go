@@ -549,7 +549,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	}
 
 	//
-	if chain.Config().Alien.BrowserDB != nil && chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MONGO_DRIVER {
+	if chain.Config().Alien.BrowserDB != nil && chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MongoDriver {
 
 		var parent *types.Header
 		if len(parents) > 0 {
