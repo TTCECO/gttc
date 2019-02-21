@@ -885,11 +885,11 @@ func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, heade
 		}
 	*/
 	// punish the missing signer
-	for _, signerMissing := range signerMissing {
-		if _, ok := s.Punished[signerMissing]; ok {
-			s.Punished[signerMissing] += missingPublishCredit
+	for _, signerEach := range signerMissing {
+		if _, ok := s.Punished[signerEach]; ok {
+			s.Punished[signerEach] += missingPublishCredit
 		} else {
-			s.Punished[signerMissing] = missingPublishCredit
+			s.Punished[signerEach] = missingPublishCredit
 		}
 	}
 	// reduce the punish of sign signer
