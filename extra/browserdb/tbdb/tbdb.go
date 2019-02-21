@@ -138,47 +138,6 @@ func (b *TTCBrowserDB) MongoExist(collection string, condition bson.M) bool {
 
 // Firestore operate
 func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[string]interface{}) error {
-	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data, firestore.MergeAll)
-	b.PrepareQuery()
-	// [END fs_update_create_if_missing]
+	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data)
 	return err
-}
-
-
-type City struct {
-	Name       string   `firestore:"name,omitempty"`
-	State      string   `firestore:"state,omitempty"`
-	Country    string   `firestore:"country,omitempty"`
-	Capital    bool     `firestore:"capital,omitempty"`
-	Population int64    `firestore:"population,omitempty"`
-	Regions    []string `firestore:"regions,omitempty"`
-}
-
-func (b *TTCBrowserDB) PrepareQuery() error {
-
-	// [START fs_query_create_examples]
-	cities := []struct {
-		id string
-		c  City
-	}{
-		{
-			id: "SF",
-			c: City{Name: "San Francisco", State: "CA", Country: "USA",
-				Capital: false, Population: 860000,
-				Regions: []string{"west_coast", "norcal"}},
-		},
-		{
-			id: "LA",
-			c: City{Name: "Los Angeles", State: "CA", Country: "USA",
-				Capital: false, Population: 3900000,
-				Regions: []string{"west_coast", "socal"}},
-		},
-	}
-	for _, c := range cities {
-		if _, err :=  b.fireClient.Collection("cities").Doc(c.id).Set(b.fireContext, c.c); err != nil {
-			return err
-		}
-	}
-	// [END fs_query_create_examples]
-	return nil
 }
