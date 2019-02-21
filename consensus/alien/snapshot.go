@@ -25,6 +25,7 @@ import (
 	"github.com/TTCECO/gttc/core/types"
 	"github.com/TTCECO/gttc/ethdb"
 	"github.com/TTCECO/gttc/extra/browserdb"
+	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/params"
 	"github.com/hashicorp/golang-lru"
 	"math/big"
@@ -424,7 +425,7 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 			if snap.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
 
 				if err := s.config.BrowserDB.FirestoreUpsert("snapshot", header.Hash().Hex(), snap.copyBrowserData(header)); err != nil {
-					// todo
+					log.Error("Firestore fail ","err", err )
 				}
 			}else if snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
 				if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
