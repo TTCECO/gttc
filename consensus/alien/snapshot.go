@@ -420,16 +420,25 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		}
 
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
-		if snap.config.BrowserDB != nil && snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
-			if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
-				err = snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header))
-				if err != nil {
+		if snap.config.BrowserDB != nil {
+			if snap.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
+
+				if err := s.config.BrowserDB.FirestoreUpsert("snapshot", header.Hash().Hex(), snap.copyBrowserData(header)); err != nil {
+					// todo
+				}
+			}else if snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
+				if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
+					if err := snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header)); err != nil {
+						// todo
+					}
+				}
+				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
+				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
+				if err := snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData); err != nil {
 					// todo
 				}
 			}
-			updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
-			updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
-			err = snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData)
+
 		}
 
 	}
