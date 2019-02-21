@@ -23,6 +23,7 @@ import (
 	"github.com/TTCECO/gttc/extra/browserdb"
 	"math/big"
 	"sort"
+	"strconv"
 
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/log"
@@ -134,7 +135,7 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 
 			if s.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
 				delete(tallyData,"number")
-				if err := s.config.BrowserDB.FirestoreUpsert("tally", string(s.Number+1), tallyData); err != nil {
+				if err := s.config.BrowserDB.FirestoreUpsert("tally", strconv.FormatUint(s.Number+1,10), tallyData); err != nil {
 					log.Error("firestore err", "err", err)
 				}
 			} else if s.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
