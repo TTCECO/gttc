@@ -17,6 +17,8 @@
 package tbdb
 
 import (
+	"cloud.google.com/go/firestore"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -24,6 +26,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"os"
 	"strings"
 )
 
@@ -32,7 +35,13 @@ type TTCBrowserDB struct {
 	mysqlDB      *sql.DB
 	mongoDB      *mgo.Database
 	mongoSession *mgo.Session
+	fireContext  context.Context
+	fireClient   *firestore.Client
 }
+
+var (
+	errProjectIDMissing = errors.New("Set Firebase project ID via GCLOUD_PROJECT env variable.")
+)
 
 func (b *TTCBrowserDB) Open(driver string, ip string, port int, user string, password string, DBName string) error {
 	b.driver = strings.ToLower(driver)
@@ -56,6 +65,17 @@ func (b *TTCBrowserDB) Open(driver string, ip string, port int, user string, pas
 		b.mongoSession = session
 		b.mongoDB = b.mongoSession.DB(DBName)
 
+	} else if b.driver == browserdb.FirestoreDriver {
+		b.fireContext = context.Background()
+		projectID := os.Getenv("GCLOUD_PROJECT")
+		if projectID == "" {
+			return errProjectIDMissing
+		}
+		client, err := firestore.NewClient(b.fireContext, projectID)
+		if err != nil {
+			return err
+		}
+		b.fireClient = client
 	} else {
 		return errors.New(fmt.Sprintf("%s database is not support", driver))
 	}
@@ -69,6 +89,9 @@ func (b *TTCBrowserDB) Close() error {
 	} else if b.driver == browserdb.MongoDriver && b.mongoSession != nil {
 		b.mongoSession.Close()
 		return nil
+	} else if b.driver == browserdb.FirestoreDriver && b.fireClient != nil {
+		b.fireClient.Close()
+		return nil
 	} else {
 		return nil
 	}
@@ -79,10 +102,10 @@ func (b *TTCBrowserDB) GetDriver() string {
 }
 
 func (b *TTCBrowserDB) CreateDefaultTable() error {
-
 	return nil
 }
 
+// todo :
 func (b *TTCBrowserDB) MysqlExec(input string) error {
 	_, err := b.mysqlDB.Exec(input)
 	if err != nil {
@@ -91,6 +114,7 @@ func (b *TTCBrowserDB) MysqlExec(input string) error {
 	return nil
 }
 
+// Mongo operate
 func (b *TTCBrowserDB) MongoSave(collection string, data ...interface{}) error {
 	return b.mongoDB.C(collection).Insert(data...)
 }
@@ -111,3 +135,5 @@ func (b *TTCBrowserDB) MongoExist(collection string, condition bson.M) bool {
 	}
 	return true
 }
+
+// Firestore operate

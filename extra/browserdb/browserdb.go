@@ -17,8 +17,9 @@
 package browserdb
 
 const (
-	MySQLDriver = "mysql"
-	MongoDriver = "mongo"
+	MySQLDriver     = "mysql"
+	MongoDriver     = "mongo"
+	FirestoreDriver = "firestore"
 )
 
 type BrowserDB interface {
