@@ -272,23 +272,37 @@ func (s *Snapshot) copy() *Snapshot {
 }
 
 // copy creates a deep copy of the snapshot, though not the individual votes.
-func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} {
+func (s *Snapshot) copyBrowserData(header *types.Header, driver string) map[string]interface{} {
 	cpy := map[string]interface{}{}
 	cpyTally := make(map[string]string)
 	for voter, tally := range s.Tally {
 		cpyTally[voter.Hex()] = tally.String()
 	}
 	cpy["tally"] = cpyTally
-	cpyPunished := make(map[string]uint64)
-	for signer, punished := range s.Punished {
-		cpyPunished[signer.Hex()] = punished
+	if driver == browserdb.FirestoreDriver {
+		cpyPunished := make(map[string]int64)
+		for signer, punished := range s.Punished {
+			cpyPunished[signer.Hex()] = int64(punished)
+		}
+		cpy["punished"] = cpyPunished
+		cpyVoters := make(map[string]int64)
+		for voter, number := range s.Voters {
+			cpyVoters[voter.Hex()] = int64(number.Uint64())
+		}
+		cpy["voters"] = cpyVoters
+	}else {
+		cpyPunished := make(map[string]uint64)
+		for signer, punished := range s.Punished {
+			cpyPunished[signer.Hex()] = punished
+		}
+		cpy["punished"] = cpyPunished
+		cpyVoters := make(map[string]uint64)
+		for voter, number := range s.Voters {
+			cpyVoters[voter.Hex()] = number.Uint64()
+		}
+		cpy["voters"] = cpyVoters
 	}
-	cpy["punished"] = cpyPunished
-	cpyVoters := make(map[string]uint64)
-	for voter, number := range s.Voters {
-		cpyVoters[voter.Hex()] = number.Uint64()
-	}
-	cpy["voters"] = cpyVoters
+
 	cpyVotes := make(map[string]map[string]interface{})
 	for voter, vote := range s.Votes {
 		cpyVotes[voter.Hex()] = map[string]interface{}{
@@ -308,15 +322,27 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 				"decision": d.Decision,
 			})
 		}
+		if driver == browserdb.FirestoreDriver {
+			cpyProposals[tx.Hex()] = map[string]interface{}{
+				"validationLoopCnt":      int64(proposal.ValidationLoopCnt),
+				"proposalType":           int64(proposal.ProposalType),
+				"proposer":               proposal.Proposer.Hex(),
+				"candidate":              proposal.Candidate.Hex(),
+				"minerRewardPerThousand": int64(proposal.MinerRewardPerThousand),
+				"receivedNumber":         proposal.ReceivedNumber.String(),
+				"declares":               declares,
+			}
+		} else {
+			cpyProposals[tx.Hex()] = map[string]interface{}{
+				"validationLoopCnt":      proposal.ValidationLoopCnt,
+				"proposalType":           proposal.ProposalType,
+				"proposer":               proposal.Proposer.Hex(),
+				"candidate":              proposal.Candidate.Hex(),
+				"minerRewardPerThousand": proposal.MinerRewardPerThousand,
+				"receivedNumber":         proposal.ReceivedNumber.String(),
+				"declares":               declares,
+			}
 
-		cpyProposals[tx.Hex()] = map[string]interface{}{
-			"validationLoopCnt":      proposal.ValidationLoopCnt,
-			"proposalType":           proposal.ProposalType,
-			"proposer":               proposal.Proposer.Hex(),
-			"candidate":              proposal.Candidate.Hex(),
-			"minerRewardPerThousand": proposal.MinerRewardPerThousand,
-			"receivedNumber":         proposal.ReceivedNumber.String(),
-			"declares":               declares,
 		}
 	}
 	cpy["proposals"] = cpyProposals
@@ -326,13 +352,22 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 		cpySigners[i] = signer.Hex()
 	}
 	cpy["signers"] = cpySigners
-	cpy["number"] = s.Number
 	cpy["coinbase"] = header.Coinbase.Hex()
-	cpy["gasLimit"] = header.GasLimit
-	cpy["gasUsed"] = header.GasUsed
-	cpy["headerTime"] = s.HeaderTime
-	cpy["loopStartTime"] = s.LoopStartTime
 	cpy["hash"] = s.Hash.Hex()
+	if driver == browserdb.FirestoreDriver {
+		cpy["number"] = s.Number
+		cpy["gasLimit"] = header.GasLimit
+		cpy["gasUsed"] = header.GasUsed
+		cpy["headerTime"] = s.HeaderTime
+		cpy["loopStartTime"] = s.LoopStartTime
+	}else{
+		cpy["number"] = int64(s.Number)
+		cpy["gasLimit"] = int64(header.GasLimit)
+		cpy["gasUsed"] = int64(header.GasUsed)
+		cpy["headerTime"] = int64(s.HeaderTime)
+		cpy["loopStartTime"] = int64(s.LoopStartTime)
+
+	}
 	return cpy
 }
 
@@ -424,12 +459,12 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		if snap.config.BrowserDB != nil {
 			if snap.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
 
-				if err := s.config.BrowserDB.FirestoreUpsert("snapshot", header.Hash().Hex(), snap.copyBrowserData(header)); err != nil {
+				if err := s.config.BrowserDB.FirestoreUpsert("snapshot", header.Hash().Hex(), snap.copyBrowserData(header, browserdb.FirestoreDriver)); err != nil {
 					log.Error("Firestore fail ","err", err )
 				}
 			}else if snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
 				if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
-					if err := snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header)); err != nil {
+					if err := snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header,browserdb.MongoDriver )); err != nil {
 						// todo
 					}
 				}
