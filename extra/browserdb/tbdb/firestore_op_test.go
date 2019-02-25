@@ -60,7 +60,7 @@ func queryCheck(client *firestore.Client, ctx context.Context, collectionName st
 	if _, err := client.Collection(collectionName).Doc(key).Get(ctx); err != nil {
 		log.Fatalf("Cannot query %s by key %s ", collectionName, key)
 	} else {
-		log.Printf("Query data from %s by key %s during %f", collectionName, key, (time.Now().UnixNano()-startTime)/1e+9)
+		log.Printf("Query data from %s by key %s during %f", collectionName, key, float64(time.Now().UnixNano()-startTime)/1e+9)
 		//log.Println(query.Data())
 	}
 }
