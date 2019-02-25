@@ -102,6 +102,3 @@ func (b *TTCBrowserDB) GetDriver() string {
 func (b *TTCBrowserDB) CreateDefaultTable() error {
 	return nil
 }
-
-
-

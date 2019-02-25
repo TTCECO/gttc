@@ -25,7 +25,7 @@ import (
 	"cloud.google.com/go/firestore"
 )
 
-// Tests that voting is evaluated correctly for various simple and complex scenarios.
+// Tests query function and speed in firestore.google
 func TestQuery(t *testing.T) {
 
 	ctx := context.Background()
@@ -42,4 +42,23 @@ func TestQuery(t *testing.T) {
 
 	defer client.Close()
 
+	// check data from snapshot, tally and txs
+	headerHash := "0x00032be859906732178a6bfd67b626ecd5120bc25fb9590e407bce092ee2e502"
+	queryCheck(client, ctx, "snapshot", headerHash)
+
+	number := "100800"
+	queryCheck(client, ctx, "tally", number)
+
+	txHash := "0x000278eee857fe590842b1a1bd088a159e15015b37c181be753db2a382467785"
+	queryCheck(client, ctx, "txs", txHash)
+
+}
+
+func queryCheck(client *firestore.Client, ctx context.Context, collectionName string, key string) {
+	if query, err := client.Collection(collectionName).Doc(key).Get(ctx); err != nil {
+		log.Fatalf("Cannot query %s by key %s ", collectionName, key)
+	} else {
+		log.Printf("Data from %s by key %s is: ", collectionName, key)
+		log.Println(query.Data())
+	}
 }

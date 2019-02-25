@@ -21,4 +21,3 @@ func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[st
 	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data)
 	return err
 }
-
