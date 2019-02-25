@@ -72,7 +72,7 @@ func queryCheck(client *firestore.Client, ctx context.Context, collectionName st
 
 func queryByCondition(client *firestore.Client, ctx context.Context, collectionName string, key string, op string, value interface{}) {
 	startTime := time.Now().UnixNano()
-	query := client.Collection(collectionName).Where(key, op, value)
+	query := client.Collection(collectionName).Where(key, op, value).OrderBy(key, firestore.Desc).Limit(5)
 	log.Printf("Query data from %s by key %s during %f", collectionName, key, float64(time.Now().UnixNano()-startTime)/1e+9)
 
 	if doc, err := query.Documents(ctx).GetAll(); err != nil {
