@@ -25,7 +25,6 @@ import (
 	"github.com/TTCECO/gttc/extra/browserdb"
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"os"
 	"strings"
 )
@@ -105,39 +104,5 @@ func (b *TTCBrowserDB) CreateDefaultTable() error {
 	return nil
 }
 
-// todo :
-func (b *TTCBrowserDB) MysqlExec(input string) error {
-	_, err := b.mysqlDB.Exec(input)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
-// Mongo operate
-func (b *TTCBrowserDB) MongoSave(collection string, data ...interface{}) error {
-	return b.mongoDB.C(collection).Insert(data...)
-}
 
-func (b *TTCBrowserDB) MongoUpdate(collection string, condition bson.M, data bson.M) error {
-	return b.mongoDB.C(collection).Update(condition, data)
-}
-
-func (b *TTCBrowserDB) MongoUpsert(collection string, condition bson.M, data bson.M) (*mgo.ChangeInfo, error) {
-	return b.mongoDB.C(collection).Upsert(condition, data)
-}
-
-func (b *TTCBrowserDB) MongoExist(collection string, condition bson.M) bool {
-	var res bson.M
-	err := b.mongoDB.C(collection).Find(condition).One(&res)
-	if err != nil || res == nil {
-		return false
-	}
-	return true
-}
-
-// Firestore operate
-func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[string]interface{}) error {
-	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data)
-	return err
-}
