@@ -16,9 +16,30 @@
 
 package tbdb
 
-// Firestore operate
-func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[string]interface{}) error {
-	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data)
-	return err
-}
+import (
+	"context"
+	"log"
+	"os"
+	"testing"
 
+	"cloud.google.com/go/firestore"
+)
+
+// Tests that voting is evaluated correctly for various simple and complex scenarios.
+func TestQuery(t *testing.T) {
+
+	ctx := context.Background()
+
+	projectID := os.Getenv("GCLOUD_PROJECT")
+	if projectID == "" {
+		log.Fatalf("Set Firebase project ID via GCLOUD_PROJECT env variable.")
+	}
+
+	client, err := firestore.NewClient(ctx, projectID)
+	if err != nil {
+		log.Fatalf("Cannot create client: %v", err)
+	}
+
+	defer client.Close()
+
+}
