@@ -89,8 +89,7 @@ func (b *TTCBrowserDB) Close() error {
 		b.mongoSession.Close()
 		return nil
 	} else if b.driver == browserdb.FirestoreDriver && b.fireClient != nil {
-		b.fireClient.Close()
-		return nil
+		return b.fireClient.Close()
 	} else {
 		return nil
 	}
