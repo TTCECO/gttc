@@ -78,7 +78,7 @@ func queryByCondition(client *firestore.Client, ctx context.Context, collectionN
 	if doc, err := query.Documents(ctx).GetAll(); err != nil {
 		log.Fatalf("Cannot query %s by key %s ,err = %s", collectionName, key, err)
 	} else {
-		log.Printf("Result count from %s by %s %s %s is %d", collectionName, key, op, value.(string), len(doc))
+		log.Printf("Result count from %s by %s %s %v is %d", collectionName, key, op, value, len(doc))
 	}
 
 }
