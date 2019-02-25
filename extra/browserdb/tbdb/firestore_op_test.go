@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/firestore"
 )
@@ -55,10 +56,11 @@ func TestQuery(t *testing.T) {
 }
 
 func queryCheck(client *firestore.Client, ctx context.Context, collectionName string, key string) {
-	if query, err := client.Collection(collectionName).Doc(key).Get(ctx); err != nil {
+	startTime := time.Now().UnixNano()
+	if _, err := client.Collection(collectionName).Doc(key).Get(ctx); err != nil {
 		log.Fatalf("Cannot query %s by key %s ", collectionName, key)
 	} else {
-		log.Printf("Data from %s by key %s is: ", collectionName, key)
-		log.Println(query.Data())
+		log.Printf("Query data from %s by key %s during %d", collectionName, key, startTime-time.Now().UnixNano())
+		//log.Println(query.Data())
 	}
 }
