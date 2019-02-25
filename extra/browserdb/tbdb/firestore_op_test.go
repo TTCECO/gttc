@@ -53,6 +53,11 @@ func TestQuery(t *testing.T) {
 	txHash := "0x000278eee857fe590842b1a1bd088a159e15015b37c181be753db2a382467785"
 	queryCheck(client, ctx, "txs", txHash)
 
+	// query data from collection by different condition
+	queryByCondition(client, ctx, "snapshot", "number", ">", 105813)
+
+	queryByCondition(client, ctx, "txs", "Number", ">", 25418)
+
 }
 
 func queryCheck(client *firestore.Client, ctx context.Context, collectionName string, key string) {
@@ -63,4 +68,17 @@ func queryCheck(client *firestore.Client, ctx context.Context, collectionName st
 		log.Printf("Query data from %s by key %s during %f", collectionName, key, float64(time.Now().UnixNano()-startTime)/1e+9)
 		//log.Println(query.Data())
 	}
+}
+
+func queryByCondition(client *firestore.Client, ctx context.Context, collectionName string, key string, op string, value interface{}) {
+	startTime := time.Now().UnixNano()
+	query := client.Collection(collectionName).Where(key, op, value)
+	log.Printf("Query data from %s by key %s during %f", collectionName, key, float64(time.Now().UnixNano()-startTime)/1e+9)
+
+	if doc, err := query.Documents(ctx).GetAll(); err == nil {
+		log.Fatalf("Cannot query %s by key %s ", collectionName, key)
+	} else {
+		log.Printf("Result count from %s by %s %s %s is %d", collectionName, key, op, value, len(doc))
+	}
+
 }
