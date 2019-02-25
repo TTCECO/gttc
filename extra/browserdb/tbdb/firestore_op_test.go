@@ -76,7 +76,7 @@ func queryByCondition(client *firestore.Client, ctx context.Context, collectionN
 	log.Printf("Query data from %s by key %s during %f", collectionName, key, float64(time.Now().UnixNano()-startTime)/1e+9)
 
 	if doc, err := query.Documents(ctx).GetAll(); err == nil {
-		log.Fatalf("Cannot query %s by key %s ", collectionName, key)
+		log.Fatalf("Cannot query %s by key %s ,err = ", collectionName, key, err)
 	} else {
 		log.Printf("Result count from %s by %s %s %s is %d", collectionName, key, op, value, len(doc))
 	}
