@@ -931,7 +931,10 @@ func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, heade
 	// punish the missing signer
 	for _, signerEach := range signerMissing {
 		if _, ok := s.Punished[signerEach]; ok {
-			s.Punished[signerEach] += missingPublishCredit
+			// 10 times of defaultFullCredit is big enough for calculate signer order
+			if s.Punished[signerEach] <= 10*defaultFullCredit {
+				s.Punished[signerEach] += missingPublishCredit
+			}
 		} else {
 			s.Punished[signerEach] = missingPublishCredit
 		}
