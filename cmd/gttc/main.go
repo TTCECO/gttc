@@ -371,7 +371,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			if web {
 				webPort := ctx.GlobalInt(utils.BrowserWebPortFlag.Name)
 				ttcWeb := &tbweb.TTCBrowserWeb{}
-				ttcWeb.New(uint64(webPort))
+				ttcWeb.New(uint64(webPort), ttcBrowserDB)
 				stack.SetBrowserWeb(ttcWeb)
 			}
 

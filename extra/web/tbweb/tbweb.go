@@ -20,27 +20,40 @@ import (
 	"fmt"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/TTCECO/gttc/extra/browserdb/tbdb"
 	"net/http"
 )
 
 type TTCBrowserWeb struct {
 	port uint64
 	e    *echo.Echo
+	db   *tbdb.TTCBrowserDB
 }
 
-func getIndex(c echo.Context) error {
+func (t *TTCBrowserWeb) getIndex(c echo.Context) error {
 	return c.HTML(http.StatusOK, "<b>Hellow World!</b>")
 }
 
-func (t *TTCBrowserWeb) New(port uint64) {
+func (t *TTCBrowserWeb) getDataFromDB(c echo.Context) error {
+	collection := c.Param("collection")
+	id := c.Param("id")
+	res, err := t.db.FirestoreQueryById(collection, id)
+	if err != nil {
+		return c.HTML(http.StatusOK, err.Error())
+	}
+	return c.HTML(http.StatusOK, fmt.Sprintf("The result is %v", res))
+}
+
+func (t *TTCBrowserWeb) New(port uint64, db *tbdb.TTCBrowserDB) {
 	if t.e == nil {
 		t.e = echo.New()
 		t.port = port
-
-		t.e.GET("/", getIndex)
+		t.e.GET("/", t.getIndex)
+		t.e.GET("/:collection/:id", t.getDataFromDB)
 		t.e.Use(middleware.Gzip())
 		t.e.Use(middleware.Recover())
-
+		t.db = db
 	}
 }
 func (t *TTCBrowserWeb) Use(params ...interface{}) {
