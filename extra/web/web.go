@@ -16,8 +16,10 @@
 
 package web
 
+import "github.com/TTCECO/gttc/extra/browserdb/tbdb"
+
 type Web interface {
-	New(port uint64)
+	New(port uint64, db *tbdb.TTCBrowserDB)
 	Use(params ...interface{})
 	GET(params ...interface{})
 	POST(params ...interface{})
