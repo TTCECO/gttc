@@ -36,14 +36,28 @@ func (t *TTCBrowserWeb) getIndex(c echo.Context) error {
 	return c.HTML(http.StatusOK, "<b>Hellow World!</b>")
 }
 
-func (t *TTCBrowserWeb) getDataFromDB(c echo.Context) error {
+func (t *TTCBrowserWeb) getCollection(c echo.Context) error {
 	collection := c.Param("collection")
-	id := c.Param("id")
-	res, err := t.db.FirestoreQueryById(collection, id)
-	if err != nil {
-		return c.HTML(http.StatusOK, err.Error())
+	var queryRes []map[string]interface{}
+
+	if id := c.QueryParam("id"); id != "" {
+		if res, err := t.db.FirestoreQueryById(collection, id); err != nil {
+			return c.HTML(http.StatusOK, err.Error())
+		} else {
+			queryRes = append(queryRes, res)
+		}
+	} else {
+		condition := make(map[string]interface{})
+		for _, v := range c.ParamNames() {
+			condition[v] = c.Param(v)
+		}
+		if res, err := t.db.FirestoreQuery(collection, condition); err != nil {
+			return c.HTML(http.StatusOK, err.Error())
+		} else {
+			queryRes = res
+		}
 	}
-	bolB, err := json.Marshal(res)
+	bolB, err := json.Marshal(queryRes)
 	if err != nil {
 		return c.HTML(http.StatusOK, err.Error())
 	}
@@ -55,7 +69,7 @@ func (t *TTCBrowserWeb) New(port uint64, db *tbdb.TTCBrowserDB) {
 		t.e = echo.New()
 		t.port = port
 		t.e.GET("/", t.getIndex)
-		t.e.GET("/:collection/:id", t.getDataFromDB)
+		t.e.GET("/:collection", t.getCollection)
 		t.e.Use(middleware.Gzip())
 		t.e.Use(middleware.Recover())
 		t.db = db

@@ -23,10 +23,28 @@ func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[st
 }
 
 //
-func (b *TTCBrowserDB) FirestoreQueryById(collection string, id string) (data map[string]interface{}, err error) {
+func (b *TTCBrowserDB) FirestoreQueryById(collection string, id string) (map[string]interface{}, error) {
 	query, err := b.fireClient.Collection(collection).Doc(id).Get(b.fireContext)
 	if err != nil {
 		return nil, err
 	}
 	return query.Data(), nil
+}
+
+//
+func (b *TTCBrowserDB) FirestoreQuery(collection string, condition map[string]interface{}) ([]map[string]interface{}, error) {
+	var result []map[string]interface{}
+	query := b.fireClient.Collection(collection).Limit(10)
+	for k, v := range condition {
+		query = query.Where(k, "==", v)
+	}
+	res, err := query.Documents(b.fireContext).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range res {
+		result = append(result, item.Data())
+	}
+
+	return result, nil
 }
