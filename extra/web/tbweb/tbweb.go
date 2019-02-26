@@ -49,7 +49,7 @@ func (t *TTCBrowserWeb) getCollection(c echo.Context) error {
 	} else {
 		condition := make(map[string]interface{})
 		for _, v := range c.ParamNames() {
-			condition[v] = c.Param(v)
+			condition[v] = c.QueryParam(v)
 		}
 		if res, err := t.db.FirestoreQuery(collection, condition); err != nil {
 			return c.HTML(http.StatusOK, err.Error())
