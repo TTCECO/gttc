@@ -17,6 +17,7 @@
 package tbweb
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -42,7 +43,11 @@ func (t *TTCBrowserWeb) getDataFromDB(c echo.Context) error {
 	if err != nil {
 		return c.HTML(http.StatusOK, err.Error())
 	}
-	return c.HTML(http.StatusOK, fmt.Sprintf("The result is %v", res))
+	bolB, err := json.Marshal(res)
+	if err != nil {
+		return c.HTML(http.StatusOK, err.Error())
+	}
+	return c.HTML(http.StatusOK, string(bolB))
 }
 
 func (t *TTCBrowserWeb) New(port uint64, db *tbdb.TTCBrowserDB) {
