@@ -16,6 +16,10 @@
 
 package tbdb
 
+import (
+	"google.golang.org/api/iterator"
+)
+
 // Firestore operate
 func (b *TTCBrowserDB) FirestoreUpsert(collection string, id string, data map[string]interface{}) error {
 	_, err := b.fireClient.Collection(collection).Doc(id).Set(b.fireContext, data)
@@ -34,17 +38,22 @@ func (b *TTCBrowserDB) FirestoreQueryById(collection string, id string) (map[str
 //
 func (b *TTCBrowserDB) FirestoreQuery(collection string, condition map[string]interface{}) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
-	query := b.fireClient.Collection(collection).Limit(10)
+	query := b.fireClient.Collection(collection).Query
+	//var query Query
 	for k, v := range condition {
 		query = query.Where(k, "==", v)
 	}
-	res, err := query.Documents(b.fireContext).GetAll()
-	if err != nil {
-		return nil, err
+	query = query.Limit(10)
+	iter := query.Documents(b.fireContext)
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, doc.Data())
 	}
-	for _, item := range res {
-		result = append(result, item.Data())
-	}
-
 	return result, nil
 }
