@@ -344,12 +344,6 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, txDataInfo, tx, txSender)
 								}
-
-								// if value is not zero, this vote may influence the balance of tx.To()
-								if tx.Value().Cmp(big.NewInt(0)) == 0 {
-									continue
-								}
-
 							} else {
 								// todo : something wrong, leave this transaction to process as normal transaction
 							}
@@ -387,7 +381,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 				}
 			}
 		}
-
+		// check each address
 		if number > 1 {
 			headerExtra.ModifyPredecessorVotes = a.processPredecessorVoter(headerExtra.ModifyPredecessorVotes, state, tx, txSender, snap)
 		}
