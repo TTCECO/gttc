@@ -139,11 +139,9 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 					log.Error("firestore err", "err", err)
 				}
 			} else if s.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
-				if !s.config.BrowserDB.MongoExist("tally", conditionData) {
-					if _, err := s.config.BrowserDB.MongoUpsert("tally", conditionData, tallyData); err != nil {
-						log.Error("mongodb err", "err", err)
-					}
-				}
+
+			} else if s.config.BrowserDB.GetDriver() == browserdb.MySQLDriver {
+
 			}
 
 		}

@@ -636,9 +636,9 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 						}
 					}
 				} else if chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MongoDriver {
-					if err := chain.Config().Alien.BrowserDB.MongoSave("txs", txsData...); err != nil {
-						log.Info("save transaction into mongodb fail ", "error", err)
-					}
+
+				} else if chain.Config().Alien.BrowserDB.GetDriver() == browserdb.MySQLDriver {
+
 				}
 
 			}

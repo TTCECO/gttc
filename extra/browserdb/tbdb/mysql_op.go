@@ -15,11 +15,3 @@
 // along with the gttc library. If not, see <http://www.gnu.org/licenses/>.
 
 package tbdb
-
-func (b *TTCBrowserDB) MysqlExec(input string) error {
-	_, err := b.mysqlDB.Exec(input)
-	if err != nil {
-		return err
-	}
-	return nil
-}

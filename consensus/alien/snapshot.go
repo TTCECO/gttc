@@ -462,16 +462,9 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 					log.Error("Firestore fail ", "err", err)
 				}
 			} else if snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
-				if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
-					if err := snap.config.BrowserDB.MongoSave("snapshot", snap.copyBrowserData(header, browserdb.MongoDriver)); err != nil {
-						// todo
-					}
-				}
-				updateCondition := map[string]interface{}{"number": snap.ConfirmedNumber}
-				updateData := map[string]interface{}{"$set": map[string]bool{"confirmed": true}}
-				if err := snap.config.BrowserDB.MongoUpdate("snapshot", updateCondition, updateData); err != nil {
-					// todo
-				}
+
+			} else if snap.config.BrowserDB.GetDriver() == browserdb.MySQLDriver {
+
 			}
 
 		}
