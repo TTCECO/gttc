@@ -746,9 +746,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
 				}
 			}
-		}
-
-		if number%a.config.MaxSignerCount == 0 {
+		} else if number%a.config.MaxSignerCount == 0 {
 			//currentHeaderExtra.LoopStartTime = header.Time.Uint64()
 			currentHeaderExtra.LoopStartTime = currentHeaderExtra.LoopStartTime + a.config.Period*a.config.MaxSignerCount
 			// create random signersQueue in currentHeaderExtra by snapshot.Tally
@@ -757,7 +755,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			if err != nil {
 				return nil, err
 			}
-
 			currentHeaderExtra.SignerQueue = newSignerQueue
 		}
 		// Accumulate any block rewards and commit the final state root
