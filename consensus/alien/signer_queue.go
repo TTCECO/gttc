@@ -131,7 +131,6 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 				orderedTally[i] = map[string]string{"address": t.addr.Hex(), "stake": new(big.Int).Set(t.stake).String()}
 			}
 			tallyData := map[string]interface{}{"nextTallyOrder": orderedTally, "number": s.Number + 1}
-			conditionData := map[string]interface{}{"number": s.Number + 1}
 
 			if s.config.BrowserDB.GetDriver() == browserdb.FirestoreDriver {
 				delete(tallyData, "number")
