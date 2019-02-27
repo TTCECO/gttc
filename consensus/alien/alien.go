@@ -726,21 +726,18 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
 	}
 
-	// calculate votes write into header.extra
-	currentHeaderExtra, refundGas, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs, receipts)
-
-	if err != nil {
-		return nil, err
-	}
-
 	// Assemble the voting snapshot to check which votes make sense
 	snap, err := a.snapshot(chain, number-1, header.ParentHash, nil, genesisVotes, defaultLoopCntRecalculateSigners)
 	if err != nil {
 		return nil, err
 	}
 	if !chain.Config().Alien.SideChain {
+		// calculate votes write into header.extra
+		currentHeaderExtra, refundGas, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs, receipts)
+		if err != nil {
+			return nil, err
+		}
 		currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentHeaderExtra.CurrentBlockConfirmations).Uint64()
-
 		// write signerQueue in first header, from self vote signers in genesis block
 		if number == 1 {
 			currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
@@ -748,7 +745,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 				for i := 0; i < int(a.config.MaxSignerCount); i++ {
 					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
 				}
-
 			}
 		}
 
@@ -763,8 +759,9 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			}
 
 			currentHeaderExtra.SignerQueue = newSignerQueue
-
 		}
+		// Accumulate any block rewards and commit the final state root
+		accumulateRewards(chain.Config(), state, header, snap, refundGas)
 	} else {
 		// use currentHeaderExtra.SignerQueue as signer queue
 		currentHeaderExtra.SignerQueue = append([]common.Address{header.Coinbase}, parentHeaderExtra.SignerQueue...)
@@ -784,10 +781,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	// Set the correct difficulty
 	header.Difficulty = new(big.Int).Set(defaultDifficulty)
 
-	// Accumulate any block rewards and commit the final state root
-	if !chain.Config().Alien.SideChain {
-		accumulateRewards(chain.Config(), state, header, snap, refundGas)
-	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// No uncle block
 	header.UncleHash = types.CalcUncleHash(nil)
