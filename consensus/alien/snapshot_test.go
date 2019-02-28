@@ -922,6 +922,7 @@ func TestVoting(t *testing.T) {
 						currentBlockProposals = append(currentBlockProposals, Proposal{
 							Hash:                   common.HexToHash(trans.txHash),
 							ReceivedNumber:         big.NewInt(int64(j)),
+							CurrentDeposit:         proposalDeposit,
 							ValidationLoopCnt:      tt.vlCnt,
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
@@ -932,6 +933,7 @@ func TestVoting(t *testing.T) {
 							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
 							MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
+							ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(),
 						})
 					}
 				} else if trans.isDeclare {

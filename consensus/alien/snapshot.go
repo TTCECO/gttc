@@ -51,6 +51,9 @@ const (
 	scRewardExpiredLoopCount   = scRewardDelayLoopCount + 4 //
 	scMaxCountPerPeriod        = 6
 	scMaxConfirmedRecordLength = defaultOfficialMaxSignerCount * 200 // max record length for each side chain
+	// proposal refund
+	proposalRefundDelayLoopCount   = 2
+	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
 )
 
 var (
@@ -102,6 +105,7 @@ type Snapshot struct {
 	SCCoinbase     map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"`     // Coinbase of side chain setting
 	SCConfirmation map[common.Hash]*SCRecord                         `json:"sideChainConfirmation"` // Confirmation of side chain setting
 	SCAllReward    map[common.Hash]SCReward                          `json:"sideChainReward"`       // Side Chain Reward
+	ProposalRefund map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`        // Refund proposal deposit
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -130,6 +134,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 		SCConfirmation:  make(map[common.Hash]*SCRecord),
 		SCAllReward:     make(map[common.Hash]SCReward),
+		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
@@ -207,6 +212,7 @@ func (s *Snapshot) copy() *Snapshot {
 		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
 		SCConfirmation: make(map[common.Hash]*SCRecord),
 		SCAllReward:    make(map[common.Hash]SCReward),
+		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
@@ -263,6 +269,13 @@ func (s *Snapshot) copy() *Snapshot {
 			for addr, count := range reward {
 				cpy.SCAllReward[hash][number][addr] = count
 			}
+		}
+	}
+
+	for number, refund := range s.ProposalRefund {
+		cpy.ProposalRefund[number] = make(map[common.Address]*big.Int)
+		for proposer, deposit := range refund {
+			cpy.ProposalRefund[number][proposer] = new(big.Int).Set(deposit)
 		}
 	}
 
@@ -627,10 +640,25 @@ func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *bi
 }
 
 func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
+	// process the expire proposal refund record
+	expiredHeaderNumber := headerNumber.Uint64() - proposalRefundExpiredLoopCount*s.config.MaxSignerCount
+	if _, ok := s.ProposalRefund[expiredHeaderNumber]; ok {
+		delete(s.ProposalRefund, expiredHeaderNumber)
+	}
 
 	for hashKey, proposal := range s.Proposals {
 		// the result will be calculate at receiverdNumber + vlcnt + 1
 		if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount+1 == headerNumber.Uint64() {
+			//return deposit for proposal
+			if _, ok := s.ProposalRefund[s.Number]; !ok {
+				s.ProposalRefund[headerNumber.Uint64()] = make(map[common.Address]*big.Int)
+			}
+			if _, ok := s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer]; !ok {
+				s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer] = new(big.Int).Set(proposal.CurrentDeposit)
+			} else {
+				s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer].Add(s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer], proposal.CurrentDeposit)
+			}
+
 			// calculate the current stake of this proposal
 			judegmentStake := big.NewInt(0)
 			for _, tally := range s.Tally {
@@ -674,6 +702,9 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 					}
 				case proposalTypeMinVoterBalanceModify:
 					minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
+				case proposalTypeProposalDepositModify:
+					proposalDeposit = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].ProposalDeposit), big.NewInt(1e+18))
+
 				default:
 					// delete unknown proposal type
 					delete(s.Proposals, hashKey)
@@ -901,6 +932,14 @@ func (s *Snapshot) getLastConfirmedBlockNumber(confirmations []Confirmation) *bi
 		}
 	}
 	return big.NewInt(int64(i))
+}
+
+func (s *Snapshot) calculateProposalRefund() map[common.Address]*big.Int {
+
+	if refund, ok := s.ProposalRefund[s.Number-proposalRefundDelayLoopCount*s.config.MaxSignerCount]; ok {
+		return refund
+	}
+	return make(map[common.Address]*big.Int)
 }
 
 func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {

@@ -67,6 +67,7 @@ const (
 	proposalTypeSideChainAdd                  = 4
 	proposalTypeSideChainRemove               = 5
 	proposalTypeMinVoterBalanceModify         = 6
+	proposalTypeProposalDepositModify         = 7
 
 	/*
 	 * proposal related
@@ -118,6 +119,7 @@ type Confirmation struct {
 type Proposal struct {
 	Hash                   common.Hash    // tx hash
 	ReceivedNumber         *big.Int       // block number of proposal received
+	CurrentDeposit         *big.Int       // received deposit for this proposal
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address // proposer
@@ -128,12 +130,14 @@ type Proposal struct {
 	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0. SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
 	Declares               []*Declare     // Declare this proposal received (always empty in block header)
 	MinVoterBalance        uint64         // value of minVoterBalance , need to mul big.Int(1e+18)
+	ProposalDeposit        uint64         // The deposit need to be frozen during before the proposal get final conclusion. (TTC)
 }
 
 func (p *Proposal) copy() *Proposal {
 	cpy := &Proposal{
 		Hash:                   p.Hash,
 		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
+		CurrentDeposit:         new(big.Int).Set(p.CurrentDeposit),
 		ValidationLoopCnt:      p.ValidationLoopCnt,
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
@@ -144,6 +148,7 @@ func (p *Proposal) copy() *Proposal {
 		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
 		MinVoterBalance:        p.MinVoterBalance,
+		ProposalDeposit:        p.ProposalDeposit,
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -339,7 +344,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
 								} else if txDataInfo[posEventProposal] == ufoEventPorposal {
-									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, tx, txSender)
+									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, state, tx, txSender)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, txDataInfo, tx, txSender)
 								}
@@ -426,7 +431,7 @@ func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, h
 	return scEventSetCoinbases
 }
 
-func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
+func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, state *state.StateDB, tx *types.Transaction, proposer common.Address) []Proposal {
 	// sample for add side chain proposal
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
 	// sample for declare
@@ -435,6 +440,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
 		ReceivedNumber:         big.NewInt(0),
+		CurrentDeposit:         proposalDeposit, // for all type of deposit
 		ValidationLoopCnt:      defaultValidationLoopCnt,
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
@@ -445,6 +451,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
 		MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
+		ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(), // default value
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -494,9 +501,22 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			} else {
 				proposal.MinVoterBalance = uint64(mvb)
 			}
-
+		case "mpd":
+			// proposalDeposit
+			if mpd, err := strconv.Atoi(v); err != nil || mpd <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.ProposalDeposit = uint64(mpd)
+			}
 		}
 	}
+
+	// check enough balance for deposit
+	if state.GetBalance(proposer).Cmp(proposalDeposit) < 0 {
+		return currentBlockProposals
+	}
+	// collection the deposit
+	state.SetBalance(proposer, new(big.Int).Sub(state.GetBalance(proposer), proposalDeposit))
 
 	return append(currentBlockProposals, proposal)
 }

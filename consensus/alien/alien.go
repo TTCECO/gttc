@@ -50,25 +50,27 @@ const (
 
 // Alien delegated-proof-of-stake protocol constants.
 var (
-	TotalBlockReward                 = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(2.5e+8)) // Block reward in wei
+	totalBlockReward                 = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(2.5e+8)) // Block reward in wei
 	defaultEpochLength               = uint64(201600)                                          // Default number of blocks after which vote's period of validity, About one week if period is 3
 	defaultBlockPeriod               = uint64(3)                                               // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount            = uint64(21)                                              //
 	minVoterBalance                  = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18))
-	extraVanity                      = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
-	extraSeal                        = 65                       // Fixed number of extra-data suffix bytes reserved for signer seal
-	uncleHash                        = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
-	defaultDifficulty                = big.NewInt(1)            // Default difficulty
-	defaultLoopCntRecalculateSigners = uint64(10)               // Default loop count to recreate signers from top tally
-	minerRewardPerThousand           = uint64(618)              // Default reward for miner in each block from block reward (618/1000)
-	candidateNeedPD                  = false                    // is new candidate need Proposal & Declare process
-	mcNetVersion                     = uint64(0)                // the net version of main chain
-	mcLoopStartTime                  = uint64(0)                // the loopstarttime of main chain
-	mcPeriod                         = uint64(0)                // the period of main chain
-	mcSignerLength                   = uint64(0)                // the maxsinger of main chain config
-	mcNonce                          = uint64(0)                // the current Nonce of coinbase on main chain
-	mcTxDefaultGasPrice              = big.NewInt(30000000)     // default gas price to build transaction for main chain
-	mcTxDefaultGasLimit              = uint64(3000000)          // default limit to build transaction for main chain
+	extraVanity                      = 32                                                    // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraSeal                        = 65                                                    // Fixed number of extra-data suffix bytes reserved for signer seal
+	uncleHash                        = types.CalcUncleHash(nil)                              // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
+	defaultDifficulty                = big.NewInt(1)                                         // Default difficulty
+	defaultLoopCntRecalculateSigners = uint64(10)                                            // Default loop count to recreate signers from top tally
+	minerRewardPerThousand           = uint64(618)                                           // Default reward for miner in each block from block reward (618/1000)
+	candidateNeedPD                  = false                                                 // is new candidate need Proposal & Declare process
+	mcNetVersion                     = uint64(0)                                             // the net version of main chain
+	mcLoopStartTime                  = uint64(0)                                             // the loopstarttime of main chain
+	mcPeriod                         = uint64(0)                                             // the period of main chain
+	mcSignerLength                   = uint64(0)                                             // the maxsinger of main chain config
+	mcNonce                          = uint64(0)                                             // the current Nonce of coinbase on main chain
+	mcTxDefaultGasPrice              = big.NewInt(30000000)                                  // default gas price to build transaction for main chain
+	mcTxDefaultGasLimit              = uint64(3000000)                                       // default limit to build transaction for main chain
+	maxProposalDeposit               = new(big.Int).Div(totalBlockReward, big.NewInt(1e+3))  // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
+	proposalDeposit                  = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(1e+6)) // current proposalDeposit
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -925,7 +927,7 @@ func vanishGasRewards(config *params.ChainConfig, state *state.StateDB, header *
 func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot, refundGas RefundGas) {
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
-	initSignerBlockReward := new(big.Int).Div(TotalBlockReward, big.NewInt(int64(2*blockNumPerYear)))
+	initSignerBlockReward := new(big.Int).Div(totalBlockReward, big.NewInt(int64(2*blockNumPerYear)))
 	yearCount := header.Number.Uint64() / blockNumPerYear
 	blockReward := new(big.Int).Rsh(initSignerBlockReward, uint(yearCount))
 
@@ -938,6 +940,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	// rewards for the voters
 	for voter, reward := range snap.calculateVoteReward(header.Coinbase, votersReward) {
 		state.AddBalance(voter, reward)
+	}
+
+	// calculate for proposal refund
+	for proposer, refund := range snap.calculateProposalRefund() {
+		state.AddBalance(proposer, refund)
 	}
 
 	if config.Alien.IsTrantor(header.Number) {
