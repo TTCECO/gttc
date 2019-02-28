@@ -735,10 +735,11 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 	}
 	if !chain.Config().Alien.SideChain {
 		// calculate votes write into header.extra
-		currentHeaderExtra, refundGas, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs, receipts)
+		mcCurrentHeaderExtra, refundGas, err := a.processCustomTx(currentHeaderExtra, chain, header, state, txs, receipts)
 		if err != nil {
 			return nil, err
 		}
+		currentHeaderExtra = mcCurrentHeaderExtra
 		currentHeaderExtra.ConfirmedBlockNumber = snap.getLastConfirmedBlockNumber(currentHeaderExtra.CurrentBlockConfirmations).Uint64()
 		// write signerQueue in first header, from self vote signers in genesis block
 		if number == 1 {
@@ -759,9 +760,6 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			}
 			currentHeaderExtra.SignerQueue = newSignerQueue
 		}
-
-		// todo: Find the transfer value proposal in currentHeaderExtra, sub the balance of the address,
-		// todo: If the balance of target address is not enough , then remove the proposal from currentHeaderExtra
 
 		// Accumulate any block rewards and commit the final state root
 		accumulateRewards(chain.Config(), state, header, snap, refundGas)
