@@ -117,6 +117,7 @@ type Confirmation struct {
 // not only candidate add/remove , current signer can proposal for params modify like percentage of reward distribution ...
 type Proposal struct {
 	Hash                   common.Hash    // tx hash
+	ReceivedNumber         *big.Int       // block number of proposal received
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address // proposer
@@ -124,16 +125,15 @@ type Proposal struct {
 	MinerRewardPerThousand uint64         // reward of miner + side chain miner
 	SCHash                 common.Hash    // side chain genesis parent hash need to add/remove
 	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
-	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0
-	// SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
-	Declares        []*Declare // Declare this proposal received (always empty in block header)
-	ReceivedNumber  *big.Int   // block number of proposal received
-	MinVoterBalance uint64     // value of minVoterBalance , need to mul big.Int(1e+18)
+	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0. SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
+	Declares               []*Declare     // Declare this proposal received (always empty in block header)
+	MinVoterBalance        uint64         // value of minVoterBalance , need to mul big.Int(1e+18)
 }
 
 func (p *Proposal) copy() *Proposal {
 	cpy := &Proposal{
 		Hash:                   p.Hash,
+		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 		ValidationLoopCnt:      p.ValidationLoopCnt,
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
@@ -143,7 +143,6 @@ func (p *Proposal) copy() *Proposal {
 		SCBlockCountPerPeriod:  p.SCBlockCountPerPeriod,
 		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
-		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 		MinVoterBalance:        p.MinVoterBalance,
 	}
 
@@ -435,6 +434,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
+		ReceivedNumber:         big.NewInt(0),
 		ValidationLoopCnt:      defaultValidationLoopCnt,
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
@@ -444,7 +444,6 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		SCBlockRewardPerPeriod: 0,
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
-		ReceivedNumber:         big.NewInt(0),
 		MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 	}
 

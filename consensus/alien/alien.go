@@ -757,6 +757,10 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			}
 			currentHeaderExtra.SignerQueue = newSignerQueue
 		}
+
+		// todo: Find the transfer value proposal in currentHeaderExtra, sub the balance of the address,
+		// todo: If the balance of target address is not enough , then remove the proposal from currentHeaderExtra
+
 		// Accumulate any block rewards and commit the final state root
 		accumulateRewards(chain.Config(), state, header, snap, refundGas)
 	} else {

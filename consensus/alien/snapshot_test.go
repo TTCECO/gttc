@@ -921,6 +921,7 @@ func TestVoting(t *testing.T) {
 					if snap.isCandidate(accounts.address(trans.from)) {
 						currentBlockProposals = append(currentBlockProposals, Proposal{
 							Hash:                   common.HexToHash(trans.txHash),
+							ReceivedNumber:         big.NewInt(int64(j)),
 							ValidationLoopCnt:      tt.vlCnt,
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
@@ -930,7 +931,6 @@ func TestVoting(t *testing.T) {
 							SCBlockCountPerPeriod:  1,
 							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
-							ReceivedNumber:         big.NewInt(int64(j)),
 							MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 						})
 					}
