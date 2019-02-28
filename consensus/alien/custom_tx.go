@@ -207,73 +207,15 @@ type HeaderExtra struct {
 	SideChainSetCoinbases     []SCSetCoinbase
 }
 
-// HeaderExtraBeforeTrantor is the struct of headerExtra before trantor
-type HeaderExtraBeforeTrantor struct {
-	CurrentBlockConfirmations []Confirmation
-	CurrentBlockVotes         []Vote
-	CurrentBlockProposals     []Proposal
-	CurrentBlockDeclares      []Declare
-	ModifyPredecessorVotes    []Vote
-	LoopStartTime             uint64
-	SignerQueue               []common.Address
-	SignerMissing             []common.Address
-	ConfirmedBlockNumber      uint64
-}
-
-func copyToBeforeTrantor(val HeaderExtra) HeaderExtraBeforeTrantor {
-	return HeaderExtraBeforeTrantor{
-		val.CurrentBlockConfirmations,
-		val.CurrentBlockVotes,
-		val.CurrentBlockProposals,
-		val.CurrentBlockDeclares,
-		val.ModifyPredecessorVotes,
-		val.LoopStartTime,
-		val.SignerQueue,
-		val.SignerMissing,
-		val.ConfirmedBlockNumber,
-	}
-}
-
-func copyFromBeforeTrantor(val *HeaderExtra, headerExtraBeforeTrantor HeaderExtraBeforeTrantor) {
-	val.CurrentBlockConfirmations = make([]Confirmation, len(headerExtraBeforeTrantor.CurrentBlockConfirmations))
-	copy(val.CurrentBlockConfirmations, headerExtraBeforeTrantor.CurrentBlockConfirmations)
-
-	val.CurrentBlockVotes = make([]Vote, len(headerExtraBeforeTrantor.CurrentBlockVotes))
-	copy(val.CurrentBlockVotes, headerExtraBeforeTrantor.CurrentBlockVotes)
-
-	val.CurrentBlockProposals = make([]Proposal, len(headerExtraBeforeTrantor.CurrentBlockProposals))
-	copy(val.CurrentBlockProposals, headerExtraBeforeTrantor.CurrentBlockProposals)
-
-	val.CurrentBlockDeclares = make([]Declare, len(headerExtraBeforeTrantor.CurrentBlockDeclares))
-	copy(val.CurrentBlockDeclares, headerExtraBeforeTrantor.CurrentBlockDeclares)
-
-	val.ModifyPredecessorVotes = make([]Vote, len(headerExtraBeforeTrantor.ModifyPredecessorVotes))
-	copy(val.ModifyPredecessorVotes, headerExtraBeforeTrantor.ModifyPredecessorVotes)
-
-	val.LoopStartTime = headerExtraBeforeTrantor.LoopStartTime
-
-	val.SignerQueue = make([]common.Address, len(headerExtraBeforeTrantor.SignerQueue))
-	copy(val.SignerQueue, headerExtraBeforeTrantor.SignerQueue)
-
-	val.SignerMissing = make([]common.Address, len(headerExtraBeforeTrantor.SignerMissing))
-	copy(val.SignerMissing, headerExtraBeforeTrantor.SignerMissing)
-
-	val.ConfirmedBlockNumber = headerExtraBeforeTrantor.ConfirmedBlockNumber
-
-	val.SideChainConfirmations = make([]SCConfirmation, 0)
-	val.SideChainSetCoinbases = make([]SCSetCoinbase, 0)
-
-}
-
 // Encode HeaderExtra
 func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderExtra) ([]byte, error) {
 
 	var headerExtra interface{}
 	switch {
-	case config.IsTrantor(number):
-		headerExtra = val
+	//case config.IsTrantor(number):
+
 	default:
-		headerExtra = copyToBeforeTrantor(val)
+		headerExtra = val
 	}
 	return rlp.EncodeToBytes(headerExtra)
 
@@ -283,14 +225,9 @@ func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderEx
 func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, val *HeaderExtra) error {
 	var err error
 	switch {
-	case config.IsTrantor(number):
-		err = rlp.DecodeBytes(b, val)
+	//case config.IsTrantor(number):
 	default:
-		headerExtraBeforeTrantor := HeaderExtraBeforeTrantor{}
-		err = rlp.DecodeBytes(b, &headerExtraBeforeTrantor)
-		if err == nil {
-			copyFromBeforeTrantor(val, headerExtraBeforeTrantor)
-		}
+		err = rlp.DecodeBytes(b, val)
 	}
 	return err
 }

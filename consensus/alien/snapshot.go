@@ -349,7 +349,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 
 		// deal trantor upgrade
-		if snap.Period == 0 && snap.config.IsTrantor(header.Number) {
+		if snap.Period == 0 {
 			snap.Period = snap.config.Period
 		}
 
@@ -946,21 +946,13 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 	rewards := make(map[common.Address]*big.Int)
 	allStake := big.NewInt(0)
 
-	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
-		for voter, vote := range s.Votes {
-			if vote.Candidate.Str() == coinbase.Str() && s.Voters[vote.Voter].Uint64() < s.Number-s.config.MaxSignerCount {
-				allStake.Add(allStake, vote.Stake)
-				rewards[voter] = new(big.Int).Set(vote.Stake)
-			}
-		}
-	} else {
-		for voter, vote := range s.Votes {
-			if vote.Candidate.Str() == coinbase.Str() {
-				allStake.Add(allStake, vote.Stake)
-				rewards[voter] = new(big.Int).Set(vote.Stake)
-			}
+	for voter, vote := range s.Votes {
+		if vote.Candidate.Str() == coinbase.Str() && s.Voters[vote.Voter].Uint64() < s.Number-s.config.MaxSignerCount {
+			allStake.Add(allStake, vote.Stake)
+			rewards[voter] = new(big.Int).Set(vote.Stake)
 		}
 	}
+
 	for _, stake := range rewards {
 		stake.Mul(stake, votersReward)
 		stake.Div(stake, allStake)
@@ -972,47 +964,45 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*big.Int, *big.Int) {
 
 	minerLeft := new(big.Int).Set(minerReward)
-	// rewards for side chain
-	if s.config.IsTrantor(new(big.Int).SetUint64(s.Number)) {
-		// need to deal with sum of record.RewardPerPeriod for all side chain is larger than 100% situation
-		scRewardSum := big.NewInt(0)
-		rewards := make(map[common.Address]*big.Int)
 
-		for _, record := range s.SCConfirmation {
-			scRewardSum.Add(scRewardSum, new(big.Int).SetUint64(record.RewardPerPeriod))
-		}
+	// need to deal with sum of record.RewardPerPeriod for all side chain is larger than 100% situation
+	scRewardSum := big.NewInt(0)
+	rewards := make(map[common.Address]*big.Int)
 
-		if scRewardSum.Uint64() > 0 && scRewardSum.Uint64() < 1000 {
-			minerReward.Mul(minerReward, scRewardSum)
-			minerReward.Div(minerReward, big.NewInt(1000))
-			minerLeft.Sub(minerLeft, minerReward)
-		} else if scRewardSum.Uint64() >= 1000 {
-			minerLeft.SetUint64(0)
-		} else {
-			return rewards, minerLeft
-		}
+	for _, record := range s.SCConfirmation {
+		scRewardSum.Add(scRewardSum, new(big.Int).SetUint64(record.RewardPerPeriod))
+	}
 
-		for scHash, scReward := range s.SCAllReward {
-			// check reward for the block number is exist
-			if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
-				// check confirm is exist, to get countPerPeriod and rewardPerPeriod
-				if confirmation, ok := s.SCConfirmation[scHash]; ok {
-					// calculate the side chain reward base on score/100 and record.RewardPerPeriod
-					for addr, score := range reward {
-						singleReward := new(big.Int).SetUint64(score * confirmation.RewardPerPeriod)
-						singleReward.Mul(singleReward, minerReward)
-						singleReward.Div(singleReward, new(big.Int).SetUint64(100)) // for score/100
-						singleReward.Div(singleReward, scRewardSum)                 // for record.RewardPerPeriod/ 1000
-						if _, ok := rewards[addr]; ok {
-							rewards[addr].Add(rewards[addr], singleReward)
-						} else {
-							rewards[addr] = singleReward
-						}
+	if scRewardSum.Uint64() > 0 && scRewardSum.Uint64() < 1000 {
+		minerReward.Mul(minerReward, scRewardSum)
+		minerReward.Div(minerReward, big.NewInt(1000))
+		minerLeft.Sub(minerLeft, minerReward)
+	} else if scRewardSum.Uint64() >= 1000 {
+		minerLeft.SetUint64(0)
+	} else {
+		return rewards, minerLeft
+	}
+
+	for scHash, scReward := range s.SCAllReward {
+		// check reward for the block number is exist
+		if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
+			// check confirm is exist, to get countPerPeriod and rewardPerPeriod
+			if confirmation, ok := s.SCConfirmation[scHash]; ok {
+				// calculate the side chain reward base on score/100 and record.RewardPerPeriod
+				for addr, score := range reward {
+					singleReward := new(big.Int).SetUint64(score * confirmation.RewardPerPeriod)
+					singleReward.Mul(singleReward, minerReward)
+					singleReward.Div(singleReward, new(big.Int).SetUint64(100)) // for score/100
+					singleReward.Div(singleReward, scRewardSum)                 // for record.RewardPerPeriod/ 1000
+					if _, ok := rewards[addr]; ok {
+						rewards[addr].Add(rewards[addr], singleReward)
+					} else {
+						rewards[addr] = singleReward
 					}
 				}
 			}
 		}
-		return rewards, minerLeft
 	}
-	return nil, minerLeft
+	return rewards, minerLeft
+
 }

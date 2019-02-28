@@ -896,7 +896,6 @@ func TestVoting(t *testing.T) {
 			MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
 			MaxSignerCount:  tt.maxSignerCount,
 			SelfVoteSigners: selfVoteSigners,
-			TrantorBlock:    big.NewInt(1),
 		}, db)
 
 		// Assemble a chain of headers from the cast votes
