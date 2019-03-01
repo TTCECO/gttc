@@ -68,6 +68,7 @@ const (
 	proposalTypeSideChainRemove               = 5
 	proposalTypeMinVoterBalanceModify         = 6
 	proposalTypeProposalDepositModify         = 7
+	proposalTypeRentSideChain                 = 8 // use TTC to buy coin on side chain
 
 	/*
 	 * proposal related
@@ -75,6 +76,8 @@ const (
 	maxValidationLoopCnt     = 50000 // About one month if period = 3 & 21 super nodes
 	minValidationLoopCnt     = 4     //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
 	defaultValidationLoopCnt = 10000 // About one week if period = 3 & 21 super nodes
+	maxProposalDeposit       = 10000 // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
+	minSCRentFee             = 100   // 100 TTC
 )
 
 //side chain related
@@ -131,6 +134,8 @@ type Proposal struct {
 	Declares               []*Declare     // Declare this proposal received (always empty in block header)
 	MinVoterBalance        uint64         // value of minVoterBalance , need to mul big.Int(1e+18)
 	ProposalDeposit        uint64         // The deposit need to be frozen during before the proposal get final conclusion. (TTC)
+	SCRentFee              uint64         // number of TTC coin, not wei
+	SCRentRate             uint64         // how many coin you want for 1 TTC on main chain
 }
 
 func (p *Proposal) copy() *Proposal {
@@ -149,6 +154,8 @@ func (p *Proposal) copy() *Proposal {
 		Declares:               make([]*Declare, len(p.Declares)),
 		MinVoterBalance:        p.MinVoterBalance,
 		ProposalDeposit:        p.ProposalDeposit,
+		SCRentFee:              p.SCRentFee,
+		SCRentRate:             p.SCRentFee,
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -389,6 +396,8 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		Declares:               []*Declare{},
 		MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 		ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(), // default value
+		SCRentFee:              0,
+		SCRentRate:             1,
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -440,20 +449,39 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			}
 		case "mpd":
 			// proposalDeposit
-			if mpd, err := strconv.Atoi(v); err != nil || mpd <= 0 {
+			if mpd, err := strconv.Atoi(v); err != nil || mpd <= 0 || mpd > maxProposalDeposit {
 				return currentBlockProposals
 			} else {
 				proposal.ProposalDeposit = uint64(mpd)
 			}
+		case "scrf":
+			// side chain rent fee
+			if scrf, err := strconv.Atoi(v); err != nil || scrf < minSCRentFee {
+				return currentBlockProposals
+			} else {
+				proposal.SCRentFee = uint64(scrf)
+			}
+		case "scrr":
+			// side chain rent rate
+			if scrr, err := strconv.Atoi(v); err != nil || scrr <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.SCRentRate = uint64(scrr)
+			}
+
 		}
 	}
 
+	currentProposalPay := new(big.Int).Set(proposalDeposit)
+	if proposal.ProposalType == proposalTypeRentSideChain {
+		currentProposalPay.Add(currentProposalPay, new(big.Int).Mul(new(big.Int).SetUint64(proposal.SCRentFee), big.NewInt(1e+18)))
+	}
 	// check enough balance for deposit
-	if state.GetBalance(proposer).Cmp(proposalDeposit) < 0 {
+	if state.GetBalance(proposer).Cmp(currentProposalPay) < 0 {
 		return currentBlockProposals
 	}
 	// collection the deposit
-	state.SetBalance(proposer, new(big.Int).Sub(state.GetBalance(proposer), proposalDeposit))
+	state.SetBalance(proposer, new(big.Int).Sub(state.GetBalance(proposer), currentProposalPay))
 
 	return append(currentBlockProposals, proposal)
 }

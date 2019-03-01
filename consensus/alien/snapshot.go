@@ -704,17 +704,28 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 					minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
 				case proposalTypeProposalDepositModify:
 					proposalDeposit = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].ProposalDeposit), big.NewInt(1e+18))
+				case proposalTypeRentSideChain:
+					// check if buy success
+					// todo record on snapshot for side chain to get info
 
 				default:
-					// delete unknown proposal type
-					delete(s.Proposals, hashKey)
+					// todo
 				}
 			} else {
 				// reach the target header number, but not success
-				// remove the fail proposal
-				delete(s.Proposals, hashKey)
+				switch proposal.ProposalType {
+				case proposalTypeRentSideChain:
+					// refund the side chain rent fee
+					refundSCRentFee := new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].SCRentFee), big.NewInt(1e+18))
+					s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer].Add(s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer], refundSCRentFee)
+				default:
+					// todo
+
+				}
 			}
 
+			// remove all proposal
+			delete(s.Proposals, hashKey)
 		}
 
 	}

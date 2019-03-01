@@ -933,6 +933,8 @@ func TestVoting(t *testing.T) {
 							Declares:               []*Declare{},
 							MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
 							ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(),
+							SCRentFee:              0,
+							SCRentRate:             1,
 						})
 					}
 				} else if trans.isDeclare {

@@ -69,8 +69,8 @@ var (
 	mcNonce                          = uint64(0)                                             // the current Nonce of coinbase on main chain
 	mcTxDefaultGasPrice              = big.NewInt(30000000)                                  // default gas price to build transaction for main chain
 	mcTxDefaultGasLimit              = uint64(3000000)                                       // default limit to build transaction for main chain
-	maxProposalDeposit               = new(big.Int).Div(totalBlockReward, big.NewInt(1e+3))  // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
-	proposalDeposit                  = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(1e+6)) // current proposalDeposit
+	proposalDeposit                  = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(1e+4)) // current proposalDeposit
+	scRentLengthRecommend            = uint64(0)                                             // block number for split each side chain rent fee
 )
 
 // Various error messages to mark blocks invalid. These should be private to
