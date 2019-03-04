@@ -73,11 +73,14 @@ const (
 	/*
 	 * proposal related
 	 */
-	maxValidationLoopCnt     = 50000 // About one month if period = 3 & 21 super nodes
-	minValidationLoopCnt     = 4     //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
-	defaultValidationLoopCnt = 10000 // About one week if period = 3 & 21 super nodes
-	maxProposalDeposit       = 10000 // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
-	minSCRentFee             = 100   // 100 TTC
+	maxValidationLoopCnt     = 50000                   // About one month if period = 3 & 21 super nodes
+	minValidationLoopCnt     = 4                       //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
+	defaultValidationLoopCnt = 10000                   // About one week if period = 3 & 21 super nodes
+	maxProposalDeposit       = 10000                   // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
+	minSCRentFee             = 100                     // 100 TTC
+	minSCRentLength          = 850000                  // number of block about 1 month if period is 3
+	defaultSCRentLength      = minSCRentLength * 3     // number of block about 3 month if period is 3
+	maxSCRentLength          = defaultSCRentLength * 4 // number of block about 1 year if period is 3
 )
 
 //side chain related
@@ -136,6 +139,7 @@ type Proposal struct {
 	ProposalDeposit        uint64         // The deposit need to be frozen during before the proposal get final conclusion. (TTC)
 	SCRentFee              uint64         // number of TTC coin, not wei
 	SCRentRate             uint64         // how many coin you want for 1 TTC on main chain
+	SCRentLength           uint64         // minimize block number of main chain , the rent fee will be used as reward of side chain miner.
 }
 
 func (p *Proposal) copy() *Proposal {
@@ -155,7 +159,8 @@ func (p *Proposal) copy() *Proposal {
 		MinVoterBalance:        p.MinVoterBalance,
 		ProposalDeposit:        p.ProposalDeposit,
 		SCRentFee:              p.SCRentFee,
-		SCRentRate:             p.SCRentFee,
+		SCRentRate:             p.SCRentRate,
+		SCRentLength:           p.SCRentLength,
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -398,6 +403,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(), // default value
 		SCRentFee:              0,
 		SCRentRate:             1,
+		SCRentLength:           defaultSCRentLength,
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -468,7 +474,13 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			} else {
 				proposal.SCRentRate = uint64(scrr)
 			}
-
+		case "scrl":
+			// side chain rent length
+			if scrl, err := strconv.Atoi(v); err != nil || scrl < minSCRentLength || scrl > maxSCRentLength {
+				return currentBlockProposals
+			} else {
+				proposal.SCRentLength = uint64(scrl)
+			}
 		}
 	}
 
