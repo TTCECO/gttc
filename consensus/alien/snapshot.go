@@ -71,13 +71,19 @@ var SCCurrentBlockReward = map[uint64]map[uint64]uint64{1: {1: 100},
 // SCReward
 type SCReward = map[uint64]map[common.Address]uint64 //sum(this value) in one period == 100
 
+type SCRentInfo struct {
+	RentPerPeriod *big.Int `json:"rentPerPeriod"`
+	RentLeft      *big.Int `json:"rentLeft"`
+}
+
 // SCRecord is the state record for side chain
 type SCRecord struct {
 	Record              map[uint64][]*SCConfirmation `json:"record"`              // Confirmation Record of one side chain
 	LastConfirmedNumber uint64                       `json:"lastConfirmedNumber"` // Last confirmed header number of one side chain
 	MaxHeaderNumber     uint64                       `json:"maxHeaderNumber"`     // max header number of one side chain
 	CountPerPeriod      uint64                       `json:"countPerPeriod"`      // block sealed per period on this side chain
-	RewardPerPeriod     uint64                       `json:"rewardPerPeriod"`     // full reward per period
+	RewardPerPeriod     uint64                       `json:"rewardPerPeriod"`     // full reward per period, number per thousand
+	RentReward          map[common.Hash]*SCRentInfo  `json:"rentReward"`          // reward info by rent
 }
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -255,10 +261,14 @@ func (s *Snapshot) copy() *Snapshot {
 			CountPerPeriod:      scc.CountPerPeriod,
 			RewardPerPeriod:     scc.RewardPerPeriod,
 			Record:              make(map[uint64][]*SCConfirmation),
+			RentReward:          make(map[common.Hash]*SCRentInfo),
 		}
 		for number, scConfirmation := range scc.Record {
 			cpy.SCConfirmation[hash].Record[number] = make([]*SCConfirmation, len(scConfirmation))
 			copy(cpy.SCConfirmation[hash].Record[number], scConfirmation)
+		}
+		for rentHash, scRentInfo := range scc.RentReward {
+			cpy.SCConfirmation[hash].RentReward[rentHash] = &SCRentInfo{new(big.Int).Set(scRentInfo.RentPerPeriod), new(big.Int).Set(scRentInfo.RentLeft)}
 		}
 	}
 
@@ -465,6 +475,7 @@ func (s *Snapshot) checkSCConfirmedRecordLength() {
 			s.SCConfirmation[hash].Record = make(map[uint64][]*SCConfirmation)
 			s.SCConfirmation[hash].LastConfirmedNumber = 0
 			s.SCConfirmation[hash].MaxHeaderNumber = 0
+			// the rentReward info will be kept, do not delete
 		}
 	}
 
@@ -691,7 +702,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 
 				case proposalTypeSideChainAdd:
 					if _, ok := s.SCConfirmation[proposal.SCHash]; !ok {
-						s.SCConfirmation[proposal.SCHash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0, proposal.SCBlockCountPerPeriod, proposal.SCBlockRewardPerPeriod}
+						s.SCConfirmation[proposal.SCHash] = &SCRecord{make(map[uint64][]*SCConfirmation), 0, 0, proposal.SCBlockCountPerPeriod, proposal.SCBlockRewardPerPeriod, make(map[common.Hash]*SCRentInfo)}
 					} else {
 						s.SCConfirmation[proposal.SCHash].CountPerPeriod = proposal.SCBlockCountPerPeriod
 						s.SCConfirmation[proposal.SCHash].RewardPerPeriod = proposal.SCBlockRewardPerPeriod
