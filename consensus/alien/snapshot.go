@@ -72,8 +72,8 @@ var SCCurrentBlockReward = map[uint64]map[uint64]uint64{1: {1: 100},
 type SCReward = map[uint64]map[common.Address]uint64 //sum(this value) in one period == 100
 
 type SCRentInfo struct {
-	RentPerPeriod *big.Int `json:"rentPerPeriod"`
-	RentLeft      *big.Int `json:"rentLeft"`
+	RentPerPeriod   *big.Int `json:"rentPerPeriod"`
+	MaxRewardNumber *big.Int `json:"maxRewardNumber"`
 }
 
 // SCRecord is the state record for side chain
@@ -268,7 +268,7 @@ func (s *Snapshot) copy() *Snapshot {
 			copy(cpy.SCConfirmation[hash].Record[number], scConfirmation)
 		}
 		for rentHash, scRentInfo := range scc.RentReward {
-			cpy.SCConfirmation[hash].RentReward[rentHash] = &SCRentInfo{new(big.Int).Set(scRentInfo.RentPerPeriod), new(big.Int).Set(scRentInfo.RentLeft)}
+			cpy.SCConfirmation[hash].RentReward[rentHash] = &SCRentInfo{new(big.Int).Set(scRentInfo.RentPerPeriod), new(big.Int).Set(scRentInfo.MaxRewardNumber)}
 		}
 	}
 
@@ -717,8 +717,22 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 					proposalDeposit = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].ProposalDeposit), big.NewInt(1e+18))
 				case proposalTypeRentSideChain:
 					// check if buy success
-					// todo record on snapshot for side chain to get info
+					if _, ok := s.SCConfirmation[proposal.SCHash]; !ok {
+						// refund the rent fee if the side chain do not exist now, (exist when proposal)
+						refundSCRentFee := new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].SCRentFee), big.NewInt(1e+18))
+						s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer].Add(s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer], refundSCRentFee)
+					} else {
+						// add rent reward info to scConfirmation
+						rentFee := new(big.Int).Mul(new(big.Int).SetUint64(proposal.SCRentFee), big.NewInt(1e+18))
+						rentPerPeriod := new(big.Int).Div(rentFee, new(big.Int).SetUint64(proposal.SCRentLength))
+						maxRewardNumber := new(big.Int).Add(headerNumber, new(big.Int).SetUint64(proposal.SCRentLength))
+						s.SCConfirmation[proposal.SCHash].RentReward[proposal.Hash] = &SCRentInfo{
+							rentPerPeriod,
+							maxRewardNumber,
+						}
 
+						// todo  record on snapshot for side chain to get info
+					}
 				default:
 					// todo
 				}
