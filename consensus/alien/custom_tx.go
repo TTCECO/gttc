@@ -293,7 +293,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
 								} else if txDataInfo[posEventProposal] == ufoEventPorposal {
-									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, state, tx, txSender)
+									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, state, tx, txSender, snap)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, txDataInfo, tx, txSender)
 								}
@@ -380,7 +380,7 @@ func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, h
 	return scEventSetCoinbases
 }
 
-func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, state *state.StateDB, tx *types.Transaction, proposer common.Address) []Proposal {
+func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, state *state.StateDB, tx *types.Transaction, proposer common.Address, snap *Snapshot) []Proposal {
 	// sample for add side chain proposal
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
 	// sample for declare
@@ -483,16 +483,20 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			}
 		}
 	}
-
+	// now the proposal is built
 	currentProposalPay := new(big.Int).Set(proposalDeposit)
 	if proposal.ProposalType == proposalTypeRentSideChain {
+		// check if the proposal target side chain exist
+		if !snap.isSideChainExist(proposal.SCHash) {
+			return currentBlockProposals
+		}
 		currentProposalPay.Add(currentProposalPay, new(big.Int).Mul(new(big.Int).SetUint64(proposal.SCRentFee), big.NewInt(1e+18)))
 	}
 	// check enough balance for deposit
 	if state.GetBalance(proposer).Cmp(currentProposalPay) < 0 {
 		return currentBlockProposals
 	}
-	// collection the deposit
+	// collection the fee for this proposal (deposit and other fee , sc rent fee ...)
 	state.SetBalance(proposer, new(big.Int).Sub(state.GetBalance(proposer), currentProposalPay))
 
 	return append(currentBlockProposals, proposal)

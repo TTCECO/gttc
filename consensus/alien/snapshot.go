@@ -890,6 +890,14 @@ func (s *Snapshot) inturn(signer common.Address, headerTime uint64) bool {
 
 }
 
+// check if side chain is exist (in side chain confirmation)
+func (s *Snapshot) isSideChainExist(hash common.Hash) bool {
+	if _, ok := s.SCConfirmation[hash]; ok {
+		return true
+	}
+	return false
+}
+
 // check if address belong to voter
 func (s *Snapshot) isVoter(address common.Address) bool {
 	if _, ok := s.Voters[address]; ok {
