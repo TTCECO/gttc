@@ -462,15 +462,22 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, h
 	}
 	// calculate the side chain reward in each loop
 	if (headerNumber.Uint64()+1)%s.config.MaxSignerCount == 0 {
-		s.checkSCConfirmedRecordLength()
+		s.checkSCConfirmation(headerNumber)
 		s.updateSCConfirmation(headerNumber)
 	}
 }
 
-func (s *Snapshot) checkSCConfirmedRecordLength() {
-	// if size of confirmed record from one side chain larger than scMaxConfirmedRecordLength
-	// we reset the record info of this side chain, good enough for now
+func (s *Snapshot) checkSCConfirmation(headerNumber *big.Int) {
 	for hash, scRecord := range s.SCConfirmation {
+		// check maxRentRewardNumber by headerNumber
+		for txHash, scRentInfo := range scRecord.RentReward {
+			if scRentInfo.MaxRewardNumber.Cmp(headerNumber) < 0 {
+				delete(s.SCConfirmation[hash].RentReward, txHash)
+			}
+		}
+
+		// if size of confirmed record from one side chain larger than scMaxConfirmedRecordLength
+		// we reset the record info of this side chain, good enough for now
 		if len(scRecord.Record) > scMaxConfirmedRecordLength {
 			s.SCConfirmation[hash].Record = make(map[uint64][]*SCConfirmation)
 			s.SCConfirmation[hash].LastConfirmedNumber = 0
