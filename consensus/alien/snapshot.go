@@ -86,6 +86,11 @@ type SCRecord struct {
 	RentReward          map[common.Hash]*SCRentInfo  `json:"rentReward"`          // reward info by rent
 }
 
+// SCNotice contain the information main chain need to notify given side chain
+type SCNotice struct {
+	CurrentCharging map[common.Hash]GasCharging `json:"currentCharging"` // common.Hash here is the proposal txHash not the hash of side chain
+}
+
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
 	config   *params.AlienConfig // Consensus engine parameters to fine tune behavior
@@ -289,7 +294,7 @@ func (s *Snapshot) copy() *Snapshot {
 			CurrentCharging: make(map[common.Hash]GasCharging),
 		}
 		for txHash, charge := range scn.CurrentCharging {
-			cpy.SCNoticeMap[hash].CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume}
+			cpy.SCNoticeMap[hash].CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume, charge.Hash}
 		}
 	}
 
@@ -368,6 +373,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 		// deal declares
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
+
+		// deal the notice from main chain
+		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number)
 
 		// deal trantor upgrade
 		if snap.Period == 0 {
@@ -641,6 +649,12 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 
 }
 
+func (s *Snapshot) updateSnapshotBySCCharging(scNotice []GasCharging, headerNumber *big.Int) {
+	// todo add struct to save notice as side chain !!!
+	// todo is use a map to record and record who have which signer have received this notice
+	// calculate if more than 2/3 +1 signer agree on this .
+}
+
 func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *big.Int) {
 	for _, declare := range declares {
 		if proposal, ok := s.Proposals[declare.ProposalHash]; ok {
@@ -751,7 +765,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 						if _, ok := s.SCNoticeMap[proposal.SCHash]; !ok {
 							s.SCNoticeMap[proposal.SCHash] = &SCNotice{make(map[common.Hash]GasCharging)}
 						}
-						s.SCNoticeMap[proposal.SCHash].CurrentCharging[proposal.Hash] = GasCharging{proposal.TargetAddress, proposal.SCRentFee * proposal.SCRentRate}
+						s.SCNoticeMap[proposal.SCHash].CurrentCharging[proposal.Hash] = GasCharging{proposal.TargetAddress, proposal.SCRentFee * proposal.SCRentRate, proposal.Hash}
 					}
 				default:
 					// todo

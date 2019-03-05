@@ -772,6 +772,22 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		// Accumulate any block rewards and commit the final state root
 		accumulateRewards(chain.Config(), state, header, snap, refundGas)
 	} else {
+		a.lock.RLock()
+		signer := a.signer
+		a.lock.RUnlock()
+		if notice, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
+			//return nil, err
+		} else {
+			mcLoopStartTime = loopStartTime
+			mcPeriod = period
+			mcSignerLength = signerLength
+			if notice != nil {
+				for _, charge := range notice.CurrentCharging {
+					currentHeaderExtra.SideChainCharging = append(currentHeaderExtra.SideChainCharging, charge)
+				}
+			}
+		}
+
 		// use currentHeaderExtra.SignerQueue as signer queue
 		currentHeaderExtra.SignerQueue = append([]common.Address{header.Coinbase}, parentHeaderExtra.SignerQueue...)
 		if len(currentHeaderExtra.SignerQueue) > int(a.config.MaxSignerCount) {
