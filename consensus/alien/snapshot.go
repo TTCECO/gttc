@@ -92,26 +92,25 @@ type Snapshot struct {
 	sigcache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 	LCRS     uint64              // Loop count to recreate signers from top tally
 
-	Period          uint64                       `json:"period"`          // Period of seal each block
-	Number          uint64                       `json:"number"`          // Block number where the snapshot was created
-	ConfirmedNumber uint64                       `json:"confirmedNumber"` // Block number confirmed when the snapshot was created
-	Hash            common.Hash                  `json:"hash"`            // Block hash where the snapshot was created
-	HistoryHash     []common.Hash                `json:"historyHash"`     // Block hash list for two recent loop
-	Signers         []*common.Address            `json:"signers"`         // Signers queue in current header
-	Votes           map[common.Address]*Vote     `json:"votes"`           // All validate votes from genesis block
-	Tally           map[common.Address]*big.Int  `json:"tally"`           // Stake for each candidate address
-	Voters          map[common.Address]*big.Int  `json:"voters"`          // Block number for each voter address
-	Candidates      map[common.Address]uint64    `json:"candidates"`      // Candidates for Signers (0- adding procedure 1- normal 2- removing procedure)
-	Punished        map[common.Address]uint64    `json:"punished"`        // The signer be punished count cause of missing seal
-	Confirmations   map[uint64][]*common.Address `json:"confirms"`        // The signer confirm given block number
-	Proposals       map[common.Hash]*Proposal    `json:"proposals"`       // The Proposals going or success (failed proposal will be removed)
-	HeaderTime      uint64                       `json:"headerTime"`      // Time of the current header
-	LoopStartTime   uint64                       `json:"loopStartTime"`   // Start Time of the current loop
-
-	SCCoinbase     map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // Coinbase of side chain setting
-	SCRecordMap    map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // Confirmation of side chain setting
-	SCRewardMap    map[common.Hash]SCReward                          `json:"sideChainReward"`   // Side Chain Reward
-	ProposalRefund map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`    // Refund proposal deposit
+	Period          uint64                                            `json:"period"`            // Period of seal each block
+	Number          uint64                                            `json:"number"`            // Block number where the snapshot was created
+	ConfirmedNumber uint64                                            `json:"confirmedNumber"`   // Block number confirmed when the snapshot was created
+	Hash            common.Hash                                       `json:"hash"`              // Block hash where the snapshot was created
+	HistoryHash     []common.Hash                                     `json:"historyHash"`       // Block hash list for two recent loop
+	Signers         []*common.Address                                 `json:"signers"`           // Signers queue in current header
+	Votes           map[common.Address]*Vote                          `json:"votes"`             // All validate votes from genesis block
+	Tally           map[common.Address]*big.Int                       `json:"tally"`             // Stake for each candidate address
+	Voters          map[common.Address]*big.Int                       `json:"voters"`            // Block number for each voter address
+	Candidates      map[common.Address]uint64                         `json:"candidates"`        // Candidates for Signers (0- adding procedure 1- normal 2- removing procedure)
+	Punished        map[common.Address]uint64                         `json:"punished"`          // The signer be punished count cause of missing seal
+	Confirmations   map[uint64][]*common.Address                      `json:"confirms"`          // The signer confirm given block number
+	Proposals       map[common.Hash]*Proposal                         `json:"proposals"`         // The Proposals going or success (failed proposal will be removed)
+	HeaderTime      uint64                                            `json:"headerTime"`        // Time of the current header
+	LoopStartTime   uint64                                            `json:"loopStartTime"`     // Start Time of the current loop
+	ProposalRefund  map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`    // Refund proposal deposit
+	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // Coinbase of side chain setting
+	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // Confirmation of side chain setting
+	SCRewardMap     map[common.Hash]SCReward                          `json:"sideChainReward"`   // Side Chain Reward
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
