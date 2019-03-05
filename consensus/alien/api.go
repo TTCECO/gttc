@@ -100,7 +100,7 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 					scSigners = append(scSigners, signer)
 				}
 			}
-			return &Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners}, err
+			return &Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners, SCNoticeMap: snap.SCNoticeMap}, err
 		} else {
 
 			if minNext := new(big.Int).Add(minN, big.NewInt(1)); maxN.Cmp(minN) == 0 || maxN.Cmp(minNext) == 0 {
