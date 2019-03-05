@@ -206,7 +206,11 @@ type SCSetCoinbase struct {
 type GasCharging struct {
 	Target common.Address // target address on side chain
 	Volume uint64         // volume of gas need charge (unit is ttc)
-	Hash   common.Hash    // proposal hash, the id of this gas charging
+}
+
+// SCNotice contain the information main chain need to notify given side chain
+type SCNotice struct {
+	CurrentCharging map[common.Hash]GasCharging // common.Hash here is the proposal txHash not the hash of side chain
 }
 
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]

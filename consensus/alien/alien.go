@@ -571,10 +571,11 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 }
 
 // get the snapshot info from main chain and check if current signer inturn, if inturn then update the info
-func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*GasCharging, uint64, uint64, uint64, error) {
+func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*SCNotice, uint64, uint64, uint64, error) {
 
 	if chain.Config().Alien.SideChain {
-		ms, err := a.getMainChainSnapshotByTime(chain, headerTime, chain.GetHeaderByNumber(0).ParentHash)
+		chainHash := chain.GetHeaderByNumber(0).ParentHash
+		ms, err := a.getMainChainSnapshotByTime(chain, headerTime, chainHash)
 		if err != nil {
 			return nil, 0, 0, 0, err
 		} else if len(ms.Signers) == 0 {
@@ -589,8 +590,11 @@ func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, h
 		} else if *ms.Signers[loopIndex] != signer {
 			return nil, 0, 0, 0, errUnauthorized
 		}
-
-		return nil, ms.LoopStartTime, ms.Period, uint64(len(ms.Signers)), nil
+		notice := &SCNotice{}
+		if mcNotice, ok := ms.SCNoticeMap[chainHash]; ok {
+			notice = mcNotice
+		}
+		return notice, ms.LoopStartTime, ms.Period, uint64(len(ms.Signers)), nil
 	}
 	return nil, 0, 0, 0, errNotSideChain
 }
