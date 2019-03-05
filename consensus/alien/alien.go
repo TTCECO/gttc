@@ -527,11 +527,12 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			return errUnauthorized
 		}
 	} else {
-		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
-			return errUnauthorized
+		if _, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
+			return err
 		} else {
-			// send tx to main chain to confirm this block
-			//a.mcConfirmBlock(chain, header)
+			mcLoopStartTime = loopStartTime
+			mcPeriod = period
+			mcSignerLength = signerLength
 		}
 	}
 
@@ -569,26 +570,29 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 	return nil
 }
 
-func (a *Alien) mcInturn(chain consensus.ChainReader, signer common.Address, headerTime uint64) bool {
+// get the snapshot info from main chain and check if current signer inturn, if inturn then update the info
+func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*GasCharging, uint64, uint64, uint64, error) {
+
 	if chain.Config().Alien.SideChain {
 		ms, err := a.getMainChainSnapshotByTime(chain, headerTime, chain.GetHeaderByNumber(0).ParentHash)
-		if err != nil || len(ms.Signers) == 0 || ms.Period == 0 {
-			//log.Info("Main chain snapshot query fail ", "err", err)
-			return false
+		if err != nil {
+			return nil, 0, 0, 0, err
+		} else if len(ms.Signers) == 0 {
+			return nil, 0, 0, 0, errSignerQueueEmpty
+		} else if ms.Period == 0 {
+			return nil, 0, 0, 0, errMCPeriodMissing
 		}
-		// calculate the coinbase by loopStartTime & signers slice
+
 		loopIndex := int((headerTime-ms.LoopStartTime)/ms.Period) % len(ms.Signers)
 		if loopIndex >= len(ms.Signers) {
-			return false
+			return nil, 0, 0, 0, errInvalidSignerQueue
 		} else if *ms.Signers[loopIndex] != signer {
-			return false
+			return nil, 0, 0, 0, errUnauthorized
 		}
-		mcLoopStartTime = ms.LoopStartTime
-		mcPeriod = ms.Period
-		mcSignerLength = uint64(len(ms.Signers))
-		return true
+
+		return nil, ms.LoopStartTime, ms.Period, uint64(len(ms.Signers)), nil
 	}
-	return false
+	return nil, 0, 0, 0, errNotSideChain
 }
 
 func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) ([]byte, error) {
@@ -861,13 +865,17 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 			return nil, errUnauthorized
 		}
 	} else {
-		if !a.mcInturn(chain, signer, header.Time.Uint64()) {
+		if _, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
 			<-stop
-			return nil, errUnauthorized
+			return nil, err
 		} else {
+			mcLoopStartTime = loopStartTime
+			mcPeriod = period
+			mcSignerLength = signerLength
 			// send tx to main chain to confirm this block
 			a.mcConfirmBlock(chain, header)
 		}
+
 	}
 
 	// correct the time

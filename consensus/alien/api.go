@@ -100,12 +100,12 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 					scSigners = append(scSigners, signer)
 				}
 			}
-			mcSnapshot := Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners}
+			mcs := Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners}
 			if _, ok := snap.SCNoticeMap[scHash]; ok {
-				mcSnapshot.SCNoticeMap = make(map[common.Hash]*SCNotice)
-				mcSnapshot.SCNoticeMap[scHash] = snap.SCNoticeMap[scHash]
+				mcs.SCNoticeMap = make(map[common.Hash]*SCNotice)
+				mcs.SCNoticeMap[scHash] = snap.SCNoticeMap[scHash]
 			}
-			return &mcSnapshot, err
+			return &mcs, err
 		} else {
 
 			if minNext := new(big.Int).Add(minN, big.NewInt(1)); maxN.Cmp(minN) == 0 || maxN.Cmp(minNext) == 0 {
