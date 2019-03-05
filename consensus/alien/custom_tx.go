@@ -129,7 +129,7 @@ type Proposal struct {
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address // proposer
-	Candidate              common.Address // candidate need to add/remove if candidateNeedPD == true
+	TargetAddress          common.Address // candidate need to add/remove if candidateNeedPD == true
 	MinerRewardPerThousand uint64         // reward of miner + side chain miner
 	SCHash                 common.Hash    // side chain genesis parent hash need to add/remove
 	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
@@ -150,7 +150,7 @@ func (p *Proposal) copy() *Proposal {
 		ValidationLoopCnt:      p.ValidationLoopCnt,
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
-		Candidate:              p.Candidate,
+		TargetAddress:          p.TargetAddress,
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
 		SCHash:                 p.SCHash,
 		SCBlockCountPerPeriod:  p.SCBlockCountPerPeriod,
@@ -393,7 +393,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 		ValidationLoopCnt:      defaultValidationLoopCnt,
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
-		Candidate:              common.Address{},
+		TargetAddress:          common.Address{},
 		SCHash:                 common.Hash{},
 		SCBlockCountPerPeriod:  1,
 		SCBlockRewardPerPeriod: 0,
@@ -438,7 +438,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			}
 		case "candidate":
 			// not check here
-			proposal.Candidate.UnmarshalText([]byte(v))
+			proposal.TargetAddress.UnmarshalText([]byte(v))
 		case "mrpt":
 			// miner reward per thousand
 			if mrpt, err := strconv.Atoi(v); err != nil || mrpt < 0 || mrpt > 1000 {
@@ -460,6 +460,9 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			} else {
 				proposal.ProposalDeposit = uint64(mpd)
 			}
+		case "scrt":
+			// target address on side chain to charge gas
+			proposal.TargetAddress.UnmarshalText([]byte(v))
 		case "scrf":
 			// side chain rent fee
 			if scrf, err := strconv.Atoi(v); err != nil || scrf < minSCRentFee {
@@ -488,6 +491,9 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 	if proposal.ProposalType == proposalTypeRentSideChain {
 		// check if the proposal target side chain exist
 		if !snap.isSideChainExist(proposal.SCHash) {
+			return currentBlockProposals
+		}
+		if (proposal.TargetAddress == common.Address{}) {
 			return currentBlockProposals
 		}
 		currentProposalPay.Add(currentProposalPay, new(big.Int).Mul(new(big.Int).SetUint64(proposal.SCRentFee), big.NewInt(1e+18)))

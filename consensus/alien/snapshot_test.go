@@ -925,7 +925,7 @@ func TestVoting(t *testing.T) {
 							ValidationLoopCnt:      tt.vlCnt,
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
-							Candidate:              accounts.address(trans.candidate),
+							TargetAddress:          accounts.address(trans.candidate),
 							MinerRewardPerThousand: minerRewardPerThousand,
 							SCHash:                 common.Hash{},
 							SCBlockCountPerPeriod:  1,
