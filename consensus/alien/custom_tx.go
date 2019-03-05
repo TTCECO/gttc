@@ -203,6 +203,12 @@ type SCSetCoinbase struct {
 	Coinbase common.Address
 }
 
+type GasCharging struct {
+	Target common.Address // target address on side chain
+	Volume uint64         // volume of gas need charge (unit is ttc)
+	Hash   common.Hash    // proposal hash, the id of this gas charging
+}
+
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 // HeaderExtra is the current struct
 type HeaderExtra struct {

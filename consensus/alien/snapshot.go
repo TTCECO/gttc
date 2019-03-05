@@ -86,11 +86,6 @@ type SCRecord struct {
 	RentReward          map[common.Hash]*SCRentInfo  `json:"rentReward"`          // reward info by rent
 }
 
-type GasCharging struct {
-	Target common.Address `json:"target"` // target address on side chain
-	Volume uint64         `json:"volume"` // volume of gas need charge (unit is ttc)
-}
-
 // SCNotice contain the information main chain need to notify given side chain
 type SCNotice struct {
 	CurrentCharging map[common.Hash]GasCharging `json:"currentCharging"` // common.Hash here is the proposal txHash not the hash of side chain
@@ -299,7 +294,7 @@ func (s *Snapshot) copy() *Snapshot {
 			CurrentCharging: make(map[common.Hash]GasCharging),
 		}
 		for txHash, charge := range scn.CurrentCharging {
-			cpy.SCNoticeMap[hash].CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume}
+			cpy.SCNoticeMap[hash].CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume, charge.Hash}
 		}
 	}
 
@@ -761,7 +756,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 						if _, ok := s.SCNoticeMap[proposal.SCHash]; !ok {
 							s.SCNoticeMap[proposal.SCHash] = &SCNotice{make(map[common.Hash]GasCharging)}
 						}
-						s.SCNoticeMap[proposal.SCHash].CurrentCharging[proposal.Hash] = GasCharging{proposal.TargetAddress, proposal.SCRentFee * proposal.SCRentRate}
+						s.SCNoticeMap[proposal.SCHash].CurrentCharging[proposal.Hash] = GasCharging{proposal.TargetAddress, proposal.SCRentFee * proposal.SCRentRate, proposal.Hash}
 					}
 				default:
 					// todo
