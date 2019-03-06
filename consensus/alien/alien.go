@@ -527,12 +527,34 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			return errUnauthorized
 		}
 	} else {
-		if _, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
+		if notice, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
 			return err
 		} else {
 			mcLoopStartTime = loopStartTime
 			mcPeriod = period
 			mcSignerLength = signerLength
+			// check gas charging
+			if notice != nil {
+				currentHeaderExtra := HeaderExtra{}
+				err = decodeHeaderExtra(a.config, header.Number, header.Extra[extraVanity:len(header.Extra)-extraSeal], &currentHeaderExtra)
+				if err != nil {
+					return err
+				}
+				if len(notice.CurrentCharging) != len(currentHeaderExtra.SideChainCharging) {
+					return errMCGasChargingInvalid
+				} else {
+					for _, charge := range currentHeaderExtra.SideChainCharging {
+						if v, ok := notice.CurrentCharging[charge.Hash]; !ok {
+							return err
+						} else {
+							if v.Volume != charge.Volume || v.Target != charge.Target {
+								return errMCGasChargingInvalid
+							}
+						}
+					}
+				}
+
+			}
 		}
 	}
 
