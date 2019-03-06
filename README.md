@@ -46,15 +46,6 @@ You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 * [HOWTO_VOTE_ON_GTTC](https://github.com/TTCECO/gttc/wiki//HOWTO_VOTE_ON_GTTC)  : `how to vote on alien testnet and view snapshot through API`
 * [GENESIS_JSON_SAMPLE](https://github.com/TTCECO/gttc/wiki/GENESIS_JSON_SAMPLE) : `genesis.json sample`
 
-#### Connection to Testnet
-
-* [gttc](cmd/gttc)
-
-```
-gttc --testnet
-```
-
-You can test on this test chain, it is just for test.
 
 #### Contact
 
