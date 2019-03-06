@@ -81,6 +81,11 @@ const (
 	minSCRentLength          = 850000                  // number of block about 1 month if period is 3
 	defaultSCRentLength      = minSCRentLength * 3     // number of block about 3 month if period is 3
 	maxSCRentLength          = defaultSCRentLength * 4 // number of block about 1 year if period is 3
+
+	/*
+	 * notice related
+	 */
+	noticeTypeGasCharging = 1
 )
 
 //side chain related
@@ -223,7 +228,8 @@ type HeaderExtra struct {
 	ConfirmedBlockNumber      uint64
 	SideChainConfirmations    []SCConfirmation
 	SideChainSetCoinbases     []SCSetCoinbase
-	SideChainCharging         []GasCharging
+	SideChainNoticeConfirmed  []SCConfirmation
+	SideChainCharging         []GasCharging //This only exist in side chain's header.Extra
 }
 
 // Encode HeaderExtra
@@ -252,10 +258,10 @@ func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, va
 }
 
 // Build side chain confirm data
-func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo string) []byte {
-	return []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d:%s",
+func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo string, chargingInfo string) []byte {
+	return []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d:%s:%s",
 		ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm,
-		scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64(), lastLoopInfo))
+		scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64(), lastLoopInfo, chargingInfo))
 
 }
 
@@ -325,10 +331,12 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 											continue
 										}
 										loopInfo := txDataInfo[ufoMinSplitLen+4]
-										//noticeInfo := txDataInfo[ufoMinSplitLen+5]
-
 										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
 											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), loopInfo, tx, txSender, refundHash)
+
+										chargingInfo := txDataInfo[ufoMinSplitLen+5]
+										headerExtra.SideChainNoticeConfirmed = a.processSCEventNoticeConfirm(headerExtra.SideChainNoticeConfirmed,
+											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), chargingInfo, txSender)
 
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
@@ -370,6 +378,18 @@ func (a *Alien) refundAddGas(refundGas RefundGas, address common.Address, value 
 	}
 
 	return refundGas
+}
+
+func (a *Alien) processSCEventNoticeConfirm(scEventNoticeConfirm []SCConfirmation, hash common.Hash, number uint64, chargingInfo string, txSender common.Address) []SCConfirmation {
+	if chargingInfo != "" {
+		scEventNoticeConfirm = append(scEventNoticeConfirm, SCConfirmation{
+			Hash:     hash,
+			Coinbase: txSender,
+			Number:   number,
+			LoopInfo: strings.Split(chargingInfo, "#"),
+		})
+	}
+	return scEventNoticeConfirm
 }
 
 func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {

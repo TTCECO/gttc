@@ -622,6 +622,18 @@ func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, h
 	return nil, 0, 0, 0, errNotSideChain
 }
 
+func (a *Alien) parseNoticeInfo(notice *SCNotice) string {
+	// if other notice exist, return string may be more than one
+	if notice != nil {
+		var charging []string
+		for hash, _ := range notice.CurrentCharging {
+			charging = append(charging, hash.Hex())
+		}
+		return strings.Join(charging, "#")
+	}
+	return ""
+}
+
 func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) (string, error) {
 	if chain.Config().Alien.SideChain && mcLoopStartTime != 0 && mcPeriod != 0 && a.config.Period != 0 {
 		var loopHeaderInfo []string
@@ -652,7 +664,7 @@ func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Heade
 	return "", errGetLastLoopInfoFail
 }
 
-func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header) {
+func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header, notice *SCNotice) {
 
 	a.lock.RLock()
 	signer, signTxFn := a.signer, a.signTxFn
@@ -673,7 +685,9 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 				return
 			}
 
-			txData := a.buildSCEventConfirmData(chain.GetHeaderByNumber(0).ParentHash, header.Number, header.Time, lastLoopInfo)
+			chargingInfo := a.parseNoticeInfo(notice)
+
+			txData := a.buildSCEventConfirmData(chain.GetHeaderByNumber(0).ParentHash, header.Number, header.Time, lastLoopInfo, chargingInfo)
 			tx := types.NewTransaction(nonce, header.Coinbase, big.NewInt(0), mcTxDefaultGasLimit, mcTxDefaultGasPrice, txData)
 
 			if mcNetVersion == 0 {
@@ -917,7 +931,7 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 				header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 			}
 			// send tx to main chain to confirm this block
-			a.mcConfirmBlock(chain, header)
+			a.mcConfirmBlock(chain, header, notice)
 		}
 	}
 

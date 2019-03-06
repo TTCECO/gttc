@@ -86,9 +86,16 @@ type SCRecord struct {
 	RentReward          map[common.Hash]*SCRentInfo  `json:"rentReward"`          // reward info by rent
 }
 
+type NoticeCR struct {
+	NRecord map[common.Address]bool `json:"noticeConfirmRecord"`
+	Number  uint64                  `json:"firstReceivedNumber"` // this number will fill when there are more than 2/3+1 maxSignerCnt
+	Type    uint64                  `json:"noticeType"`
+}
+
 // SCNotice contain the information main chain need to notify given side chain
 type SCNotice struct {
 	CurrentCharging map[common.Hash]GasCharging `json:"currentCharging"` // common.Hash here is the proposal txHash not the hash of side chain
+	ConfirmReceived map[common.Hash]NoticeCR    `json:"confirmReceived"` // record the confirm address
 }
 
 // Snapshot is the state of the authorization voting at a given point in time.
@@ -292,9 +299,16 @@ func (s *Snapshot) copy() *Snapshot {
 	for hash, scn := range s.SCNoticeMap {
 		cpy.SCNoticeMap[hash] = &SCNotice{
 			CurrentCharging: make(map[common.Hash]GasCharging),
+			ConfirmReceived: make(map[common.Hash]NoticeCR),
 		}
 		for txHash, charge := range scn.CurrentCharging {
 			cpy.SCNoticeMap[hash].CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume, charge.Hash}
+		}
+		for txHash, confirm := range scn.ConfirmReceived {
+			cpy.SCNoticeMap[hash].ConfirmReceived[txHash] = NoticeCR{make(map[common.Address]bool), confirm.Number, confirm.Type}
+			for addr, b := range confirm.NRecord {
+				cpy.SCNoticeMap[hash].ConfirmReceived[txHash].NRecord[addr] = b
+			}
 		}
 	}
 
@@ -375,6 +389,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 
 		// deal the notice from main chain
+		// this method only work on side chain !!!! not like other method
 		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number)
 
 		// deal trantor upgrade
@@ -387,6 +402,9 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 
 		// deal confirmation for side chain
 		snap.updateSnapshotBySCConfirm(headerExtra.SideChainConfirmations, header.Number)
+
+		// deal notice confirmation
+		snap.updateSnapshotByNoticeConfirm(headerExtra.SideChainNoticeConfirmed, header.Number)
 
 		// calculate proposal result
 		snap.calculateProposalResult(header.Number)
@@ -484,6 +502,41 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, h
 		s.checkSCConfirmation(headerNumber)
 		s.updateSCConfirmation(headerNumber)
 	}
+}
+
+func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmation, headerNumber *big.Int) {
+	// record the confirmed info into Notice, and remove notice if there are enough confirm
+	// may be receive confirmed more than 2/3+1 and the remove will delay a reasonable loop count (4)
+	for _, noticeConfirm := range scNoticeConfirmed {
+		// check if the coinbase of this side chain
+		// todo check if the current coinbase of this side chain.
+		if !s.isSideChainCoinbase(noticeConfirm.Hash, noticeConfirm.Coinbase) {
+			continue
+		}
+		// noticeConfirm.Hash is the hash of side chain
+		if _, ok := s.SCNoticeMap[noticeConfirm.Hash]; ok {
+			for _, strHash := range noticeConfirm.LoopInfo {
+				// check the charging current exist
+				noticeHash := common.HexToHash(strHash)
+				if _, ok := s.SCNoticeMap[noticeConfirm.Hash].CurrentCharging[noticeHash]; ok {
+					//noticeType = noticeTypeGasCharging
+					if _, ok := s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash]; !ok {
+						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived = make(map[common.Hash]NoticeCR)
+						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash] = NoticeCR{make(map[common.Address]bool), 0, noticeTypeGasCharging}
+					}
+					s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash].NRecord[noticeConfirm.Coinbase] = true
+				}
+			}
+		}
+	}
+
+	// check notice confirm number
+	if (headerNumber.Uint64()+1)%s.config.MaxSignerCount == 0 {
+		// todo : check if the enough coinbase is the side chain coinbase which main chain coinbase is in the signers
+		// todo : if checked ,then update the number in noticeConfirmed
+		// todo : remove the notice , delete(notice,hash) to stop the broadcast to side chain
+	}
+
 }
 
 func (s *Snapshot) checkSCConfirmation(headerNumber *big.Int) {
@@ -763,7 +816,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 							maxRewardNumber,
 						}
 						if _, ok := s.SCNoticeMap[proposal.SCHash]; !ok {
-							s.SCNoticeMap[proposal.SCHash] = &SCNotice{make(map[common.Hash]GasCharging)}
+							s.SCNoticeMap[proposal.SCHash] = &SCNotice{make(map[common.Hash]GasCharging), make(map[common.Hash]NoticeCR)}
 						}
 						s.SCNoticeMap[proposal.SCHash].CurrentCharging[proposal.Hash] = GasCharging{proposal.TargetAddress, proposal.SCRentFee * proposal.SCRentRate, proposal.Hash}
 					}
