@@ -252,9 +252,11 @@ func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, va
 }
 
 // Build side chain confirm data
-func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo []byte) []byte {
-	txData := []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d", ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm, scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64()))
-	return append(txData, lastLoopInfo...)
+func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo string) []byte {
+	return []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d:%s",
+		ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm,
+		scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64(), lastLoopInfo))
+
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
@@ -322,8 +324,11 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 											log.Trace("Side chain confirm info fail", "time", txDataInfo[ufoMinSplitLen+3])
 											continue
 										}
+										loopInfo := txDataInfo[ufoMinSplitLen+4]
+										//noticeInfo := txDataInfo[ufoMinSplitLen+5]
+
 										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
-											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), txDataInfo[ufoMinSplitLen+4:], tx, txSender, refundHash)
+											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), loopInfo, tx, txSender, refundHash)
 
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
@@ -367,12 +372,12 @@ func (a *Alien) refundAddGas(refundGas RefundGas, address common.Address, value 
 	return refundGas
 }
 
-func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo []string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {
+func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {
 	scEventConfirmaions = append(scEventConfirmaions, SCConfirmation{
 		Hash:     hash,
 		Coinbase: txSender,
 		Number:   number,
-		LoopInfo: loopInfo,
+		LoopInfo: strings.Split(loopInfo, "#"),
 	})
 	refundHash[tx.Hash()] = RefundPair{txSender, tx.GasPrice()}
 	return scEventConfirmaions, refundHash

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -621,15 +622,15 @@ func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, h
 	return nil, 0, 0, 0, errNotSideChain
 }
 
-func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) ([]byte, error) {
+func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Header) (string, error) {
 	if chain.Config().Alien.SideChain && mcLoopStartTime != 0 && mcPeriod != 0 && a.config.Period != 0 {
-		loopHeaderInfo := ""
+		var loopHeaderInfo []string
 		inLastLoop := false
 		extraTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
 		for i := uint64(0); i < a.config.MaxSignerCount*2*(mcPeriod/a.config.Period); i++ {
 			header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 			if header == nil {
-				return []byte{}, consensus.ErrUnknownAncestor
+				return "", consensus.ErrUnknownAncestor
 			}
 			newTime := (header.Time.Uint64() - mcLoopStartTime) % (mcPeriod * mcSignerLength)
 			if newTime > extraTime {
@@ -641,14 +642,14 @@ func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Heade
 			}
 			extraTime = newTime
 			if inLastLoop {
-				loopHeaderInfo += fmt.Sprintf(":%d:%s", header.Number.Uint64(), header.Coinbase.Hex())
+				loopHeaderInfo = append(loopHeaderInfo, fmt.Sprintf("%d#%s", header.Number.Uint64(), header.Coinbase.Hex()))
 			}
 		}
 		if len(loopHeaderInfo) > 0 {
-			return []byte(loopHeaderInfo), nil
+			return strings.Join(loopHeaderInfo, "#"), nil
 		}
 	}
-	return []byte{}, errGetLastLoopInfoFail
+	return "", errGetLastLoopInfoFail
 }
 
 func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header) {
