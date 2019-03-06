@@ -649,7 +649,7 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 
 }
 
-func (s *Snapshot) updateSnapshotBySCCharging(scNotice []GasCharging, headerNumber *big.Int) {
+func (s *Snapshot) updateSnapshotBySCCharging(scCharging []GasCharging, headerNumber *big.Int) {
 	// todo add struct to save notice as side chain !!!
 	// todo is use a map to record and record who have which signer have received this notice
 	// calculate if more than 2/3 +1 signer agree on this .
