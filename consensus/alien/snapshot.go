@@ -54,6 +54,8 @@ const (
 	// proposal refund
 	proposalRefundDelayLoopCount   = 2
 	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
+	// notice
+	noticeRemoveDelayLoopCount = 4
 )
 
 var (
@@ -535,6 +537,22 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 		// todo : check if the enough coinbase is the side chain coinbase which main chain coinbase is in the signers
 		// todo : if checked ,then update the number in noticeConfirmed
 		// todo : remove the notice , delete(notice,hash) to stop the broadcast to side chain
+
+		for chainHash, scNotice := range s.SCNoticeMap {
+			// check each side chain
+			for noticeHash, noticeRecord := range scNotice.ConfirmReceived {
+				if len(noticeRecord.NRecord) >= int(2*s.config.MaxSignerCount/3+1) && noticeRecord.Number == 0 {
+
+					s.SCNoticeMap[chainHash].ConfirmReceived[noticeHash] = NoticeCR{noticeRecord.NRecord, headerNumber.Uint64(), noticeRecord.Type}
+				}
+
+				if noticeRecord.Number > 0 && noticeRecord.Number < headerNumber.Uint64()-s.config.MaxSignerCount*noticeRemoveDelayLoopCount {
+					delete(s.SCNoticeMap[chainHash].CurrentCharging, noticeHash)
+					delete(s.SCNoticeMap[chainHash].ConfirmReceived, noticeHash)
+				}
+			}
+		}
+
 	}
 
 }
