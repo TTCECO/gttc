@@ -102,7 +102,7 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 			}
 			mcs := Snapshot{LoopStartTime: snap.LoopStartTime, Period: snap.Period, Signers: scSigners}
 			if _, ok := snap.SCNoticeMap[scHash]; ok {
-				mcs.SCNoticeMap = make(map[common.Hash]*SCNotice)
+				mcs.SCNoticeMap = make(map[common.Hash]*CCNotice)
 				mcs.SCNoticeMap[scHash] = snap.SCNoticeMap[scHash]
 			}
 			return &mcs, err

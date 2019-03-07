@@ -56,7 +56,7 @@ const (
 	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
 	// notice
 	mcNoticeClearDelayLoopCount = 4 // this count can be hundreds times
-	scNoticeClearDelayLoopCount = mcNoticeClearDelayLoopCount * 4
+	scNoticeClearDelayLoopCount = mcNoticeClearDelayLoopCount * scMaxCountPerPeriod * 2
 )
 
 var (
@@ -96,8 +96,9 @@ type NoticeCR struct {
 	Success bool                    `json:"success"`
 }
 
-// SCNotice contain the information main chain need to notify given side chain
-type SCNotice struct {
+// CCNotice (cross chain notice) contain the information main chain need to notify given side chain
+//
+type CCNotice struct {
 	CurrentCharging map[common.Hash]GasCharging `json:"currentCharging"` // common.Hash here is the proposal txHash not the hash of side chain
 	ConfirmReceived map[common.Hash]NoticeCR    `json:"confirmReceived"` // record the confirm address
 }
@@ -127,7 +128,7 @@ type Snapshot struct {
 	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // Coinbase of side chain setting
 	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // Confirmation of side chain setting
 	SCRewardMap     map[common.Hash]SCReward                          `json:"sideChainReward"`   // Side Chain Reward
-	SCNoticeMap     map[common.Hash]*SCNotice                         `json:"sideChainNotice"`   // Notification to side chain
+	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // Notification to side chain
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -156,7 +157,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:     make(map[common.Hash]*SCRecord),
 		SCRewardMap:     make(map[common.Hash]SCReward),
-		SCNoticeMap:     make(map[common.Hash]*SCNotice),
+		SCNoticeMap:     make(map[common.Hash]*CCNotice),
 		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
@@ -235,7 +236,7 @@ func (s *Snapshot) copy() *Snapshot {
 		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:    make(map[common.Hash]*SCRecord),
 		SCRewardMap:    make(map[common.Hash]SCReward),
-		SCNoticeMap:    make(map[common.Hash]*SCNotice),
+		SCNoticeMap:    make(map[common.Hash]*CCNotice),
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
@@ -301,7 +302,7 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 
 	for hash, scn := range s.SCNoticeMap {
-		cpy.SCNoticeMap[hash] = &SCNotice{
+		cpy.SCNoticeMap[hash] = &CCNotice{
 			CurrentCharging: make(map[common.Hash]GasCharging),
 			ConfirmReceived: make(map[common.Hash]NoticeCR),
 		}
@@ -838,7 +839,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 							maxRewardNumber,
 						}
 						if _, ok := s.SCNoticeMap[proposal.SCHash]; !ok {
-							s.SCNoticeMap[proposal.SCHash] = &SCNotice{make(map[common.Hash]GasCharging), make(map[common.Hash]NoticeCR)}
+							s.SCNoticeMap[proposal.SCHash] = &CCNotice{make(map[common.Hash]GasCharging), make(map[common.Hash]NoticeCR)}
 						}
 						s.SCNoticeMap[proposal.SCHash].CurrentCharging[proposal.Hash] = GasCharging{proposal.TargetAddress, proposal.SCRentFee * proposal.SCRentRate, proposal.Hash}
 					}

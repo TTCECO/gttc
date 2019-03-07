@@ -594,7 +594,7 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 }
 
 // get the snapshot info from main chain and check if current signer inturn, if inturn then update the info
-func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*SCNotice, uint64, uint64, uint64, error) {
+func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*CCNotice, uint64, uint64, uint64, error) {
 
 	if chain.Config().Alien.SideChain {
 		chainHash := chain.GetHeaderByNumber(0).ParentHash
@@ -613,7 +613,7 @@ func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, h
 		} else if *ms.Signers[loopIndex] != signer {
 			return nil, 0, 0, 0, errUnauthorized
 		}
-		notice := &SCNotice{}
+		notice := &CCNotice{}
 		if mcNotice, ok := ms.SCNoticeMap[chainHash]; ok {
 			notice = mcNotice
 		}
@@ -622,7 +622,7 @@ func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, h
 	return nil, 0, 0, 0, errNotSideChain
 }
 
-func (a *Alien) parseNoticeInfo(notice *SCNotice) string {
+func (a *Alien) parseNoticeInfo(notice *CCNotice) string {
 	// if other notice exist, return string may be more than one
 	if notice != nil {
 		var charging []string
@@ -664,7 +664,7 @@ func (a *Alien) getLastLoopInfo(chain consensus.ChainReader, header *types.Heade
 	return "", errGetLastLoopInfoFail
 }
 
-func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header, notice *SCNotice) {
+func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header, notice *CCNotice) {
 
 	a.lock.RLock()
 	signer, signTxFn := a.signer, a.signTxFn
