@@ -331,12 +331,13 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 											continue
 										}
 										loopInfo := txDataInfo[ufoMinSplitLen+4]
+										scHash := common.HexToHash(txDataInfo[ufoMinSplitLen+1])
 										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
-											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), loopInfo, tx, txSender, refundHash)
+											scHash, number.Uint64(), loopInfo, tx, txSender, refundHash)
 
 										chargingInfo := txDataInfo[ufoMinSplitLen+5]
 										headerExtra.SideChainNoticeConfirmed = a.processSCEventNoticeConfirm(headerExtra.SideChainNoticeConfirmed,
-											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), chargingInfo, txSender)
+											scHash, number.Uint64(), chargingInfo, txSender)
 
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {

@@ -626,7 +626,7 @@ func (a *Alien) parseNoticeInfo(notice *CCNotice) string {
 	// if other notice exist, return string may be more than one
 	if notice != nil {
 		var charging []string
-		for hash, _ := range notice.CurrentCharging {
+		for hash := range notice.CurrentCharging {
 			charging = append(charging, hash.Hex())
 		}
 		return strings.Join(charging, "#")

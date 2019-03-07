@@ -543,7 +543,6 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 				if _, ok := s.SCNoticeMap[noticeConfirm.Hash].CurrentCharging[noticeHash]; ok {
 					//noticeType = noticeTypeGasCharging
 					if _, ok := s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash]; !ok {
-						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived = make(map[common.Hash]NoticeCR)
 						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash] = NoticeCR{make(map[common.Address]bool), 0, noticeTypeGasCharging, false}
 					}
 					s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash].NRecord[noticeConfirm.Coinbase] = true
