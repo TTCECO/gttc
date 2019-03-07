@@ -494,14 +494,25 @@ func (s *Snapshot) updateSnapshotBySetSCCoinbase(scCoinbases []SCSetCoinbase) {
 	}
 }
 
-func (s *Snapshot) isSideChainCoinbase(sc common.Hash, address common.Address) bool {
+func (s *Snapshot) isSideChainCoinbase(sc common.Hash, address common.Address, realtime bool) bool {
 	// check is side chain coinbase
 	// is use the coinbase of main chain as coinbase of side chain , return false
 	// the main chain cloud seal block, but not recommend for send confirm tx usually fail
-	for _, coinbaseMap := range s.SCCoinbase {
-		if coinbase, ok := coinbaseMap[sc]; ok && coinbase == address {
-			return true
+	if realtime {
+		for _, signer := range s.Signers {
+			if _, ok := s.SCCoinbase[*signer]; ok {
+				if coinbase, ok := s.SCCoinbase[*signer][sc]; ok && coinbase == address {
+					return true
+				}
+			}
 		}
+	} else {
+		for _, coinbaseMap := range s.SCCoinbase {
+			if coinbase, ok := coinbaseMap[sc]; ok && coinbase == address {
+				return true
+			}
+		}
+
 	}
 	return false
 }
@@ -510,7 +521,7 @@ func (s *Snapshot) updateSnapshotBySCConfirm(scConfirmations []SCConfirmation, h
 	// todo ,if diff side chain coinbase send confirm for the same side chain , same number ...
 	for _, scc := range scConfirmations {
 		// new confirmation header number must larger than last confirmed number of this side chain
-		if s.isSideChainCoinbase(scc.Hash, scc.Coinbase) {
+		if s.isSideChainCoinbase(scc.Hash, scc.Coinbase, false) {
 			if _, ok := s.SCRecordMap[scc.Hash]; ok && scc.Number > s.SCRecordMap[scc.Hash].LastConfirmedNumber {
 				s.SCRecordMap[scc.Hash].Record[scc.Number] = append(s.SCRecordMap[scc.Hash].Record[scc.Number], scc.copy())
 				if scc.Number > s.SCRecordMap[scc.Hash].MaxHeaderNumber {
@@ -532,7 +543,7 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 	for _, noticeConfirm := range scNoticeConfirmed {
 		// check if the coinbase of this side chain
 		// todo check if the current coinbase of this side chain.
-		if !s.isSideChainCoinbase(noticeConfirm.Hash, noticeConfirm.Coinbase) {
+		if !s.isSideChainCoinbase(noticeConfirm.Hash, noticeConfirm.Coinbase, true) {
 			continue
 		}
 		// noticeConfirm.Hash is the hash of side chain
