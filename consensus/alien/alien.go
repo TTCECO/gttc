@@ -979,12 +979,12 @@ func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
-// set balance of coinbase to zero, when this address seal block
 func sideChainRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot) {
-	// the signer of sidechain can not get any coin on side chain.
-	// the reward of this signer will get reward on main chain.
-	state.SetBalance(header.Coinbase, big.NewInt(0))
-
+	// vanish gas fee
+	gasUsed := new(big.Int).SetUint64(header.GasUsed)
+	if state.GetBalance(header.Coinbase).Cmp(gasUsed) >= 0 {
+		state.SubBalance(header.Coinbase, gasUsed)
+	}
 	// gas charging
 	for target, volume := range snap.calculateGasCharging() {
 		state.AddBalance(target, volume)
