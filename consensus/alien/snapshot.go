@@ -55,7 +55,8 @@ const (
 	proposalRefundDelayLoopCount   = 2
 	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
 	// notice
-	noticeRemoveDelayLoopCount = 4
+	mcNoticeClearDelayLoopCount = 4 // this count can be hundreds times
+	scNoticeClearDelayLoopCount = mcNoticeClearDelayLoopCount * 4
 )
 
 var (
@@ -92,6 +93,7 @@ type NoticeCR struct {
 	NRecord map[common.Address]bool `json:"noticeConfirmRecord"`
 	Number  uint64                  `json:"firstReceivedNumber"` // this number will fill when there are more than 2/3+1 maxSignerCnt
 	Type    uint64                  `json:"noticeType"`
+	Success bool                    `json:"success"`
 }
 
 // SCNotice contain the information main chain need to notify given side chain
@@ -307,7 +309,7 @@ func (s *Snapshot) copy() *Snapshot {
 			cpy.SCNoticeMap[hash].CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume, charge.Hash}
 		}
 		for txHash, confirm := range scn.ConfirmReceived {
-			cpy.SCNoticeMap[hash].ConfirmReceived[txHash] = NoticeCR{make(map[common.Address]bool), confirm.Number, confirm.Type}
+			cpy.SCNoticeMap[hash].ConfirmReceived[txHash] = NoticeCR{make(map[common.Address]bool), confirm.Number, confirm.Type, confirm.Success}
 			for addr, b := range confirm.NRecord {
 				cpy.SCNoticeMap[hash].ConfirmReceived[txHash].NRecord[addr] = b
 			}
@@ -390,10 +392,6 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		// deal declares
 		snap.updateSnapshotByDeclares(headerExtra.CurrentBlockDeclares, header.Number)
 
-		// deal the notice from main chain
-		// this method only work on side chain !!!! not like other method
-		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number)
-
 		// deal trantor upgrade
 		if snap.Period == 0 {
 			snap.Period = snap.config.Period
@@ -415,6 +413,13 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		if !candidateNeedPD && (snap.Number+1)%(snap.config.MaxSignerCount*snap.LCRS) == 0 && len(snap.Candidates) > candidateMaxLen {
 			snap.removeExtraCandidate()
 		}
+
+		/*
+		 * follow methods only work on side chain !!!! not like above method
+		 */
+
+		// deal the notice from main chain
+		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number)
 
 	}
 	snap.Number += uint64(len(headers))
@@ -524,7 +529,7 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 					//noticeType = noticeTypeGasCharging
 					if _, ok := s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash]; !ok {
 						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived = make(map[common.Hash]NoticeCR)
-						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash] = NoticeCR{make(map[common.Address]bool), 0, noticeTypeGasCharging}
+						s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash] = NoticeCR{make(map[common.Address]bool), 0, noticeTypeGasCharging, false}
 					}
 					s.SCNoticeMap[noticeConfirm.Hash].ConfirmReceived[noticeHash].NRecord[noticeConfirm.Coinbase] = true
 				}
@@ -542,11 +547,10 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 			// check each side chain
 			for noticeHash, noticeRecord := range scNotice.ConfirmReceived {
 				if len(noticeRecord.NRecord) >= int(2*s.config.MaxSignerCount/3+1) && noticeRecord.Number == 0 {
-
-					s.SCNoticeMap[chainHash].ConfirmReceived[noticeHash] = NoticeCR{noticeRecord.NRecord, headerNumber.Uint64(), noticeRecord.Type}
+					s.SCNoticeMap[chainHash].ConfirmReceived[noticeHash] = NoticeCR{noticeRecord.NRecord, headerNumber.Uint64(), noticeRecord.Type, true}
 				}
 
-				if noticeRecord.Number > 0 && noticeRecord.Number < headerNumber.Uint64()-s.config.MaxSignerCount*noticeRemoveDelayLoopCount {
+				if noticeRecord.Success && noticeRecord.Number < headerNumber.Uint64()-s.config.MaxSignerCount*mcNoticeClearDelayLoopCount {
 					delete(s.SCNoticeMap[chainHash].CurrentCharging, noticeHash)
 					delete(s.SCNoticeMap[chainHash].ConfirmReceived, noticeHash)
 				}
