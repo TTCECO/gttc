@@ -814,7 +814,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		if len(currentHeaderExtra.SignerQueue) > int(a.config.MaxSignerCount) {
 			currentHeaderExtra.SignerQueue = currentHeaderExtra.SignerQueue[:int(a.config.MaxSignerCount)]
 		}
-		vanishGasRewards(chain.Config(), state, header)
+		sideChainRewards(chain.Config(), state, header, snap)
 	}
 	// encode header.extra
 	currentHeaderExtraEnc, err := encodeHeaderExtra(a.config, header.Number, currentHeaderExtra)
@@ -980,10 +980,15 @@ func (a *Alien) APIs(chain consensus.ChainReader) []rpc.API {
 }
 
 // set balance of coinbase to zero, when this address seal block
-func vanishGasRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header) {
+func sideChainRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot) {
 	// the signer of sidechain can not get any coin on side chain.
 	// the reward of this signer will get reward on main chain.
 	state.SetBalance(header.Coinbase, big.NewInt(0))
+
+	// gas charging
+	for target, volume := range snap.calculateGasCharging() {
+		state.AddBalance(target, volume)
+	}
 }
 
 // AccumulateRewards credits the coinbase of the given block with the mining reward.

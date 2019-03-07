@@ -57,6 +57,7 @@ const (
 	// notice
 	mcNoticeClearDelayLoopCount = 4 // this count can be hundreds times
 	scNoticeClearDelayLoopCount = mcNoticeClearDelayLoopCount * scMaxCountPerPeriod * 2
+	scGasChargingDelayLoopCount = 1 // 1 is always enough
 )
 
 var (
@@ -125,10 +126,11 @@ type Snapshot struct {
 	HeaderTime      uint64                                            `json:"headerTime"`        // Time of the current header
 	LoopStartTime   uint64                                            `json:"loopStartTime"`     // Start Time of the current loop
 	ProposalRefund  map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`    // Refund proposal deposit
-	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // Coinbase of side chain setting
-	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // Confirmation of side chain setting
-	SCRewardMap     map[common.Hash]SCReward                          `json:"sideChainReward"`   // Side Chain Reward
-	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // Notification to side chain
+	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // main chain set Coinbase of side chain setting
+	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // main chain record Confirmation of side chain setting
+	SCRewardMap     map[common.Hash]SCReward                          `json:"sideChainReward"`   // main chain record Side Chain Reward
+	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // main chain record Notification to side chain
+	LocalNotice     *CCNotice                                         `json:"localNotice"`       // side chain record Notification
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -158,6 +160,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		SCRecordMap:     make(map[common.Hash]*SCRecord),
 		SCRewardMap:     make(map[common.Hash]SCReward),
 		SCNoticeMap:     make(map[common.Hash]*CCNotice),
+		LocalNotice:     &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
@@ -237,6 +240,7 @@ func (s *Snapshot) copy() *Snapshot {
 		SCRecordMap:    make(map[common.Hash]*SCRecord),
 		SCRewardMap:    make(map[common.Hash]SCReward),
 		SCNoticeMap:    make(map[common.Hash]*CCNotice),
+		LocalNotice:    &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
@@ -314,6 +318,16 @@ func (s *Snapshot) copy() *Snapshot {
 			for addr, b := range confirm.NRecord {
 				cpy.SCNoticeMap[hash].ConfirmReceived[txHash].NRecord[addr] = b
 			}
+		}
+	}
+
+	for txHash, charge := range s.LocalNotice.CurrentCharging {
+		cpy.LocalNotice.CurrentCharging[txHash] = GasCharging{charge.Target, charge.Volume, charge.Hash}
+	}
+	for txHash, confirm := range s.LocalNotice.ConfirmReceived {
+		cpy.LocalNotice.ConfirmReceived[txHash] = NoticeCR{make(map[common.Address]bool), confirm.Number, confirm.Type, confirm.Success}
+		for addr, b := range confirm.NRecord {
+			cpy.LocalNotice.ConfirmReceived[txHash].NRecord[addr] = b
 		}
 	}
 
@@ -420,7 +434,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		 */
 
 		// deal the notice from main chain
-		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number)
+		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number, header.Coinbase)
 
 	}
 	snap.Number += uint64(len(headers))
@@ -547,7 +561,7 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 		for chainHash, scNotice := range s.SCNoticeMap {
 			// check each side chain
 			for noticeHash, noticeRecord := range scNotice.ConfirmReceived {
-				if len(noticeRecord.NRecord) >= int(2*s.config.MaxSignerCount/3+1) && noticeRecord.Number == 0 {
+				if len(noticeRecord.NRecord) >= int(2*s.config.MaxSignerCount/3+1) && !noticeRecord.Success {
 					s.SCNoticeMap[chainHash].ConfirmReceived[noticeHash] = NoticeCR{noticeRecord.NRecord, headerNumber.Uint64(), noticeRecord.Type, true}
 				}
 
@@ -557,7 +571,32 @@ func (s *Snapshot) updateSnapshotByNoticeConfirm(scNoticeConfirmed []SCConfirmat
 				}
 			}
 		}
+	}
 
+}
+
+func (s *Snapshot) updateSnapshotBySCCharging(scCharging []GasCharging, headerNumber *big.Int, coinbase common.Address) {
+	for _, charge := range scCharging {
+		if _, ok := s.LocalNotice.CurrentCharging[charge.Hash]; !ok {
+			s.LocalNotice.CurrentCharging[charge.Hash] = GasCharging{charge.Target, charge.Volume, charge.Hash}
+			s.LocalNotice.ConfirmReceived[charge.Hash] = NoticeCR{make(map[common.Address]bool), 0, noticeTypeGasCharging, false}
+
+		}
+		s.LocalNotice.ConfirmReceived[charge.Hash].NRecord[coinbase] = true
+	}
+
+	if (headerNumber.Uint64()+1)%s.config.MaxSignerCount == 0 {
+		for hash, noticeRecord := range s.LocalNotice.ConfirmReceived {
+			if len(noticeRecord.NRecord) >= int(2*s.config.MaxSignerCount/3+1) && !noticeRecord.Success {
+				s.LocalNotice.ConfirmReceived[hash] = NoticeCR{noticeRecord.NRecord, headerNumber.Uint64(), noticeTypeGasCharging, true}
+				// todo charging the gas fee on set block
+
+			}
+			if noticeRecord.Success && noticeRecord.Number < headerNumber.Uint64()-s.config.MaxSignerCount*scNoticeClearDelayLoopCount {
+				delete(s.LocalNotice.CurrentCharging, hash)
+				delete(s.LocalNotice.ConfirmReceived, hash)
+			}
+		}
 	}
 
 }
@@ -723,12 +762,6 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 		}
 	}
 
-}
-
-func (s *Snapshot) updateSnapshotBySCCharging(scCharging []GasCharging, headerNumber *big.Int) {
-	// todo add struct to save notice as side chain !!!
-	// todo is use a map to record and record who have which signer have received this notice
-	// calculate if more than 2/3 +1 signer agree on this .
 }
 
 func (s *Snapshot) updateSnapshotByDeclares(declares []Declare, headerNumber *big.Int) {
@@ -1113,6 +1146,22 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 	}
 
 	return rewards
+}
+
+func (s *Snapshot) calculateGasCharging() map[common.Address]*big.Int {
+	gasCharge := make(map[common.Address]*big.Int)
+	for hash, noticeRecord := range s.LocalNotice.ConfirmReceived {
+		if noticeRecord.Success && s.Number == noticeRecord.Number+scGasChargingDelayLoopCount*s.config.MaxSignerCount {
+			if charge, ok := s.LocalNotice.CurrentCharging[hash]; ok {
+				if _, ok := gasCharge[charge.Target]; !ok {
+					gasCharge[charge.Target] = new(big.Int).Mul(big.NewInt(1e+18), new(big.Int).SetUint64(charge.Volume))
+				} else {
+					gasCharge[charge.Target].Add(gasCharge[charge.Target], new(big.Int).Mul(big.NewInt(1e+18), new(big.Int).SetUint64(charge.Volume)))
+				}
+			}
+		}
+	}
+	return gasCharge
 }
 
 func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*big.Int, *big.Int) {
