@@ -11,6 +11,7 @@ matrix:
         - sudo modprobe fuse
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
+        - export GCLOUD_PROJECT="airy-cogency-231333"
         - go get cloud.google.com/go/firestore
         - go run build/ci.go install
         - go run build/ci.go test -coverage $TEST_PACKAGES
@@ -23,6 +24,7 @@ matrix:
         - sudo modprobe fuse
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
+        - export GCLOUD_PROJECT="airy-cogency-231334"
         - go get cloud.google.com/go/firestore
         - go run build/ci.go install
         - go run build/ci.go test -coverage $TEST_PACKAGES
@@ -35,6 +37,7 @@ matrix:
         - sudo modprobe fuse
         - sudo chmod 666 /dev/fuse
         - sudo chown root:$USER /etc/fuse.conf
+        - export GCLOUD_PROJECT="airy-cogency-231335"
         - go get cloud.google.com/go/firestore
         - go run build/ci.go install
         - go run build/ci.go test -coverage $TEST_PACKAGES
