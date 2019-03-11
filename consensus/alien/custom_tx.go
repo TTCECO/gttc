@@ -67,13 +67,25 @@ const (
 	proposalTypeSideChainAdd                  = 4
 	proposalTypeSideChainRemove               = 5
 	proposalTypeMinVoterBalanceModify         = 6
+	proposalTypeProposalDepositModify         = 7
+	proposalTypeRentSideChain                 = 8 // use TTC to buy coin on side chain
 
 	/*
 	 * proposal related
 	 */
-	maxValidationLoopCnt     = 50000 // About one month if period = 3 & 21 super nodes
-	minValidationLoopCnt     = 4     //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
-	defaultValidationLoopCnt = 10000 // About one week if period = 3 & 21 super nodes
+	maxValidationLoopCnt     = 50000                   // About one month if period = 3 & 21 super nodes
+	minValidationLoopCnt     = 4                       //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
+	defaultValidationLoopCnt = 10000                   // About one week if period = 3 & 21 super nodes
+	maxProposalDeposit       = 10000                   // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
+	minSCRentFee             = 100                     // 100 TTC
+	minSCRentLength          = 850000                  // number of block about 1 month if period is 3
+	defaultSCRentLength      = minSCRentLength * 3     // number of block about 3 month if period is 3
+	maxSCRentLength          = defaultSCRentLength * 4 // number of block about 1 year if period is 3
+
+	/*
+	 * notice related
+	 */
+	noticeTypeGasCharging = 1
 )
 
 //side chain related
@@ -117,34 +129,43 @@ type Confirmation struct {
 // not only candidate add/remove , current signer can proposal for params modify like percentage of reward distribution ...
 type Proposal struct {
 	Hash                   common.Hash    // tx hash
+	ReceivedNumber         *big.Int       // block number of proposal received
+	CurrentDeposit         *big.Int       // received deposit for this proposal
 	ValidationLoopCnt      uint64         // validation block number length of this proposal from the received block number
 	ProposalType           uint64         // type of proposal 1 - add candidate 2 - remove candidate ...
 	Proposer               common.Address // proposer
-	Candidate              common.Address // candidate need to add/remove if candidateNeedPD == true
+	TargetAddress          common.Address // candidate need to add/remove if candidateNeedPD == true
 	MinerRewardPerThousand uint64         // reward of miner + side chain miner
 	SCHash                 common.Hash    // side chain genesis parent hash need to add/remove
 	SCBlockCountPerPeriod  uint64         // the number block sealed by this side chain per period, default 1
-	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0
-	// SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
-	Declares        []*Declare // Declare this proposal received (always empty in block header)
-	ReceivedNumber  *big.Int   // block number of proposal received
-	MinVoterBalance uint64     // value of minVoterBalance , need to mul big.Int(1e+18)
+	SCBlockRewardPerPeriod uint64         // the reward of this side chain per period if SCBlockCountPerPeriod reach, default 0. SCBlockRewardPerPeriod/1000 * MinerRewardPerThousand/1000 * BlockReward is the reward for this side chain
+	Declares               []*Declare     // Declare this proposal received (always empty in block header)
+	MinVoterBalance        uint64         // value of minVoterBalance , need to mul big.Int(1e+18)
+	ProposalDeposit        uint64         // The deposit need to be frozen during before the proposal get final conclusion. (TTC)
+	SCRentFee              uint64         // number of TTC coin, not wei
+	SCRentRate             uint64         // how many coin you want for 1 TTC on main chain
+	SCRentLength           uint64         // minimize block number of main chain , the rent fee will be used as reward of side chain miner.
 }
 
 func (p *Proposal) copy() *Proposal {
 	cpy := &Proposal{
 		Hash:                   p.Hash,
+		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
+		CurrentDeposit:         new(big.Int).Set(p.CurrentDeposit),
 		ValidationLoopCnt:      p.ValidationLoopCnt,
 		ProposalType:           p.ProposalType,
 		Proposer:               p.Proposer,
-		Candidate:              p.Candidate,
+		TargetAddress:          p.TargetAddress,
 		MinerRewardPerThousand: p.MinerRewardPerThousand,
 		SCHash:                 p.SCHash,
 		SCBlockCountPerPeriod:  p.SCBlockCountPerPeriod,
 		SCBlockRewardPerPeriod: p.SCBlockRewardPerPeriod,
 		Declares:               make([]*Declare, len(p.Declares)),
-		ReceivedNumber:         new(big.Int).Set(p.ReceivedNumber),
 		MinVoterBalance:        p.MinVoterBalance,
+		ProposalDeposit:        p.ProposalDeposit,
+		SCRentFee:              p.SCRentFee,
+		SCRentRate:             p.SCRentRate,
+		SCRentLength:           p.SCRentLength,
 	}
 
 	copy(cpy.Declares, p.Declares)
@@ -187,6 +208,12 @@ type SCSetCoinbase struct {
 	Coinbase common.Address
 }
 
+type GasCharging struct {
+	Target common.Address // target address on side chain
+	Volume uint64         // volume of gas need charge (unit is ttc)
+	Hash   common.Hash    // the hash of proposal, use as id of this proposal
+}
+
 // HeaderExtra is the struct of info in header.Extra[extraVanity:len(header.extra)-extraSeal]
 // HeaderExtra is the current struct
 type HeaderExtra struct {
@@ -201,64 +228,8 @@ type HeaderExtra struct {
 	ConfirmedBlockNumber      uint64
 	SideChainConfirmations    []SCConfirmation
 	SideChainSetCoinbases     []SCSetCoinbase
-}
-
-// HeaderExtraBeforeTrantor is the struct of headerExtra before trantor
-type HeaderExtraBeforeTrantor struct {
-	CurrentBlockConfirmations []Confirmation
-	CurrentBlockVotes         []Vote
-	CurrentBlockProposals     []Proposal
-	CurrentBlockDeclares      []Declare
-	ModifyPredecessorVotes    []Vote
-	LoopStartTime             uint64
-	SignerQueue               []common.Address
-	SignerMissing             []common.Address
-	ConfirmedBlockNumber      uint64
-}
-
-func copyToBeforeTrantor(val HeaderExtra) HeaderExtraBeforeTrantor {
-	return HeaderExtraBeforeTrantor{
-		val.CurrentBlockConfirmations,
-		val.CurrentBlockVotes,
-		val.CurrentBlockProposals,
-		val.CurrentBlockDeclares,
-		val.ModifyPredecessorVotes,
-		val.LoopStartTime,
-		val.SignerQueue,
-		val.SignerMissing,
-		val.ConfirmedBlockNumber,
-	}
-}
-
-func copyFromBeforeTrantor(val *HeaderExtra, headerExtraBeforeTrantor HeaderExtraBeforeTrantor) {
-	val.CurrentBlockConfirmations = make([]Confirmation, len(headerExtraBeforeTrantor.CurrentBlockConfirmations))
-	copy(val.CurrentBlockConfirmations, headerExtraBeforeTrantor.CurrentBlockConfirmations)
-
-	val.CurrentBlockVotes = make([]Vote, len(headerExtraBeforeTrantor.CurrentBlockVotes))
-	copy(val.CurrentBlockVotes, headerExtraBeforeTrantor.CurrentBlockVotes)
-
-	val.CurrentBlockProposals = make([]Proposal, len(headerExtraBeforeTrantor.CurrentBlockProposals))
-	copy(val.CurrentBlockProposals, headerExtraBeforeTrantor.CurrentBlockProposals)
-
-	val.CurrentBlockDeclares = make([]Declare, len(headerExtraBeforeTrantor.CurrentBlockDeclares))
-	copy(val.CurrentBlockDeclares, headerExtraBeforeTrantor.CurrentBlockDeclares)
-
-	val.ModifyPredecessorVotes = make([]Vote, len(headerExtraBeforeTrantor.ModifyPredecessorVotes))
-	copy(val.ModifyPredecessorVotes, headerExtraBeforeTrantor.ModifyPredecessorVotes)
-
-	val.LoopStartTime = headerExtraBeforeTrantor.LoopStartTime
-
-	val.SignerQueue = make([]common.Address, len(headerExtraBeforeTrantor.SignerQueue))
-	copy(val.SignerQueue, headerExtraBeforeTrantor.SignerQueue)
-
-	val.SignerMissing = make([]common.Address, len(headerExtraBeforeTrantor.SignerMissing))
-	copy(val.SignerMissing, headerExtraBeforeTrantor.SignerMissing)
-
-	val.ConfirmedBlockNumber = headerExtraBeforeTrantor.ConfirmedBlockNumber
-
-	val.SideChainConfirmations = make([]SCConfirmation, 0)
-	val.SideChainSetCoinbases = make([]SCSetCoinbase, 0)
-
+	SideChainNoticeConfirmed  []SCConfirmation
+	SideChainCharging         []GasCharging //This only exist in side chain's header.Extra
 }
 
 // Encode HeaderExtra
@@ -266,10 +237,10 @@ func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderEx
 
 	var headerExtra interface{}
 	switch {
-	case config.IsTrantor(number):
-		headerExtra = val
+	//case config.IsTrantor(number):
+
 	default:
-		headerExtra = copyToBeforeTrantor(val)
+		headerExtra = val
 	}
 	return rlp.EncodeToBytes(headerExtra)
 
@@ -279,22 +250,19 @@ func encodeHeaderExtra(config *params.AlienConfig, number *big.Int, val HeaderEx
 func decodeHeaderExtra(config *params.AlienConfig, number *big.Int, b []byte, val *HeaderExtra) error {
 	var err error
 	switch {
-	case config.IsTrantor(number):
-		err = rlp.DecodeBytes(b, val)
+	//case config.IsTrantor(number):
 	default:
-		headerExtraBeforeTrantor := HeaderExtraBeforeTrantor{}
-		err = rlp.DecodeBytes(b, &headerExtraBeforeTrantor)
-		if err == nil {
-			copyFromBeforeTrantor(val, headerExtraBeforeTrantor)
-		}
+		err = rlp.DecodeBytes(b, val)
 	}
 	return err
 }
 
 // Build side chain confirm data
-func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo []byte) []byte {
-	txData := []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d", ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm, scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64()))
-	return append(txData, lastLoopInfo...)
+func (a *Alien) buildSCEventConfirmData(scHash common.Hash, headerNumber *big.Int, headerTime *big.Int, lastLoopInfo string, chargingInfo string) []byte {
+	return []byte(fmt.Sprintf("%s:%s:%s:%s:%s:%d:%d:%s:%s",
+		ufoPrefix, ufoVersion, ufoCategorySC, ufoEventConfirm,
+		scHash.Hex(), headerNumber.Uint64(), headerTime.Uint64(), lastLoopInfo, chargingInfo))
+
 }
 
 // Calculate Votes from transaction in this block, write into header.Extra
@@ -339,17 +307,11 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
-								} else if txDataInfo[posEventProposal] == ufoEventPorposal && snap.isCandidate(txSender) {
-									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, tx, txSender)
+								} else if txDataInfo[posEventProposal] == ufoEventPorposal {
+									headerExtra.CurrentBlockProposals = a.processEventProposal(headerExtra.CurrentBlockProposals, txDataInfo, state, tx, txSender, snap)
 								} else if txDataInfo[posEventDeclare] == ufoEventDeclare && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockDeclares = a.processEventDeclare(headerExtra.CurrentBlockDeclares, txDataInfo, tx, txSender)
 								}
-
-								// if value is not zero, this vote may influence the balance of tx.To()
-								if tx.Value().Cmp(big.NewInt(0)) == 0 {
-									continue
-								}
-
 							} else {
 								// todo : something wrong, leave this transaction to process as normal transaction
 							}
@@ -368,8 +330,14 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 											log.Trace("Side chain confirm info fail", "time", txDataInfo[ufoMinSplitLen+3])
 											continue
 										}
+										loopInfo := txDataInfo[ufoMinSplitLen+4]
+										scHash := common.HexToHash(txDataInfo[ufoMinSplitLen+1])
 										headerExtra.SideChainConfirmations, refundHash = a.processSCEventConfirm(headerExtra.SideChainConfirmations,
-											common.HexToHash(txDataInfo[ufoMinSplitLen+1]), number.Uint64(), txDataInfo[ufoMinSplitLen+4:], tx, txSender, refundHash)
+											scHash, number.Uint64(), loopInfo, tx, txSender, refundHash)
+
+										chargingInfo := txDataInfo[ufoMinSplitLen+5]
+										headerExtra.SideChainNoticeConfirmed = a.processSCEventNoticeConfirm(headerExtra.SideChainNoticeConfirmed,
+											scHash, number.Uint64(), chargingInfo, txSender)
 
 									}
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
@@ -387,7 +355,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 				}
 			}
 		}
-
+		// check each address
 		if number > 1 {
 			headerExtra.ModifyPredecessorVotes = a.processPredecessorVoter(headerExtra.ModifyPredecessorVotes, state, tx, txSender, snap)
 		}
@@ -413,12 +381,24 @@ func (a *Alien) refundAddGas(refundGas RefundGas, address common.Address, value 
 	return refundGas
 }
 
-func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo []string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {
+func (a *Alien) processSCEventNoticeConfirm(scEventNoticeConfirm []SCConfirmation, hash common.Hash, number uint64, chargingInfo string, txSender common.Address) []SCConfirmation {
+	if chargingInfo != "" {
+		scEventNoticeConfirm = append(scEventNoticeConfirm, SCConfirmation{
+			Hash:     hash,
+			Coinbase: txSender,
+			Number:   number,
+			LoopInfo: strings.Split(chargingInfo, "#"),
+		})
+	}
+	return scEventNoticeConfirm
+}
+
+func (a *Alien) processSCEventConfirm(scEventConfirmaions []SCConfirmation, hash common.Hash, number uint64, loopInfo string, tx *types.Transaction, txSender common.Address, refundHash RefundHash) ([]SCConfirmation, RefundHash) {
 	scEventConfirmaions = append(scEventConfirmaions, SCConfirmation{
 		Hash:     hash,
 		Coinbase: txSender,
 		Number:   number,
-		LoopInfo: loopInfo,
+		LoopInfo: strings.Split(loopInfo, "#"),
 	})
 	refundHash[tx.Hash()] = RefundPair{txSender, tx.GasPrice()}
 	return scEventConfirmaions, refundHash
@@ -433,7 +413,7 @@ func (a *Alien) processSCEventSetCoinbase(scEventSetCoinbases []SCSetCoinbase, h
 	return scEventSetCoinbases
 }
 
-func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, tx *types.Transaction, proposer common.Address) []Proposal {
+func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInfo []string, state *state.StateDB, tx *types.Transaction, proposer common.Address, snap *Snapshot) []Proposal {
 	// sample for add side chain proposal
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
 	// sample for declare
@@ -441,17 +421,22 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 
 	proposal := Proposal{
 		Hash:                   tx.Hash(),
+		ReceivedNumber:         big.NewInt(0),
+		CurrentDeposit:         proposalDeposit, // for all type of deposit
 		ValidationLoopCnt:      defaultValidationLoopCnt,
 		ProposalType:           proposalTypeCandidateAdd,
 		Proposer:               proposer,
-		Candidate:              common.Address{},
+		TargetAddress:          common.Address{},
 		SCHash:                 common.Hash{},
 		SCBlockCountPerPeriod:  1,
 		SCBlockRewardPerPeriod: 0,
 		MinerRewardPerThousand: minerRewardPerThousand,
 		Declares:               []*Declare{},
-		ReceivedNumber:         big.NewInt(0),
 		MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
+		ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(), // default value
+		SCRentFee:              0,
+		SCRentRate:             1,
+		SCRentLength:           defaultSCRentLength,
 	}
 
 	for i := 0; i < len(txDataInfo[posEventProposal+1:])/2; i++ {
@@ -486,7 +471,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			}
 		case "candidate":
 			// not check here
-			proposal.Candidate.UnmarshalText([]byte(v))
+			proposal.TargetAddress.UnmarshalText([]byte(v))
 		case "mrpt":
 			// miner reward per thousand
 			if mrpt, err := strconv.Atoi(v); err != nil || mrpt < 0 || mrpt > 1000 {
@@ -501,9 +486,57 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			} else {
 				proposal.MinVoterBalance = uint64(mvb)
 			}
-
+		case "mpd":
+			// proposalDeposit
+			if mpd, err := strconv.Atoi(v); err != nil || mpd <= 0 || mpd > maxProposalDeposit {
+				return currentBlockProposals
+			} else {
+				proposal.ProposalDeposit = uint64(mpd)
+			}
+		case "scrt":
+			// target address on side chain to charge gas
+			proposal.TargetAddress.UnmarshalText([]byte(v))
+		case "scrf":
+			// side chain rent fee
+			if scrf, err := strconv.Atoi(v); err != nil || scrf < minSCRentFee {
+				return currentBlockProposals
+			} else {
+				proposal.SCRentFee = uint64(scrf)
+			}
+		case "scrr":
+			// side chain rent rate
+			if scrr, err := strconv.Atoi(v); err != nil || scrr <= 0 {
+				return currentBlockProposals
+			} else {
+				proposal.SCRentRate = uint64(scrr)
+			}
+		case "scrl":
+			// side chain rent length
+			if scrl, err := strconv.Atoi(v); err != nil || scrl < minSCRentLength || scrl > maxSCRentLength {
+				return currentBlockProposals
+			} else {
+				proposal.SCRentLength = uint64(scrl)
+			}
 		}
 	}
+	// now the proposal is built
+	currentProposalPay := new(big.Int).Set(proposalDeposit)
+	if proposal.ProposalType == proposalTypeRentSideChain {
+		// check if the proposal target side chain exist
+		if !snap.isSideChainExist(proposal.SCHash) {
+			return currentBlockProposals
+		}
+		if (proposal.TargetAddress == common.Address{}) {
+			return currentBlockProposals
+		}
+		currentProposalPay.Add(currentProposalPay, new(big.Int).Mul(new(big.Int).SetUint64(proposal.SCRentFee), big.NewInt(1e+18)))
+	}
+	// check enough balance for deposit
+	if state.GetBalance(proposer).Cmp(currentProposalPay) < 0 {
+		return currentBlockProposals
+	}
+	// collection the fee for this proposal (deposit and other fee , sc rent fee ...)
+	state.SetBalance(proposer, new(big.Int).Sub(state.GetBalance(proposer), currentProposalPay))
 
 	return append(currentBlockProposals, proposal)
 }

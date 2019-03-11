@@ -896,7 +896,6 @@ func TestVoting(t *testing.T) {
 			MinVoterBalance: big.NewInt(int64(tt.minVoterBalance)),
 			MaxSignerCount:  tt.maxSignerCount,
 			SelfVoteSigners: selfVoteSigners,
-			TrantorBlock:    big.NewInt(1),
 		}, db)
 
 		// Assemble a chain of headers from the cast votes
@@ -921,17 +920,22 @@ func TestVoting(t *testing.T) {
 					if snap.isCandidate(accounts.address(trans.from)) {
 						currentBlockProposals = append(currentBlockProposals, Proposal{
 							Hash:                   common.HexToHash(trans.txHash),
+							ReceivedNumber:         big.NewInt(int64(j)),
+							CurrentDeposit:         proposalDeposit,
 							ValidationLoopCnt:      tt.vlCnt,
 							ProposalType:           trans.proposalType,
 							Proposer:               accounts.address(trans.from),
-							Candidate:              accounts.address(trans.candidate),
+							TargetAddress:          accounts.address(trans.candidate),
 							MinerRewardPerThousand: minerRewardPerThousand,
 							SCHash:                 common.Hash{},
 							SCBlockCountPerPeriod:  1,
 							SCBlockRewardPerPeriod: 0,
 							Declares:               []*Declare{},
-							ReceivedNumber:         big.NewInt(int64(j)),
 							MinVoterBalance:        new(big.Int).Div(minVoterBalance, big.NewInt(1e+18)).Uint64(),
+							ProposalDeposit:        new(big.Int).Div(proposalDeposit, big.NewInt(1e+18)).Uint64(),
+							SCRentFee:              0,
+							SCRentRate:             1,
+							SCRentLength:           defaultSCRentLength,
 						})
 					}
 				} else if trans.isDeclare {

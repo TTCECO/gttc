@@ -43,6 +43,9 @@ var (
 
 	// errMCPeriodMissing is returned if period from main chain snapshot is zero
 	errMCPeriodMissing = errors.New("main chain period is missing")
+
+	// errMCGasChargingInvalid is returned if gas charging info on main chain and side chain header are different
+	errMCGasChargingInvalid = errors.New("gas charging info is invalid")
 )
 
 // getMainChainSnapshotByTime return snapshot by header time of side chain
