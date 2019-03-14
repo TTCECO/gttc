@@ -52,7 +52,7 @@ const (
 	scRewardDelayLoopCount     = 2                          //
 	scRewardExpiredLoopCount   = scRewardDelayLoopCount + 4 //
 	scMaxCountPerPeriod        = 6
-	scMaxConfirmedRecordLength = defaultOfficialMaxSignerCount * 200 // max record length for each side chain
+	scMaxConfirmedRecordLength = defaultOfficialMaxSignerCount * 50 // max record length for each side chain
 	// proposal refund
 	proposalRefundDelayLoopCount   = 2
 	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
@@ -879,9 +879,9 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 		}
 	}
 
-	for scHash, _ := range s.SCRewardMap {
+	for scHash := range s.SCRewardMap {
 		// clear expired side chain reward record
-		for number, _ := range s.SCRewardMap[scHash] {
+		for number := range s.SCRewardMap[scHash] {
 			if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
 				delete(s.SCRewardMap[scHash], number)
 			}
@@ -932,7 +932,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 		// the result will be calculate at receiverdNumber + vlcnt + 1
 		if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount+1 == headerNumber.Uint64() {
 			//return deposit for proposal
-			if _, ok := s.ProposalRefund[s.Number]; !ok {
+			if _, ok := s.ProposalRefund[headerNumber.Uint64()]; !ok {
 				s.ProposalRefund[headerNumber.Uint64()] = make(map[common.Address]*big.Int)
 			}
 			if _, ok := s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer]; !ok {
