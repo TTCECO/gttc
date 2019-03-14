@@ -296,13 +296,15 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 
 	for hash, sca := range s.SCRewardMap {
-		cpy.SCRewardMap[hash] = make(map[uint64]map[common.Address]uint64)
+		chainReward := make(map[uint64]map[common.Address]uint64)
 		for number, reward := range sca {
-			cpy.SCRewardMap[hash][number] = make(map[common.Address]uint64)
+			blockReward := make(map[common.Address]uint64)
 			for addr, count := range reward {
-				cpy.SCRewardMap[hash][number][addr] = count
+				blockReward[addr] = count
 			}
+			chainReward[number] = blockReward
 		}
+		cpy.SCRewardMap[hash] = chainReward
 	}
 
 	for hash, scn := range s.SCNoticeMap {
