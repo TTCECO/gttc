@@ -812,7 +812,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 		// the result will be calculate at receiverdNumber + vlcnt + 1
 		if proposal.ReceivedNumber.Uint64()+proposal.ValidationLoopCnt*s.config.MaxSignerCount+1 == headerNumber.Uint64() {
 			//return deposit for proposal
-			if _, ok := s.ProposalRefund[s.Number]; !ok {
+			if _, ok := s.ProposalRefund[headerNumber.Uint64()]; !ok {
 				s.ProposalRefund[headerNumber.Uint64()] = make(map[common.Address]*big.Int)
 			}
 			if _, ok := s.ProposalRefund[headerNumber.Uint64()][proposal.Proposer]; !ok {
