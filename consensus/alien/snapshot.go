@@ -128,7 +128,7 @@ type Snapshot struct {
 	ProposalRefund  map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`    // Refund proposal deposit
 	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // main chain set Coinbase of side chain setting
 	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // main chain record Confirmation of side chain setting
-	SCRewardMap     map[common.Hash]SCReward                          `json:"sideChainReward"`   // main chain record Side Chain Reward
+	SCRewardMap     map[common.Hash]*SCReward                         `json:"sideChainReward"`   // main chain record Side Chain Reward
 	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // main chain record Notification to side chain
 	LocalNotice     *CCNotice                                         `json:"localNotice"`       // side chain record Notification
 }
@@ -158,7 +158,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		LoopStartTime:   config.GenesisTimestamp,
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:     make(map[common.Hash]*SCRecord),
-		SCRewardMap:     make(map[common.Hash]SCReward),
+		SCRewardMap:     make(map[common.Hash]*SCReward),
 		SCNoticeMap:     make(map[common.Hash]*CCNotice),
 		LocalNotice:     &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
@@ -238,7 +238,7 @@ func (s *Snapshot) copy() *Snapshot {
 		LoopStartTime:  s.LoopStartTime,
 		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:    make(map[common.Hash]*SCRecord),
-		SCRewardMap:    make(map[common.Hash]SCReward),
+		SCRewardMap:    make(map[common.Hash]*SCReward),
 		SCNoticeMap:    make(map[common.Hash]*CCNotice),
 		LocalNotice:    &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
@@ -297,14 +297,14 @@ func (s *Snapshot) copy() *Snapshot {
 
 	for hash, sca := range s.SCRewardMap {
 		chainReward := make(map[uint64]map[common.Address]uint64)
-		for number, reward := range sca {
+		for number, reward := range *sca {
 			blockReward := make(map[common.Address]uint64)
 			for addr, count := range reward {
 				blockReward[addr] = count
 			}
 			chainReward[number] = blockReward
 		}
-		cpy.SCRewardMap[hash] = chainReward
+		cpy.SCRewardMap[hash] = &chainReward
 	}
 
 	for hash, scn := range s.SCNoticeMap {
@@ -718,10 +718,13 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
 	for scHash, record := range s.SCRecordMap {
 		if _, ok := s.SCRewardMap[scHash]; !ok {
-			s.SCRewardMap[scHash] = make(map[uint64]map[common.Address]uint64)
+			newChainReward := make(map[uint64]map[common.Address]uint64)
+			s.SCRewardMap[scHash] = &newChainReward
 		}
-		if _, ok := s.SCRewardMap[scHash][headerNumber.Uint64()]; !ok {
-			s.SCRewardMap[scHash][headerNumber.Uint64()] = make(map[common.Address]uint64)
+		chainReward := *s.SCRewardMap[scHash]
+
+		if _, ok := chainReward[headerNumber.Uint64()]; !ok {
+			chainReward[headerNumber.Uint64()] = make(map[common.Address]uint64)
 		}
 		confirmedNumber, confirmedCoinbase := s.calculateSCConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
@@ -737,10 +740,10 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 						currentSCCoinbaseCount++
 					}
 
-					if _, ok := s.SCRewardMap[scHash][headerNumber.Uint64()][scCoinbase]; !ok {
-						s.SCRewardMap[scHash][headerNumber.Uint64()][scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+					if _, ok := chainReward[headerNumber.Uint64()][scCoinbase]; !ok {
+						chainReward[headerNumber.Uint64()][scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					} else {
-						s.SCRewardMap[scHash][headerNumber.Uint64()][scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+						chainReward[headerNumber.Uint64()][scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					}
 
 					// update lastSCCoinbase
@@ -756,20 +759,21 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 			s.SCRecordMap[scHash].LastConfirmedNumber = confirmedNumber
 		}
 		// clear empty block number for side chain
-		if len(s.SCRewardMap[scHash][headerNumber.Uint64()]) == 0 {
-			delete(s.SCRewardMap[scHash], headerNumber.Uint64())
+		if len(chainReward[headerNumber.Uint64()]) == 0 {
+			delete(chainReward, headerNumber.Uint64())
 		}
 	}
 
 	for scHash := range s.SCRewardMap {
 		// clear expired side chain reward record
-		for number := range s.SCRewardMap[scHash] {
+		chainReward := *s.SCRewardMap[scHash]
+		for number := range chainReward {
 			if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
-				delete(s.SCRewardMap[scHash], number)
+				delete(chainReward, number)
 			}
 		}
 		// clear this side chain if reward is empty
-		if len(s.SCRewardMap[scHash]) == 0 {
+		if len(chainReward) == 0 {
 			delete(s.SCRewardMap, scHash)
 		}
 	}
@@ -1200,9 +1204,10 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*
 		scRewardMilliSum = 1000
 	}
 
-	for scHash, scReward := range s.SCRewardMap {
+	for scHash := range s.SCRewardMap {
 		// check reward for the block number is exist
-		if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
+		chainReward := *s.SCRewardMap[scHash]
+		if reward, ok := chainReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
 			// check confirm is exist, to get countPerPeriod and rewardPerPeriod
 			if confirmation, ok := s.SCRecordMap[scHash]; ok {
 				// calculate the rent still not reach on this side chain
