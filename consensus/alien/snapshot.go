@@ -721,8 +721,7 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 			newChainReward := make(map[uint64]map[common.Address]uint64)
 			s.SCRewardMap[scHash] = &newChainReward
 		}
-		chainReward := *s.SCRewardMap[scHash]
-		chainReward[headerNumber.Uint64()] = make(map[common.Address]uint64)
+		currentReward := make(map[common.Address]uint64)
 		confirmedNumber, confirmedCoinbase := s.calculateSCConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
 			// todo: map coinbase of side chain to coin base of main chain here
@@ -737,10 +736,10 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 						currentSCCoinbaseCount++
 					}
 
-					if _, ok := chainReward[headerNumber.Uint64()][scCoinbase]; !ok {
-						chainReward[headerNumber.Uint64()][scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+					if _, ok := currentReward[scCoinbase]; !ok {
+						currentReward[scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					} else {
-						chainReward[headerNumber.Uint64()][scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+						currentReward[scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					}
 
 					// update lastSCCoinbase
@@ -756,8 +755,8 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 			s.SCRecordMap[scHash].LastConfirmedNumber = confirmedNumber
 		}
 		// clear empty block number for side chain
-		if len(chainReward[headerNumber.Uint64()]) == 0 {
-			delete(chainReward, headerNumber.Uint64())
+		if len(currentReward) != 0 {
+			(*s.SCRewardMap[scHash])[headerNumber.Uint64()] = currentReward
 		}
 	}
 
