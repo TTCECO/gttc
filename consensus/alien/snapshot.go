@@ -47,12 +47,12 @@ const (
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 	// reward for side chain
-	scRewardDelayLoopCount     = 2                          //
+	scRewardDelayLoopCount     = 0                          //
 	scRewardExpiredLoopCount   = scRewardDelayLoopCount + 4 //
 	scMaxCountPerPeriod        = 6
 	scMaxConfirmedRecordLength = defaultOfficialMaxSignerCount * 50 // max record length for each side chain
 	// proposal refund
-	proposalRefundDelayLoopCount   = 2
+	proposalRefundDelayLoopCount   = 0
 	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
 	// notice
 	mcNoticeClearDelayLoopCount = 4 // this count can be hundreds times
@@ -78,7 +78,7 @@ type SCBlockReward struct {
 }
 
 // Record for one side chain
-type SCChainReward struct {
+type SCReward struct {
 	SCBlockRewardMap map[uint64]*SCBlockReward
 }
 
@@ -135,7 +135,7 @@ type Snapshot struct {
 	ProposalRefund  map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`    // Refund proposal deposit
 	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // main chain set Coinbase of side chain setting
 	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // main chain record Confirmation of side chain setting
-	SCRewardMap     map[common.Hash]*SCChainReward                    `json:"sideChainReward"`   // main chain record Side Chain Reward
+	SCRewardMap     map[common.Hash]*SCReward                         `json:"sideChainReward"`   // main chain record Side Chain Reward
 	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // main chain record Notification to side chain
 	LocalNotice     *CCNotice                                         `json:"localNotice"`       // side chain record Notification
 }
@@ -165,7 +165,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		LoopStartTime:   config.GenesisTimestamp,
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:     make(map[common.Hash]*SCRecord),
-		SCRewardMap:     make(map[common.Hash]*SCChainReward),
+		SCRewardMap:     make(map[common.Hash]*SCReward),
 		SCNoticeMap:     make(map[common.Hash]*CCNotice),
 		LocalNotice:     &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
@@ -245,7 +245,7 @@ func (s *Snapshot) copy() *Snapshot {
 		LoopStartTime:  s.LoopStartTime,
 		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:    make(map[common.Hash]*SCRecord),
-		SCRewardMap:    make(map[common.Hash]*SCChainReward),
+		SCRewardMap:    make(map[common.Hash]*SCReward),
 		SCNoticeMap:    make(map[common.Hash]*CCNotice),
 		LocalNotice:    &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
@@ -303,7 +303,7 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 
 	for hash, sca := range s.SCRewardMap {
-		cpy.SCRewardMap[hash] = &SCChainReward{
+		cpy.SCRewardMap[hash] = &SCReward{
 			SCBlockRewardMap: make(map[uint64]*SCBlockReward),
 		}
 		for number, blockReward := range sca.SCBlockRewardMap {
@@ -727,7 +727,7 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
 	for scHash, record := range s.SCRecordMap {
 		if _, ok := s.SCRewardMap[scHash]; !ok {
-			s.SCRewardMap[scHash] = &SCChainReward{SCBlockRewardMap: make(map[uint64]*SCBlockReward)}
+			s.SCRewardMap[scHash] = &SCReward{SCBlockRewardMap: make(map[uint64]*SCBlockReward)}
 		}
 		currentReward := &SCBlockReward{RewardScoreMap: make(map[common.Address]uint64)}
 		confirmedNumber, confirmedCoinbase := s.calculateSCConfirmedNumber(record, minConfirmedSignerCount)
