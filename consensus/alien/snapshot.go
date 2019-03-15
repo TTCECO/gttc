@@ -722,10 +722,7 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 			s.SCRewardMap[scHash] = &newChainReward
 		}
 		chainReward := *s.SCRewardMap[scHash]
-
-		if _, ok := chainReward[headerNumber.Uint64()]; !ok {
-			chainReward[headerNumber.Uint64()] = make(map[common.Address]uint64)
-		}
+		chainReward[headerNumber.Uint64()] = make(map[common.Address]uint64)
 		confirmedNumber, confirmedCoinbase := s.calculateSCConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
 			// todo: map coinbase of side chain to coin base of main chain here
