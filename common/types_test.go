@@ -121,6 +121,8 @@ func TestAddressUnmarshalJSON(t *testing.T) {
 }
 
 func TestAddressHexChecksum(t *testing.T) {
+	// PM want to change hex prefix 0x to anything they want , so ...
+
 	var tests = []struct {
 		Input  string
 		Output string
@@ -137,9 +139,9 @@ func TestAddressHexChecksum(t *testing.T) {
 		{"0x000000000000000000000000000000000000000a", "0x000000000000000000000000000000000000000A"},
 	}
 	for i, test := range tests {
-		output := HexToAddress(test.Input).Hex()
-		if output != test.Output {
-			t.Errorf("test #%d: failed to match when it should (%s != %s)", i, output, test.Output)
+		output := HexToAddress(HexToCP(test.Input)).Hex()
+		if output != HexToCP(test.Output) {
+			t.Errorf("test #%d: failed to match when it should (%s != %s)", i, output, HexToCP(test.Output))
 		}
 	}
 }
