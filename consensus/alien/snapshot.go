@@ -49,12 +49,12 @@ const (
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
 	// reward for side chain
-	scRewardDelayLoopCount     = 2                          //
+	scRewardDelayLoopCount     = 0                          //
 	scRewardExpiredLoopCount   = scRewardDelayLoopCount + 4 //
 	scMaxCountPerPeriod        = 6
 	scMaxConfirmedRecordLength = defaultOfficialMaxSignerCount * 50 // max record length for each side chain
 	// proposal refund
-	proposalRefundDelayLoopCount   = 2
+	proposalRefundDelayLoopCount   = 0
 	proposalRefundExpiredLoopCount = proposalRefundDelayLoopCount + 2
 	// notice
 	mcNoticeClearDelayLoopCount = 4 // this count can be hundreds times
@@ -74,8 +74,15 @@ var SCCurrentBlockReward = map[uint64]map[uint64]uint64{1: {1: 100},
 	5: {1: 5, 2: 10, 3: 15, 4: 25, 5: 45},
 	6: {1: 1, 2: 4, 3: 10, 4: 15, 5: 25, 6: 45}}
 
-// SCReward
-type SCReward = map[uint64]map[common.Address]uint64 //sum(this value) in one period == 100
+// Score to calculate at one main chain block, for calculate the side chain reward
+type SCBlockReward struct {
+	RewardScoreMap map[common.Address]uint64 //sum(this value) in one period == 100
+}
+
+// Record for one side chain
+type SCReward struct {
+	SCBlockRewardMap map[uint64]*SCBlockReward
+}
 
 type SCRentInfo struct {
 	RentPerPeriod   *big.Int `json:"rentPerPeriod"`
@@ -130,7 +137,7 @@ type Snapshot struct {
 	ProposalRefund  map[uint64]map[common.Address]*big.Int            `json:"proposalRefund"`    // Refund proposal deposit
 	SCCoinbase      map[common.Address]map[common.Hash]common.Address `json:"sideChainCoinbase"` // main chain set Coinbase of side chain setting
 	SCRecordMap     map[common.Hash]*SCRecord                         `json:"sideChainRecord"`   // main chain record Confirmation of side chain setting
-	SCRewardMap     map[common.Hash]SCReward                          `json:"sideChainReward"`   // main chain record Side Chain Reward
+	SCRewardMap     map[common.Hash]*SCReward                         `json:"sideChainReward"`   // main chain record Side Chain Reward
 	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // main chain record Notification to side chain
 	LocalNotice     *CCNotice                                         `json:"localNotice"`       // side chain record Notification
 }
@@ -160,7 +167,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		LoopStartTime:   config.GenesisTimestamp,
 		SCCoinbase:      make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:     make(map[common.Hash]*SCRecord),
-		SCRewardMap:     make(map[common.Hash]SCReward),
+		SCRewardMap:     make(map[common.Hash]*SCReward),
 		SCNoticeMap:     make(map[common.Hash]*CCNotice),
 		LocalNotice:     &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
@@ -240,7 +247,7 @@ func (s *Snapshot) copy() *Snapshot {
 		LoopStartTime:  s.LoopStartTime,
 		SCCoinbase:     make(map[common.Address]map[common.Hash]common.Address),
 		SCRecordMap:    make(map[common.Hash]*SCRecord),
-		SCRewardMap:    make(map[common.Hash]SCReward),
+		SCRewardMap:    make(map[common.Hash]*SCReward),
 		SCNoticeMap:    make(map[common.Hash]*CCNotice),
 		LocalNotice:    &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
@@ -298,11 +305,15 @@ func (s *Snapshot) copy() *Snapshot {
 	}
 
 	for hash, sca := range s.SCRewardMap {
-		cpy.SCRewardMap[hash] = make(map[uint64]map[common.Address]uint64)
-		for number, reward := range sca {
-			cpy.SCRewardMap[hash][number] = make(map[common.Address]uint64)
-			for addr, count := range reward {
-				cpy.SCRewardMap[hash][number][addr] = count
+		cpy.SCRewardMap[hash] = &SCReward{
+			SCBlockRewardMap: make(map[uint64]*SCBlockReward),
+		}
+		for number, blockReward := range sca.SCBlockRewardMap {
+			cpy.SCRewardMap[hash].SCBlockRewardMap[number] = &SCBlockReward{
+				RewardScoreMap: make(map[common.Address]uint64),
+			}
+			for addr, score := range blockReward.RewardScoreMap {
+				cpy.SCRewardMap[hash].SCBlockRewardMap[number].RewardScoreMap[addr] = score
 			}
 		}
 	}
@@ -836,11 +847,9 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 	minConfirmedSignerCount := int(2 * s.config.MaxSignerCount / 3)
 	for scHash, record := range s.SCRecordMap {
 		if _, ok := s.SCRewardMap[scHash]; !ok {
-			s.SCRewardMap[scHash] = make(map[uint64]map[common.Address]uint64)
+			s.SCRewardMap[scHash] = &SCReward{SCBlockRewardMap: make(map[uint64]*SCBlockReward)}
 		}
-		if _, ok := s.SCRewardMap[scHash][headerNumber.Uint64()]; !ok {
-			s.SCRewardMap[scHash][headerNumber.Uint64()] = make(map[common.Address]uint64)
-		}
+		currentReward := &SCBlockReward{RewardScoreMap: make(map[common.Address]uint64)}
 		confirmedNumber, confirmedCoinbase := s.calculateSCConfirmedNumber(record, minConfirmedSignerCount)
 		if confirmedNumber > record.LastConfirmedNumber {
 			// todo: map coinbase of side chain to coin base of main chain here
@@ -855,10 +864,10 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 						currentSCCoinbaseCount++
 					}
 
-					if _, ok := s.SCRewardMap[scHash][headerNumber.Uint64()][scCoinbase]; !ok {
-						s.SCRewardMap[scHash][headerNumber.Uint64()][scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+					if _, ok := currentReward.RewardScoreMap[scCoinbase]; !ok {
+						currentReward.RewardScoreMap[scCoinbase] = s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					} else {
-						s.SCRewardMap[scHash][headerNumber.Uint64()][scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
+						currentReward.RewardScoreMap[scCoinbase] += s.calculateCurrentBlockReward(currentSCCoinbaseCount, record.CountPerPeriod)
 					}
 
 					// update lastSCCoinbase
@@ -874,20 +883,20 @@ func (s *Snapshot) updateSCConfirmation(headerNumber *big.Int) {
 			s.SCRecordMap[scHash].LastConfirmedNumber = confirmedNumber
 		}
 		// clear empty block number for side chain
-		if len(s.SCRewardMap[scHash][headerNumber.Uint64()]) == 0 {
-			delete(s.SCRewardMap[scHash], headerNumber.Uint64())
+		if len(currentReward.RewardScoreMap) != 0 {
+			s.SCRewardMap[scHash].SCBlockRewardMap[headerNumber.Uint64()] = currentReward
 		}
 	}
 
 	for scHash := range s.SCRewardMap {
 		// clear expired side chain reward record
-		for number := range s.SCRewardMap[scHash] {
+		for number := range s.SCRewardMap[scHash].SCBlockRewardMap {
 			if number < headerNumber.Uint64()-scRewardExpiredLoopCount*s.config.MaxSignerCount {
-				delete(s.SCRewardMap[scHash], number)
+				delete(s.SCRewardMap[scHash].SCBlockRewardMap, number)
 			}
 		}
 		// clear this side chain if reward is empty
-		if len(s.SCRewardMap[scHash]) == 0 {
+		if len(s.SCRewardMap[scHash].SCBlockRewardMap) == 0 {
 			delete(s.SCRewardMap, scHash)
 		}
 	}
@@ -1318,9 +1327,9 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*
 		scRewardMilliSum = 1000
 	}
 
-	for scHash, scReward := range s.SCRewardMap {
+	for scHash := range s.SCRewardMap {
 		// check reward for the block number is exist
-		if reward, ok := scReward[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
+		if reward, ok := s.SCRewardMap[scHash].SCBlockRewardMap[s.Number-scRewardDelayLoopCount*s.config.MaxSignerCount]; ok {
 			// check confirm is exist, to get countPerPeriod and rewardPerPeriod
 			if confirmation, ok := s.SCRecordMap[scHash]; ok {
 				// calculate the rent still not reach on this side chain
@@ -1332,7 +1341,7 @@ func (s *Snapshot) calculateSCReward(minerReward *big.Int) (map[common.Address]*
 				}
 
 				// calculate the side chain reward base on score/100 and record.RewardPerPeriod
-				for addr, score := range reward {
+				for addr, score := range reward.RewardScoreMap {
 					singleReward := new(big.Int).Set(scRewardAll)
 					singleReward.Mul(singleReward, new(big.Int).SetUint64(confirmation.RewardPerPeriod))
 					singleReward.Div(singleReward, new(big.Int).SetUint64(scRewardMilliSum))
