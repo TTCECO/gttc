@@ -18,6 +18,7 @@ package common
 
 import (
 	"encoding/json"
+	"github.com/TTCECO/gttc/common/hexutil"
 
 	"math/big"
 	"strings"
@@ -139,9 +140,9 @@ func TestAddressHexChecksum(t *testing.T) {
 		{"0x000000000000000000000000000000000000000a", "0x000000000000000000000000000000000000000A"},
 	}
 	for i, test := range tests {
-		output := HexToAddress(HexToCP(test.Input)).Hex()
-		if output != HexToCP(test.Output) {
-			t.Errorf("test #%d: failed to match when it should (%s != %s)", i, output, HexToCP(test.Output))
+		output := HexToAddress(hexutil.HexToCP(test.Input)).Hex()
+		if output != hexutil.HexToCP(test.Output) {
+			t.Errorf("test #%d: failed to match when it should (%s != %s)", i, output, hexutil.HexToCP(test.Output))
 		}
 	}
 }
