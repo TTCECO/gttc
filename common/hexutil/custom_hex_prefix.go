@@ -17,11 +17,13 @@
 // PM want to change the prefix of hex from 0x to anything they want, @#$%@#$%@#%^ ;-)
 // Just set the CustomHashPrefix to "0x" , everything will back to normal.
 
-package common
+package hexutil
 
 var CustomHexPrefix = "t0"
 
 var PossibleCustomHexPrefixMap = map[string]bool{
+	"0x": true,
+	"0X": true,
 	"t0": true,
 	"t1": true,
 	"t2": true,

@@ -146,14 +146,14 @@ func BytesToAddress(b []byte) Address {
 }
 func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
 func HexToAddress(s string) Address {
-	s = CPToHex(s)
+	s = hexutil.CPToHex(s)
 	return BytesToAddress(FromHex(s))
 }
 
 // IsHexAddress verifies whether a string can represent a valid hex-encoded
 // Ethereum address or not.
 func IsHexAddress(s string) bool {
-	s = CPToHex(s)
+	s = hexutil.CPToHex(s)
 	if hasHexPrefix(s) {
 		s = s[2:]
 	}
@@ -186,7 +186,7 @@ func (a Address) Hex() string {
 		}
 	}
 	s := "0x" + string(result)
-	s = HexToCP(s)
+	s = hexutil.HexToCP(s)
 	return s
 }
 
@@ -225,21 +225,21 @@ func (a Address) MarshalText() ([]byte, error) {
 	if err != nil {
 		return b, err
 	}
-	s := HexToCP(string(b))
+	s := hexutil.HexToCP(string(b))
 	return []byte(s), nil
 }
 
 // UnmarshalText parses a hash in hex syntax.
 func (a *Address) UnmarshalText(input []byte) error {
 	s := string(input)
-	s = CPToHex(s)
+	s = hexutil.CPToHex(s)
 	return hexutil.UnmarshalFixedText("Address", []byte(s), a[:])
 }
 
 // UnmarshalJSON parses a hash in hex syntax.
 func (a *Address) UnmarshalJSON(input []byte) error {
 	s := string(input)
-	s = CPToHex(s)
+	s = hexutil.CPToHex(s)
 	return hexutil.UnmarshalFixedJSON(addressT, []byte(s), a[:])
 }
 
@@ -270,7 +270,7 @@ func NewMixedcaseAddress(addr Address) MixedcaseAddress {
 
 // NewMixedcaseAddressFromString is mainly meant for unit-testing
 func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
-	hexaddr = CPToHex(hexaddr)
+	hexaddr = hexutil.CPToHex(hexaddr)
 	if !IsHexAddress(hexaddr) {
 		return nil, fmt.Errorf("Invalid address")
 	}
@@ -282,7 +282,7 @@ func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
 func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
 
 	s := string(input)
-	s = CPToHex(s)
+	s = hexutil.CPToHex(s)
 
 	if err := hexutil.UnmarshalFixedJSON(addressT, []byte(s), ma.addr[:]); err != nil {
 		return err
@@ -292,12 +292,10 @@ func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
 
 // MarshalJSON marshals the original value
 func (ma *MixedcaseAddress) MarshalJSON() ([]byte, error) {
-	//
-
-	if strings.HasPrefix(ma.original, "0x") || strings.HasPrefix(ma.original, "0X") {
-		return json.Marshal(HexToCP(fmt.Sprintf("0x%s", ma.original[2:])))
+	if strings.HasPrefix(ma.original, "0x") || strings.HasPrefix(ma.original, "0X") || strings.HasPrefix(ma.original, hexutil.CustomHexPrefix) || strings.HasPrefix(ma.original, strings.ToUpper(hexutil.CustomHexPrefix)) {
+		return json.Marshal(hexutil.HexToCP(fmt.Sprintf("0x%s", ma.original[2:])))
 	}
-	return json.Marshal(HexToCP(fmt.Sprintf("0x%s", ma.original)))
+	return json.Marshal(fmt.Sprintf("%s%s", hexutil.CustomHexPrefix, ma.original))
 }
 
 // Address returns the address
@@ -315,7 +313,7 @@ func (ma *MixedcaseAddress) String() string {
 
 // ValidChecksum returns true if the address has valid checksum
 func (ma *MixedcaseAddress) ValidChecksum() bool {
-	return ma.original == CPToHex(ma.addr.Hex())
+	return ma.original == hexutil.CPToHex(ma.addr.Hex())
 }
 
 // Original returns the mixed-case input string
