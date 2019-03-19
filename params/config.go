@@ -197,15 +197,15 @@ type AlienLightConfig struct {
 
 // AlienConfig is the consensus engine configs for delegated-proof-of-stake based sealing.
 type AlienConfig struct {
-	Period           uint64           `json:"period"`           // Number of seconds between blocks to enforce
-	Epoch            uint64           `json:"epoch"`            // Epoch length to reset votes and checkpoint
-	MaxSignerCount   uint64           `json:"maxSignersCount"`  // Max count of signers
-	MinVoterBalance  *big.Int         `json:"minVoterBalance"`  // Min voter balance to valid this vote
-	GenesisTimestamp uint64           `json:"genesisTimestamp"` // The LoopStartTime of first Block
-	SelfVoteSigners  []common.Address `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
-	SideChain        bool             `json:"sideChain"`        // If side chain or not
-	MCRPCClient      *rpc.Client      // Main chain rpc client for side chain
-	PBFTEnable       bool             `json:"pbft"` //
+	Period           uint64               `json:"period"`           // Number of seconds between blocks to enforce
+	Epoch            uint64               `json:"epoch"`            // Epoch length to reset votes and checkpoint
+	MaxSignerCount   uint64               `json:"maxSignersCount"`  // Max count of signers
+	MinVoterBalance  *big.Int             `json:"minVoterBalance"`  // Min voter balance to valid this vote
+	GenesisTimestamp uint64               `json:"genesisTimestamp"` // The LoopStartTime of first Block
+	SelfVoteSigners  AlienSelfVoteSigners `json:"signers"`          // Signers vote by themselves to seal the block, make sure the signer accounts are pre-funded
+	SideChain        bool                 `json:"sideChain"`        // If side chain or not
+	MCRPCClient      *rpc.Client          // Main chain rpc client for side chain
+	PBFTEnable       bool                 `json:"pbft"` //
 
 	TrantorBlock  *big.Int          `json:"trantorBlock,omitempty"`  // Trantor switch block (nil = no fork)
 	TerminusBlock *big.Int          `json:"terminusBlock,omitempty"` // Terminus switch block (nil = no fork)
