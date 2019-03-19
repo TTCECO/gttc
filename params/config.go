@@ -17,6 +17,7 @@
 package params
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/rpc"
@@ -224,6 +225,19 @@ func (a *AlienConfig) IsTrantor(num *big.Int) bool {
 // IsTerminus returns whether num is either equal to the Terminus block or greater.
 func (a *AlienConfig) IsTerminus(num *big.Int) bool {
 	return isForked(a.TerminusBlock, num)
+}
+
+type AlienSelfVoteSigners []common.Address
+
+func (asvs *AlienSelfVoteSigners) UnmarshalJSON(data []byte) error {
+	var ss []common.UnprefixedAddress
+	if err := json.Unmarshal(data, &ss); err != nil {
+		return err
+	}
+	for _, addr := range ss {
+		*asvs = append(*asvs, common.Address(addr))
+	}
+	return nil
 }
 
 // String implements the fmt.Stringer interface.
