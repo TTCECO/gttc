@@ -19,7 +19,7 @@
 
 package hexutil
 
-var CustomHexPrefix = "t0"
+const CustomHexPrefix = "t0"
 
 var PossibleCustomHexPrefixMap = map[string]bool{
 	"0x": true,
