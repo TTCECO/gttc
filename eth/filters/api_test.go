@@ -19,6 +19,7 @@ package filters
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"testing"
 
 	"github.com/TTCECO/gttc/common"
@@ -69,7 +70,7 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 
 	// single address
 	var test2 FilterCriteria
-	vector = fmt.Sprintf(`{"address": "%s"}`, address0.Hex())
+	vector = fmt.Sprintf(`{"address": "%s"}`, hexutil.CPToHex(address0.Hex()))
 	if err := json.Unmarshal([]byte(vector), &test2); err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +83,7 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 
 	// multiple address
 	var test3 FilterCriteria
-	vector = fmt.Sprintf(`{"address": ["%s", "%s"]}`, address0.Hex(), address1.Hex())
+	vector = fmt.Sprintf(`{"address": ["%s", "%s"]}`, hexutil.CPToHex(address0.Hex()), hexutil.CPToHex(address1.Hex()))
 	if err := json.Unmarshal([]byte(vector), &test3); err != nil {
 		t.Fatal(err)
 	}
