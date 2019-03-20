@@ -2235,7 +2235,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
 */
 var isStrictAddress = function (address) {
-    return /^0x[0-9a-f]{40}$/i.test(address);
+    return /^0x[0-9a-f]{40}$/i.test(address) || /^t[0-9]{1}[0-9a-f]{40}$/i.test(address);
 };
 
 /**
