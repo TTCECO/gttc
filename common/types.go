@@ -231,16 +231,12 @@ func (a Address) MarshalText() ([]byte, error) {
 
 // UnmarshalText parses a hash in hex syntax.
 func (a *Address) UnmarshalText(input []byte) error {
-	s := string(input)
-	s = hexutil.CPToHex(s)
-	return hexutil.UnmarshalFixedText("Address", []byte(s), a[:])
+	return hexutil.UnmarshalFixedText("Address", input, a[:])
 }
 
 // UnmarshalJSON parses a hash in hex syntax.
 func (a *Address) UnmarshalJSON(input []byte) error {
-	s := string(input)
-	s = hexutil.CPToHex(s)
-	return hexutil.UnmarshalFixedJSON(addressT, []byte(s), a[:])
+	return hexutil.UnmarshalFixedJSON(addressT, input, a[:])
 }
 
 // MarshalJSON marshals the original value
@@ -248,7 +244,7 @@ func (a *Address) MarshalJSON() ([]byte, error) {
 	if strings.HasPrefix(a.String(), "0x") || strings.HasPrefix(a.String(), "0X") || strings.HasPrefix(a.String(), hexutil.CustomHexPrefix) || strings.HasPrefix(a.String(), strings.ToUpper(hexutil.CustomHexPrefix)) {
 		return json.Marshal(hexutil.CustomHexPrefix + a.String()[2:])
 	}
-	return json.Marshal( a.String())
+	return json.Marshal(a.String())
 }
 
 // UnprefixedHash allows marshaling an Address without 0x prefix.
@@ -288,12 +284,10 @@ func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
 
 // UnmarshalJSON parses MixedcaseAddress
 func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
-	s := string(input)
-	s = hexutil.CPToHex(s)
-	if err := hexutil.UnmarshalFixedJSON(addressT, []byte(s), ma.addr[:]); err != nil {
+	if err := hexutil.UnmarshalFixedJSON(addressT, input, ma.addr[:]); err != nil {
 		return err
 	}
-	return json.Unmarshal([]byte(s), &ma.original)
+	return json.Unmarshal(input, &ma.original)
 }
 
 // MarshalJSON marshals the original value
