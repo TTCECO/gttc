@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -248,7 +249,7 @@ func loadKeyStoreTestV1(file string, t *testing.T) map[string]KeyStoreTestV1 {
 func TestKeyForDirectICAP(t *testing.T) {
 	t.Parallel()
 	key := NewKeyForDirectICAP(rand.Reader)
-	if !strings.HasPrefix(key.Address.Hex(), "0x00") {
+	if !strings.HasPrefix(key.Address.Hex(), hexutil.CustomHexPrefix+"00") {
 		t.Errorf("Expected first address byte to be zero, have: %s", key.Address.Hex())
 	}
 }
