@@ -17,6 +17,7 @@
 package main
 
 import (
+	"github.com/TTCECO/gttc/common/hexutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -40,7 +41,7 @@ func TestMessageSignVerify(t *testing.T) {
 Passphrase: {{.InputLine "foobar"}}
 Repeat passphrase: {{.InputLine "foobar"}}
 `)
-	_, matches := generate.ExpectRegexp(`Address: (0x[0-9a-fA-F]{40})\n`)
+	_, matches := generate.ExpectRegexp(`Address: (`+hexutil.CustomHexPrefix +`[0-9a-fA-F]{40})\n`)
 	address := matches[1]
 	generate.ExpectExit()
 
@@ -59,7 +60,7 @@ Passphrase: {{.InputLine "foobar"}}
 	_, matches = verify.ExpectRegexp(`
 Signature verification successful!
 Recovered public key: [0-9a-f]+
-Recovered address: (0x[0-9a-fA-F]{40})
+Recovered address: (`+hexutil.CustomHexPrefix +`[0-9a-fA-F]{40})
 `)
 	recovered := matches[1]
 	verify.ExpectExit()
