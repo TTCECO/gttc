@@ -99,7 +99,7 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 
 	// single topic
 	var test4 FilterCriteria
-	vector = fmt.Sprintf(`{"topics": ["%s"]}`, topic0.Hex())
+	vector = fmt.Sprintf(`{"topics": ["%s"]}`, hexutil.CPToHex(topic0.Hex()))
 	if err := json.Unmarshal([]byte(vector), &test4); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 
 	// test multiple "AND" topics
 	var test5 FilterCriteria
-	vector = fmt.Sprintf(`{"topics": ["%s", "%s"]}`, topic0.Hex(), topic1.Hex())
+	vector = fmt.Sprintf(`{"topics": ["%s", "%s"]}`, hexutil.CPToHex(topic0.Hex()), hexutil.CPToHex(topic1.Hex()))
 	if err := json.Unmarshal([]byte(vector), &test5); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 
 	// test optional topic
 	var test6 FilterCriteria
-	vector = fmt.Sprintf(`{"topics": ["%s", null, "%s"]}`, topic0.Hex(), topic2.Hex())
+	vector = fmt.Sprintf(`{"topics": ["%s", null, "%s"]}`, hexutil.CPToHex(topic0.Hex()), hexutil.CPToHex(topic2.Hex()))
 	if err := json.Unmarshal([]byte(vector), &test6); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 
 	// test OR topics
 	var test7 FilterCriteria
-	vector = fmt.Sprintf(`{"topics": [["%s", "%s"], null, ["%s", null]]}`, topic0.Hex(), topic1.Hex(), topic2.Hex())
+	vector = fmt.Sprintf(`{"topics": [["%s", "%s"], null, ["%s", null]]}`, hexutil.CPToHex(topic0.Hex()), hexutil.CPToHex(topic1.Hex()), hexutil.CPToHex(topic2.Hex()))
 	if err := json.Unmarshal([]byte(vector), &test7); err != nil {
 		t.Fatal(err)
 	}

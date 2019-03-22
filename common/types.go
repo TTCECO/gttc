@@ -98,7 +98,7 @@ func (h Hash) MarshalText() ([]byte, error) {
 	return []byte(s), nil
 }
 
-func (h Hash) MarshalJSON() ([]byte, error) {
+func (h *Hash) MarshalJSON() ([]byte, error) {
 	if strings.HasPrefix(h.String(), "0x") || strings.HasPrefix(h.String(), "0X") || strings.HasPrefix(h.String(), hexutil.CustomHexPrefix) || strings.HasPrefix(h.String(), strings.ToUpper(hexutil.CustomHexPrefix)) {
 		return json.Marshal(hexutil.CustomHexPrefix + h.String()[2:])
 	}
@@ -256,7 +256,7 @@ func (a *Address) UnmarshalJSON(input []byte) error {
 }
 
 // MarshalJSON marshals the original value
-func (a Address) MarshalJSON() ([]byte, error) {
+func (a *Address) MarshalJSON() ([]byte, error) {
 	if strings.HasPrefix(a.String(), "0x") || strings.HasPrefix(a.String(), "0X") || strings.HasPrefix(a.String(), hexutil.CustomHexPrefix) || strings.HasPrefix(a.String(), strings.ToUpper(hexutil.CustomHexPrefix)) {
 		return json.Marshal(hexutil.CustomHexPrefix + a.String()[2:])
 	}
