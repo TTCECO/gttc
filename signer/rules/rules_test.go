@@ -160,8 +160,8 @@ func TestSignTxRequest(t *testing.T) {
 		console.log("transaction.to", r.transaction.to);
 		console.log("transaction.value", r.transaction.value);
 		console.log("transaction.nonce", r.transaction.nonce);
-		if(r.transaction.from.toLowerCase()=="0x0000000000000000000000000000000000001337"){ return "Approve"}
-		if(r.transaction.from.toLowerCase()=="0x000000000000000000000000000000000000dead"){ return "Reject"}
+		if(r.transaction.from.toLowerCase()=="`+hexutil.CustomHexPrefix+`0000000000000000000000000000000000001337"){ return "Approve"}
+		if(r.transaction.from.toLowerCase()=="`+hexutil.CustomHexPrefix+`000000000000000000000000000000000000dead"){ return "Reject"}
 	}`
 
 	r, err := initRuleEngine(js)
@@ -595,7 +595,7 @@ func TestSignData(t *testing.T) {
     return "Approve"
 }
 function ApproveSignData(r){
-    if( r.address.toLowerCase() == "0x694267f14675d7e1b9494fd8d72fefe1755710fa")
+    if( r.address.toLowerCase() == "`+hexutil.CustomHexPrefix+`694267f14675d7e1b9494fd8d72fefe1755710fa")
     {
         if(r.message.indexOf("bazonk") >= 0){
             return "Approve"
@@ -612,7 +612,7 @@ function ApproveSignData(r){
 	message := []byte("baz bazonk foo")
 	hash, msg := core.SignHash(message)
 	raw := hexutil.Bytes(message)
-	addr, _ := mixAddr("0x694267f14675d7e1b9494fd8d72fefe1755710fa")
+	addr, _ := mixAddr(hexutil.CustomHexPrefix+"694267f14675d7e1b9494fd8d72fefe1755710fa")
 
 	fmt.Printf("address %v %v\n", addr.String(), addr.Original())
 	resp, err := r.ApproveSignData(&core.SignDataRequest{

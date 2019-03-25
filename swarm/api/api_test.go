@@ -19,6 +19,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"io"
 	"io/ioutil"
 	"os"
@@ -242,11 +243,11 @@ func TestMultiResolver(t *testing.T) {
 	doesntResolve := newTestResolver("")
 
 	ethAddr := "swarm.eth"
-	ethHash := "0x2222222222222222222222222222222222222222222222222222222222222222"
+	ethHash := hexutil.CustomHexPrefix + "2222222222222222222222222222222222222222222222222222222222222222"
 	ethResolve := newTestResolver(ethHash)
 
 	testAddr := "swarm.test"
-	testHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
+	testHash := hexutil.CustomHexPrefix +"1111111111111111111111111111111111111111111111111111111111111111"
 	testResolve := newTestResolver(testHash)
 
 	tests := []struct {

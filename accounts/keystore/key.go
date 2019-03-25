@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"io"
 	"io/ioutil"
 	"os"
@@ -152,7 +153,7 @@ func NewKeyForDirectICAP(rand io.Reader) *Key {
 		panic("key generation: ecdsa.GenerateKey failed: " + err.Error())
 	}
 	key := newKeyFromECDSA(privateKeyECDSA)
-	if !strings.HasPrefix(key.Address.Hex(), "0x00") {
+	if !strings.HasPrefix(key.Address.Hex(), hexutil.CustomHexPrefix+"00") {
 		return NewKeyForDirectICAP(rand)
 	}
 	return key

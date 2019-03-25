@@ -2113,6 +2113,10 @@ var toHex = function (val) {
             return fromDecimal(val);
         else if(val.indexOf('0x') === 0)
             return val;
+        else if (/^t[0-9]{1}[0-9a-f]{64}$/i.test(val))
+            return '0x' + val.substr(2)
+        else if (/^-t[0-9]{1}[0-9a-f]{64}$/i.test(val))
+            return fromDecimal('-0x' + val.substr(3))
         else if (!isFinite(val))
             return fromAscii(val);
     }
@@ -2235,7 +2239,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
 */
 var isStrictAddress = function (address) {
-    return /^0x[0-9a-f]{40}$/i.test(address);
+    return /^0x[0-9a-f]{40}$/i.test(address) || /^t[0-9]{1}[0-9a-f]{40}$/i.test(address);
 };
 
 /**
@@ -2246,10 +2250,10 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
 */
 var isAddress = function (address) {
-    if (!/^(0x)?[0-9a-f]{40}$/i.test(address)) {
+    if (!/^(0x)?[0-9a-f]{40}$/i.test(address)  && !/^(t[0-9]{1})?[0-9a-f]{40}$/i.test(address)) {
         // check if it has the basic requirements of an address
         return false;
-    } else if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address)) {
+    } else if (/^(0x)?[0-9a-f]{40}$/.test(address) || /^(0x)?[0-9A-F]{40}$/.test(address) || /^(t[0-9]{1})?[0-9a-f]{40}$/i.test(address) || /^(t[0-9]{1})?[0-9A-F]{40}$/i.test(address)) {
         // If it's all small caps or all all caps, return true
         return true;
     } else {
@@ -5207,23 +5211,23 @@ var Iban = require('../iban');
 var transfer = require('../transfer');
 
 var blockCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "eth_getBlockByHash" : "eth_getBlockByNumber";
+    return (utils.isString(args[0]) && (args[0].indexOf('0x') === 0 || /^t[0-9]{1}[0-9a-f]{64}$/i.test(args[0]))) ? "eth_getBlockByHash" : "eth_getBlockByNumber";
 };
 
 var transactionFromBlockCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getTransactionByBlockHashAndIndex' : 'eth_getTransactionByBlockNumberAndIndex';
+    return (utils.isString(args[0]) && (args[0].indexOf('0x') === 0 || /^t[0-9]{1}[0-9a-f]{64}$/i.test(args[0]))) ? 'eth_getTransactionByBlockHashAndIndex' : 'eth_getTransactionByBlockNumberAndIndex';
 };
 
 var uncleCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getUncleByBlockHashAndIndex' : 'eth_getUncleByBlockNumberAndIndex';
+    return (utils.isString(args[0]) && (args[0].indexOf('0x') === 0 ||  /^t[0-9]{1}[0-9a-f]{64}$/i.test(args[0]))) ? 'eth_getUncleByBlockHashAndIndex' : 'eth_getUncleByBlockNumberAndIndex';
 };
 
 var getBlockTransactionCountCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getBlockTransactionCountByHash' : 'eth_getBlockTransactionCountByNumber';
+    return (utils.isString(args[0]) && (args[0].indexOf('0x') === 0 || /^t[0-9]{1}[0-9a-f]{64}$/i.test(args[0]) ))  ? 'eth_getBlockTransactionCountByHash' : 'eth_getBlockTransactionCountByNumber';
 };
 
 var uncleCountCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'eth_getUncleCountByBlockHash' : 'eth_getUncleCountByBlockNumber';
+    return (utils.isString(args[0]) && (args[0].indexOf('0x') === 0 ||  /^t[0-9]{1}[0-9a-f]{64}$/i.test(args[0])))  ? 'eth_getUncleCountByBlockHash' : 'eth_getUncleCountByBlockNumber';
 };
 
 function Eth(web3) {
