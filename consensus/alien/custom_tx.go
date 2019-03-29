@@ -86,6 +86,20 @@ const (
 	 * notice related
 	 */
 	noticeTypeGasCharging = 1
+
+	/*
+	 * browserDB category
+	 */
+	browserCategoryDefault       = 0 // Transaction
+	browserCategoryVote          = 1
+	browserCategoryConfirm       = 2
+	browserCategoryPorposal      = 3
+	browserCategoryDeclare       = 4
+	browserCategoryOpLog         = 5
+	browserCategorySCConfirm     = 6
+	browserCategorySCCoinbase    = 7
+	browserCategoryBuildContract = 8
+	browserCategoryExecContract  = 9
 )
 
 //side chain related
