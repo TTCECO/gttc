@@ -571,25 +571,25 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 
 				txData := string(tx.Data())
 				txDataInfo := strings.Split(txData, ":")
-				txCategory := uint64(0)
+				txCategory := uint64(browserCategoryDefault)
 				if len(txDataInfo) > ufoMinSplitLen {
 					if txDataInfo[posCategory] == ufoCategoryLog {
-						txCategory = 5
+						txCategory = browserCategoryOpLog
 					} else if txDataInfo[posCategory] == ufoCategorySC {
 						if txDataInfo[posEventConfirm] == ufoEventConfirm {
-							txCategory = 6
+							txCategory = browserCategorySCConfirm
 						} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase {
-							txCategory = 7
+							txCategory = browserCategorySCCoinbase
 						}
 					} else if txDataInfo[posCategory] == ufoCategoryEvent {
 						if txDataInfo[posEventVote] == ufoEventVote {
-							txCategory = 1
+							txCategory = browserCategoryVote
 						} else if txDataInfo[posEventConfirm] == ufoEventConfirm {
-							txCategory = 2
+							txCategory = browserCategoryConfirm
 						} else if txDataInfo[posEventProposal] == ufoEventPorposal {
-							txCategory = 3
+							txCategory = browserCategoryPorposal
 						} else if txDataInfo[posEventDeclare] == ufoEventDeclare {
-							txCategory = 4
+							txCategory = browserCategoryDeclare
 						}
 					}
 				}

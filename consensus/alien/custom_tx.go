@@ -74,6 +74,20 @@ const (
 	maxValidationLoopCnt     = 50000 // About one month if period = 3 & 21 super nodes
 	minValidationLoopCnt     = 4     //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
 	defaultValidationLoopCnt = 10000 // About one week if period = 3 & 21 super nodes
+
+	/*
+	 * browserDB category
+	 */
+	browserCategoryDefault       = 0 // Transaction
+	browserCategoryVote          = 1
+	browserCategoryConfirm       = 2
+	browserCategoryPorposal      = 3
+	browserCategoryDeclare       = 4
+	browserCategoryOpLog         = 5
+	browserCategorySCConfirm     = 6
+	browserCategorySCCoinbase    = 7
+	browserCategoryBuildContract = 8
+	browserCategoryExecContract  = 9
 )
 
 //side chain related
