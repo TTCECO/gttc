@@ -108,7 +108,7 @@ func (w *wizard) makeGenesis() {
 			MaxSignerCount:   21,
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18)),
 			GenesisTimestamp: uint64(time.Now().Unix()) + (60 * 5), // Add five minutes
-			SelfVoteSigners:  []common.Address{},
+			SelfVoteSigners:  []common.UnprefixedAddress{},
 		}
 		fmt.Println()
 		fmt.Println("How many seconds should blocks take? (default = 3)")
@@ -136,7 +136,8 @@ func (w *wizard) makeGenesis() {
 		fmt.Println("Which accounts are vote by themselves to seal the block?(least one, those accounts will be auto pre-funded)")
 		for {
 			if address := w.readAddress(); address != nil {
-				genesis.Config.Alien.SelfVoteSigners = append(genesis.Config.Alien.SelfVoteSigners, *address)
+
+				genesis.Config.Alien.SelfVoteSigners = append(genesis.Config.Alien.SelfVoteSigners, common.UnprefixedAddress(*address))
 				genesis.Alloc[*address] = core.GenesisAccount{
 					Balance: new(big.Int).Lsh(big.NewInt(1), 256-7), // 2^256 / 128 (allow many pre-funds without balance overflows)
 				}

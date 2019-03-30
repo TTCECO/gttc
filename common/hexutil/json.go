@@ -274,7 +274,16 @@ func isString(input []byte) bool {
 }
 
 func bytesHave0xPrefix(input []byte) bool {
-	return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
+
+	//return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
+
+	if len(input) >= 2 {
+		if _, ok := PossibleCustomHexPrefixMap[string(input[0:2])]; ok {
+			return true
+		}
+	}
+	return false
+
 }
 
 func checkText(input []byte, wantPrefix bool) ([]byte, error) {

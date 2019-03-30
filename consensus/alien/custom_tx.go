@@ -74,9 +74,9 @@ const (
 	 * proposal related
 	 */
 	maxValidationLoopCnt     = 50000                   // About one month if period = 3 & 21 super nodes
-	minValidationLoopCnt     = 4                       //just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
+	minValidationLoopCnt     = 4                       // just for test, Note: 12350  About three days if seal each block per second & 21 super nodes
 	defaultValidationLoopCnt = 10000                   // About one week if period = 3 & 21 super nodes
-	maxProposalDeposit       = 10000                   // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
+	maxProposalDeposit       = 100000                  // If no limit on max proposal deposit and 1 billion TTC deposit success passed, then no new proposal.
 	minSCRentFee             = 100                     // 100 TTC
 	minSCRentLength          = 850000                  // number of block about 1 month if period is 3
 	defaultSCRentLength      = minSCRentLength * 3     // number of block about 3 month if period is 3

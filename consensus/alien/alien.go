@@ -56,7 +56,7 @@ var (
 	defaultEpochLength               = uint64(201600)                                          // Default number of blocks after which vote's period of validity, About one week if period is 3
 	defaultBlockPeriod               = uint64(3)                                               // Default minimum difference between two consecutive block's timestamps
 	defaultMaxSignerCount            = uint64(21)                                              //
-	minVoterBalance                  = new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e+18))
+	minVoterBalance                  = new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18))
 	extraVanity                      = 32                                                    // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal                        = 65                                                    // Fixed number of extra-data suffix bytes reserved for signer seal
 	uncleHash                        = types.CalcUncleHash(nil)                              // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
@@ -856,8 +856,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	if number == 1 {
 		alreadyVote := make(map[common.Address]struct{})
-		for _, voter := range a.config.SelfVoteSigners {
-
+		for _, unPrefixVoter := range a.config.SelfVoteSigners {
+			voter := common.Address(unPrefixVoter)
 			if _, ok := alreadyVote[voter]; !ok {
 				genesisVotes = append(genesisVotes, &Vote{
 					Voter:     voter,
@@ -902,7 +902,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
 			if len(a.config.SelfVoteSigners) > 0 {
 				for i := 0; i < int(a.config.MaxSignerCount); i++ {
-					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, common.Address(a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)]))
 				}
 			}
 		} else if number%a.config.MaxSignerCount == 0 {
@@ -962,8 +962,9 @@ func (a *Alien) ApplyGenesis(chain consensus.ChainReader, genesisHash common.Has
 	if a.config.LightConfig != nil {
 		var genesisVotes []*Vote
 		alreadyVote := make(map[common.Address]struct{})
-		for _, voter := range a.config.SelfVoteSigners {
-			if genesisAccount, ok := a.config.LightConfig.Alloc[common.UnprefixedAddress(voter)]; ok {
+		for _, unPrefixVoter := range a.config.SelfVoteSigners {
+			voter := common.Address(unPrefixVoter)
+			if genesisAccount, ok := a.config.LightConfig.Alloc[unPrefixVoter]; ok {
 				if _, ok := alreadyVote[voter]; !ok {
 					stake := new(big.Int)
 					stake.UnmarshalText([]byte(genesisAccount.Balance))

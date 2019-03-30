@@ -190,8 +190,12 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 	}
 
 	if len(config.SelfVoteSigners) > 0 {
+		var prefixSelfVoteSigners []common.Address
+		for _, unPrefixSelfVoteSigners := range config.SelfVoteSigners {
+			prefixSelfVoteSigners = append(prefixSelfVoteSigners, common.Address(unPrefixSelfVoteSigners))
+		}
 		for i := 0; i < int(config.MaxSignerCount); i++ {
-			snap.Signers = append(snap.Signers, &config.SelfVoteSigners[i%len(config.SelfVoteSigners)])
+			snap.Signers = append(snap.Signers, &prefixSelfVoteSigners[i%len(prefixSelfVoteSigners)])
 		}
 	}
 
