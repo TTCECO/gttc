@@ -745,8 +745,8 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 	if number == 1 {
 		alreadyVote := make(map[common.Address]struct{})
-		for _, voter := range a.config.SelfVoteSigners {
-
+		for _, unPrefixVoter := range a.config.SelfVoteSigners {
+			voter := common.Address(unPrefixVoter)
 			if _, ok := alreadyVote[voter]; !ok {
 				genesisVotes = append(genesisVotes, &Vote{
 					Voter:     voter,
@@ -791,7 +791,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 			currentHeaderExtra.LoopStartTime = a.config.GenesisTimestamp
 			if len(a.config.SelfVoteSigners) > 0 {
 				for i := 0; i < int(a.config.MaxSignerCount); i++ {
-					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)])
+					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, common.Address(a.config.SelfVoteSigners[i%len(a.config.SelfVoteSigners)]))
 				}
 			}
 		} else if number%a.config.MaxSignerCount == 0 {
@@ -851,8 +851,9 @@ func (a *Alien) ApplyGenesis(chain consensus.ChainReader, genesisHash common.Has
 	if a.config.LightConfig != nil {
 		var genesisVotes []*Vote
 		alreadyVote := make(map[common.Address]struct{})
-		for _, voter := range a.config.SelfVoteSigners {
-			if genesisAccount, ok := a.config.LightConfig.Alloc[common.UnprefixedAddress(voter)]; ok {
+		for _, unPrefixVoter := range a.config.SelfVoteSigners {
+			voter := common.Address(unPrefixVoter)
+			if genesisAccount, ok := a.config.LightConfig.Alloc[unPrefixVoter]; ok {
 				if _, ok := alreadyVote[voter]; !ok {
 					stake := new(big.Int)
 					stake.UnmarshalText([]byte(genesisAccount.Balance))

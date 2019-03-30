@@ -48,13 +48,17 @@ func BytesToHash(b []byte) Hash {
 	return h
 }
 func BigToHash(b *big.Int) Hash { return BytesToHash(b.Bytes()) }
-func HexToHash(s string) Hash   { return BytesToHash(FromHex(s)) }
+func HexToHash(s string) Hash   {
+	s =hexutil.CPToHex(s)
+	return BytesToHash(FromHex(s)) }
 
 // Get the string representation of the underlying hash
 func (h Hash) Str() string   { return string(h[:]) }
 func (h Hash) Bytes() []byte { return h[:] }
 func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
-func (h Hash) Hex() string   { return hexutil.Encode(h[:]) }
+func (h Hash) Hex() string   { s := hexutil.Encode(h[:])
+return hexutil.HexToCP(s)
+}
 
 // TerminalString implements log.TerminalStringer, formatting a string for console
 // output during logging.
@@ -86,7 +90,19 @@ func (h *Hash) UnmarshalJSON(input []byte) error {
 
 // MarshalText returns the hex representation of h.
 func (h Hash) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(h[:]).MarshalText()
+	b, err := hexutil.Bytes(h[:]).MarshalText()
+	if err != nil {
+		return b, err
+	}
+	s := hexutil.HexToCP(string(b))
+	return []byte(s), nil
+}
+
+func (h *Hash) MarshalJSON() ([]byte, error) {
+	if strings.HasPrefix(h.String(), "0x") || strings.HasPrefix(h.String(), "0X") || strings.HasPrefix(h.String(), hexutil.CustomHexPrefix) || strings.HasPrefix(h.String(), strings.ToUpper(hexutil.CustomHexPrefix)) {
+		return json.Marshal(hexutil.CustomHexPrefix + h.String()[2:])
+	}
+	return json.Marshal(h.String())
 }
 
 // Sets the hash to the value of b. If b is larger than len(h), 'b' will be cropped (from the left).
@@ -145,11 +161,15 @@ func BytesToAddress(b []byte) Address {
 	return a
 }
 func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
-func HexToAddress(s string) Address   { return BytesToAddress(FromHex(s)) }
+func HexToAddress(s string) Address {
+	s = hexutil.CPToHex(s)
+	return BytesToAddress(FromHex(s))
+}
 
 // IsHexAddress verifies whether a string can represent a valid hex-encoded
 // Ethereum address or not.
 func IsHexAddress(s string) bool {
+	s = hexutil.CPToHex(s)
 	if hasHexPrefix(s) {
 		s = s[2:]
 	}
@@ -181,7 +201,9 @@ func (a Address) Hex() string {
 			result[i] -= 32
 		}
 	}
-	return "0x" + string(result)
+	s := "0x" + string(result)
+	s = hexutil.HexToCP(s)
+	return s
 }
 
 // String implements the stringer interface and is used also by the logger.
@@ -215,7 +237,12 @@ func (a *Address) Set(other Address) {
 
 // MarshalText returns the hex representation of a.
 func (a Address) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(a[:]).MarshalText()
+	b, err := hexutil.Bytes(a[:]).MarshalText()
+	if err != nil {
+		return b, err
+	}
+	s := hexutil.HexToCP(string(b))
+	return []byte(s), nil
 }
 
 // UnmarshalText parses a hash in hex syntax.
@@ -226,6 +253,14 @@ func (a *Address) UnmarshalText(input []byte) error {
 // UnmarshalJSON parses a hash in hex syntax.
 func (a *Address) UnmarshalJSON(input []byte) error {
 	return hexutil.UnmarshalFixedJSON(addressT, input, a[:])
+}
+
+// MarshalJSON marshals the original value
+func (a *Address) MarshalJSON() ([]byte, error) {
+	if strings.HasPrefix(a.String(), "0x") || strings.HasPrefix(a.String(), "0X") || strings.HasPrefix(a.String(), hexutil.CustomHexPrefix) || strings.HasPrefix(a.String(), strings.ToUpper(hexutil.CustomHexPrefix)) {
+		return json.Marshal(hexutil.CustomHexPrefix + a.String()[2:])
+	}
+	return json.Marshal(a.String())
 }
 
 // UnprefixedHash allows marshaling an Address without 0x prefix.
@@ -255,6 +290,7 @@ func NewMixedcaseAddress(addr Address) MixedcaseAddress {
 
 // NewMixedcaseAddressFromString is mainly meant for unit-testing
 func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
+	hexaddr = hexutil.CPToHex(hexaddr)
 	if !IsHexAddress(hexaddr) {
 		return nil, fmt.Errorf("Invalid address")
 	}
@@ -271,11 +307,11 @@ func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
 }
 
 // MarshalJSON marshals the original value
-func (ma *MixedcaseAddress) MarshalJSON() ([]byte, error) {
-	if strings.HasPrefix(ma.original, "0x") || strings.HasPrefix(ma.original, "0X") {
-		return json.Marshal(fmt.Sprintf("0x%s", ma.original[2:]))
+func (ma MixedcaseAddress) MarshalJSON() ([]byte, error) {
+	if strings.HasPrefix(ma.original, "0x") || strings.HasPrefix(ma.original, "0X") || strings.HasPrefix(ma.original, hexutil.CustomHexPrefix) || strings.HasPrefix(ma.original, strings.ToUpper(hexutil.CustomHexPrefix)) {
+		return json.Marshal(fmt.Sprintf("%s%s", hexutil.CustomHexPrefix, ma.original[2:]))
 	}
-	return json.Marshal(fmt.Sprintf("0x%s", ma.original))
+	return json.Marshal(fmt.Sprintf("%s%s", hexutil.CustomHexPrefix, ma.original))
 }
 
 // Address returns the address
@@ -293,7 +329,7 @@ func (ma *MixedcaseAddress) String() string {
 
 // ValidChecksum returns true if the address has valid checksum
 func (ma *MixedcaseAddress) ValidChecksum() bool {
-	return ma.original == ma.addr.Hex()
+	return ma.original == hexutil.CPToHex(ma.addr.Hex())
 }
 
 // Original returns the mixed-case input string

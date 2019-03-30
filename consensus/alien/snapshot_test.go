@@ -865,8 +865,8 @@ func TestVoting(t *testing.T) {
 
 		var snap *Snapshot
 		// Prepare data for the genesis block
-		var genesisVotes []*Vote             // for create the new snapshot of genesis block
-		var selfVoteSigners []common.Address // for header extra
+		var genesisVotes []*Vote                       // for create the new snapshot of genesis block
+		var selfVoteSigners []common.UnprefixedAddress // for header extra
 		alreadyVote := make(map[common.Address]struct{})
 		for _, voter := range tt.selfVoters {
 			if _, ok := alreadyVote[accounts.address(voter.voter)]; !ok {
@@ -875,7 +875,7 @@ func TestVoting(t *testing.T) {
 					Candidate: accounts.address(voter.voter),
 					Stake:     big.NewInt(int64(voter.balance)),
 				})
-				selfVoteSigners = append(selfVoteSigners, accounts.address(voter.voter))
+				selfVoteSigners = append(selfVoteSigners, common.UnprefixedAddress(accounts.address(voter.voter)))
 				alreadyVote[accounts.address(voter.voter)] = struct{}{}
 			}
 		}
@@ -964,10 +964,10 @@ func TestVoting(t *testing.T) {
 			// (j==0) means (header.Number==1)
 			if j == 0 {
 				for k := 0; k < int(tt.maxSignerCount); k++ {
-					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, selfVoteSigners[k%len(selfVoteSigners)])
+					currentHeaderExtra.SignerQueue = append(currentHeaderExtra.SignerQueue, common.Address(selfVoteSigners[k%len(selfVoteSigners)]))
 				}
 				currentHeaderExtra.LoopStartTime = tt.genesisTimestamp // here should be parent genesisTimestamp
-				signer = selfVoteSigners[0]
+				signer = common.Address(selfVoteSigners[0])
 
 			} else {
 				// decode parent header.extra

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/TTCECO/gttc/common"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/consensus/ethash"
 	"github.com/TTCECO/gttc/core"
 	"github.com/TTCECO/gttc/eth"
@@ -36,7 +37,7 @@ import (
 
 const (
 	testInstance = "console-tester"
-	testAddress  = "0x8605cdbbdb6d264aa742e77020dcbc58fcdce182"
+	testAddress  = hexutil.CustomHexPrefix + "8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 )
 
 // hookedPrompter implements UserPrompter to simulate use input via channels.
