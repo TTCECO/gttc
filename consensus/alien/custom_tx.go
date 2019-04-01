@@ -320,7 +320,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						} else if txDataInfo[posCategory] == ufoCategorySC {
 							if len(txDataInfo) > ufoMinSplitLen {
 								if txDataInfo[posEventConfirm] == ufoEventConfirm {
-									if len(txDataInfo) > ufoMinSplitLen+3 {
+									if len(txDataInfo) > ufoMinSplitLen+5 {
 										number := new(big.Int)
 										if err := number.UnmarshalText([]byte(txDataInfo[ufoMinSplitLen+2])); err != nil {
 											log.Trace("Side chain confirm info fail", "number", txDataInfo[ufoMinSplitLen+2])
@@ -586,7 +586,7 @@ func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB,
 }
 
 func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, chain consensus.ChainReader, txDataInfo []string, number uint64, tx *types.Transaction, confirmer common.Address, refundHash RefundHash) ([]Confirmation, RefundHash) {
-	if len(txDataInfo) >= posEventConfirmNumber {
+	if len(txDataInfo) > posEventConfirmNumber {
 		confirmedBlockNumber := new(big.Int)
 		err := confirmedBlockNumber.UnmarshalText([]byte(txDataInfo[posEventConfirmNumber]))
 		if err != nil || number-confirmedBlockNumber.Uint64() > a.config.MaxSignerCount || number-confirmedBlockNumber.Uint64() < 0 {
