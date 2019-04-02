@@ -120,7 +120,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	log.Info("Initialised chain configuration", "config", chainConfig)
 	if chainConfig.Alien != nil {
 		log.Info("Initialised alien configuration", "config", *chainConfig.Alien)
-		config.NetworkId = chainConfig.ChainId.Uint64()
+		if config.NetworkId == 1{//eth.DefaultConfig.NetworkId
+			// change default eth networkid  to default ttc networkid
+			config.NetworkId = chainConfig.ChainId.Uint64()
+		}
 	}
 	eth := &Ethereum{
 		config:         config,
