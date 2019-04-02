@@ -44,7 +44,7 @@ var (
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
-		ChainId:             big.NewInt(8434),
+		ChainId:             big.NewInt(8341),
 		HomesteadBlock:      big.NewInt(1),
 		EIP150Block:         big.NewInt(2),
 		EIP150Hash:          common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
@@ -53,15 +53,15 @@ var (
 		ByzantiumBlock:      big.NewInt(4),
 		ConstantinopleBlock: nil,
 		Alien: &AlienConfig{
-			Period:           1,
-			Epoch:            300,
+			Period:           3,
+			Epoch:            201600,
 			MaxSignerCount:   21,
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
-			GenesisTimestamp: 1536136198,
+			GenesisTimestamp: 1554004800,
 			SelfVoteSigners: []common.UnprefixedAddress{
-				common.UnprefixedAddress(common.HexToAddress("0x393faea80893ba357db03c03ee73ad3e31257469")),
-				common.UnprefixedAddress(common.HexToAddress("0x30d342865deef24ac6b3ec2f3f8dba5109351571")),
-				common.UnprefixedAddress(common.HexToAddress("0xd410f95ede1d2da66b1870ac671cc18b66a97778")),
+				common.UnprefixedAddress(common.HexToAddress("t0be6865ffcbbe5f9746bef5c84b912f2ad9e52075")),
+				common.UnprefixedAddress(common.HexToAddress("t04909b4e54395de9e313ad8a2254fe2dcda99e91c")),
+				common.UnprefixedAddress(common.HexToAddress("t0a034350c8e80eb4d15ac62310657b29c711bb3d5")),
 			},
 		},
 	}

@@ -536,7 +536,7 @@ var (
 
 	// PBFT settings
 	PBFTEnableFlag = cli.BoolFlag{
-		Name: "pbft",
+		Name:  "pbft",
 		Usage: "PBFT miner coinbase send confirm transaction",
 	}
 
@@ -1106,7 +1106,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	switch {
 	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 8434
+			cfg.NetworkId = 8341
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
 	case ctx.GlobalBool(RinkebyFlag.Name):
