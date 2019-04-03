@@ -44,6 +44,8 @@ const (
 	defaultOfficialSecondLevelCount = 20    // official second level, 60% in signer queue
 	defaultOfficialThirdLevelCount  = 30    // official third level, 40% in signer queue
 	defaultOfficialMaxValidCount    = 50    // official max valid candidate count, sort by vote
+
+	maxUncheckBalanceVoteCount = 10000 // not check current balance when calculate expired
 	// the credit of one signer is at least minCalSignerQueueCredit
 	candidateStateNormal = 1
 	candidateMaxLen      = 500 // if candidateNeedPD is false and candidate is more than candidateMaxLen, then minimum tickets candidates will be remove in each LCRS*loop
@@ -516,6 +518,8 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 		// deal the notice from main chain
 		snap.updateSnapshotBySCCharging(headerExtra.SideChainCharging, header.Number, header.Coinbase)
 
+		snap.updateSnapshotForExpired(header.Number)
+
 		snap.ConfirmedNumber = headerExtra.ConfirmedBlockNumber
 		if snap.config.BrowserDB != nil && snap.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
 			if !snap.config.BrowserDB.MongoExist("snapshot", map[string]interface{}{"hash": header.Hash().Hex()}) {
@@ -533,7 +537,6 @@ func (s *Snapshot) apply(headers []*types.Header, config *params.AlienConfig) (*
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
 
-	snap.updateSnapshotForExpired()
 	err := snap.verifyTallyCnt()
 	if err != nil {
 		return nil, err
@@ -1008,14 +1011,19 @@ func (s *Snapshot) updateSnapshotByProposals(proposals []Proposal, headerNumber 
 	}
 }
 
-func (s *Snapshot) updateSnapshotForExpired() {
+func (s *Snapshot) updateSnapshotForExpired(headerNumber *big.Int) {
 
 	// deal the expired vote
 	var expiredVotes []*Vote
+	checkBalance := false
+	if len(s.Voters) > maxUncheckBalanceVoteCount {
+		checkBalance = true
+	}
+
 	for voterAddress, voteNumber := range s.Voters {
-		if s.Number-voteNumber.Uint64() > s.config.Epoch {
-			// clear the vote
-			if expiredVote, ok := s.Votes[voterAddress]; ok {
+		// clear the vote
+		if expiredVote, ok := s.Votes[voterAddress]; ok {
+			if headerNumber.Uint64()-voteNumber.Uint64() > s.config.Epoch || (checkBalance && s.Votes[voterAddress].Stake.Cmp(minVoterBalance) < 0) {
 				expiredVotes = append(expiredVotes, expiredVote)
 			}
 		}
@@ -1034,7 +1042,7 @@ func (s *Snapshot) updateSnapshotForExpired() {
 
 	// deal the expired confirmation
 	for blockNumber := range s.Confirmations {
-		if s.Number-blockNumber > s.config.MaxSignerCount {
+		if headerNumber.Uint64()-blockNumber > s.config.MaxSignerCount {
 			delete(s.Confirmations, blockNumber)
 		}
 	}

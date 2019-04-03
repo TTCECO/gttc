@@ -432,7 +432,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:proposal:proposal_type:4:sccount:2:screward:50:schash:0x3210000000000000000000000000000000000000000000000000000000000000:vlcnt:4")})
 	// sample for declare
 	// eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[0],value:0,data:web3.toHex("ufo:1:event:declare:hash:0x853e10706e6b9d39c5f4719018aa2417e8b852dec8ad18f9c592d526db64c725:decision:yes")})
-	if len(txDataInfo) <= posEventProposal + 2 {
+	if len(txDataInfo) <= posEventProposal+2 {
 		return currentBlockProposals
 	}
 
@@ -559,7 +559,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 }
 
 func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, txDataInfo []string, tx *types.Transaction, declarer common.Address) []Declare {
-	if len(txDataInfo) <= posEventDeclare +2 {
+	if len(txDataInfo) <= posEventDeclare+2 {
 		return currentBlockDeclares
 	}
 	declare := Declare{
