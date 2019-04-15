@@ -18,6 +18,7 @@ package tbweb
 
 import (
 	"fmt"
+	"github.com/TTCECO/gttc/extra/browserdb/tbdb"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"net/http"
@@ -26,16 +27,18 @@ import (
 type TTCBrowserWeb struct {
 	port uint64
 	e    *echo.Echo
+	db   *tbdb.TTCBrowserDB
 }
 
 func getIndex(c echo.Context) error {
 	return c.HTML(http.StatusOK, "<b>Hellow World!</b>")
 }
 
-func (t *TTCBrowserWeb) New(port uint64) {
+func (t *TTCBrowserWeb) New(port uint64, db *tbdb.TTCBrowserDB) {
 	if t.e == nil {
 		t.e = echo.New()
 		t.port = port
+		t.db = db
 
 		t.e.GET("/", getIndex)
 		t.e.Use(middleware.Gzip())
