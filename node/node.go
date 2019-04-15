@@ -450,7 +450,6 @@ func (n *Node) Stop() error {
 	n.stopWS()
 	n.stopHTTP()
 	n.stopIPC()
-	n.stopBrowserDBConn()
 	n.rpcAPIs = nil
 	failure := &StopError{
 		Services: make(map[reflect.Type]error),
@@ -463,6 +462,7 @@ func (n *Node) Stop() error {
 	n.server.Stop()
 	n.services = nil
 	n.server = nil
+	n.stopBrowserDBConn()
 
 	// Release instance directory lock.
 	if n.instanceDirLock != nil {

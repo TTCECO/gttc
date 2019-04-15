@@ -17,11 +17,22 @@
 package tbweb
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/TTCECO/gttc/extra/browserdb/tbdb"
+	"github.com/TTCECO/gttc/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"io/ioutil"
 	"net/http"
+	"strconv"
+	"sync"
+)
+
+var (
+	errRPCResultMissing = errors.New("rpc result missing")
 )
 
 type TTCBrowserWeb struct {
@@ -34,12 +45,95 @@ func getIndex(c echo.Context) error {
 	return c.HTML(http.StatusOK, "<b>Hellow World!</b>")
 }
 
+func getLocalRPC(method string, params []interface{}, result *map[string]interface{}) error {
+
+	localURL := fmt.Sprintf("http://127.0.0.1:%d", node.DefaultHTTPPort)
+	contentType := "application/json"
+	data := map[string]interface{}{"jsonrpc": "2.0", "method": method, "params": params, "id": 67}
+	jsonValue, _ := json.Marshal(data)
+	resp, err := http.Post(localURL, contentType, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(body, result)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getBalance(address string) (string, error) {
+	var res map[string]interface{}
+	err := getLocalRPC("eth_getBalance", []interface{}{address, "latest"}, &res)
+	if err != nil {
+		return "", err
+	}
+	if result, ok := res["result"]; ok {
+		return result.(string), nil
+	}
+	return "", errRPCResultMissing
+}
+
+func getVote(address string) (string, error) {
+	var res map[string]interface{}
+	err := getLocalRPC("alien_getSnapshot", []interface{}{}, &res)
+	if err != nil {
+		return "", err
+	}
+
+	if result, ok := res["result"]; ok {
+		if votes, ok := result.(map[string]interface{})["votes"]; ok {
+			if vote, ok := votes.(map[string]interface{})[address]; ok {
+				stake := vote.(map[string]interface{})["Stake"].(float64)
+				return strconv.FormatFloat(stake, 'E', -1, 64), nil
+			}
+		}
+	}
+
+	return "", errRPCResultMissing
+}
+
+func (t *TTCBrowserWeb) queryAddress(c echo.Context) error {
+	address := c.QueryParam("address")
+	var balance string
+	var errBalance error
+	var vote string
+	var errVote error
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		balance, errBalance = getBalance(address)
+	}()
+
+	go func() {
+		defer wg.Done()
+		vote, errVote = getVote(address)
+	}()
+	wg.Wait()
+	if errBalance != nil {
+		return c.HTML(http.StatusOK, "Balance err : "+errBalance.Error())
+	}
+	if errVote != nil {
+		return c.HTML(http.StatusOK, "Vote err : "+errVote.Error())
+	}
+
+	return c.HTML(http.StatusOK, "Address : "+c.QueryParam("address")+"\n Balance : "+balance+"\n Vote : "+vote)
+
+}
+
 func (t *TTCBrowserWeb) New(port uint64, db *tbdb.TTCBrowserDB) {
 	if t.e == nil {
 		t.e = echo.New()
 		t.port = port
 		t.db = db
 
+		t.e.GET("/address", t.queryAddress)
 		t.e.GET("/", getIndex)
 		t.e.Use(middleware.Gzip())
 		t.e.Use(middleware.Recover())
