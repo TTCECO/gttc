@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -104,26 +105,43 @@ func (t *TTCBrowserWeb) queryAddress(c echo.Context) error {
 	var errBalance error
 	var vote string
 	var errVote error
+	var txs []map[string]interface{}
+	var errTxs error
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		balance, errBalance = getBalance(address)
 	}()
-
 	go func() {
 		defer wg.Done()
 		vote, errVote = getVote(address)
+	}()
+	go func() {
+		defer wg.Done()
+		txs, errTxs = t.db.MongoQuery("txs", map[string]interface{}{"from":strings.ToLower(address)},0,10)
 	}()
 	wg.Wait()
 	if errBalance != nil {
 		return c.HTML(http.StatusOK, "Balance err : "+errBalance.Error())
 	}
 	if errVote != nil {
-		return c.HTML(http.StatusOK, "Vote err : "+errVote.Error())
+		vote = "no vote"
 	}
 
-	return c.HTML(http.StatusOK, "Address : "+c.QueryParam("address")+"\n Balance : "+balance+"\n Vote : "+vote)
+	result := "<html><body>"
+	result += "<b> Address </b> " +c.QueryParam("address") +"</br>"
+	result += "<b> Balance </b> " + balance +"</br>"
+	result += "<b> Vote </b> " + vote +"</br>"
+	result += "<b> ==================</br>"
+
+	for _,tx :=range txs {
+		result += "<b> From </b> " + tx["from"].(string) +"</br>"
+		result += "<b> To </b> " + tx["to"].(string) +"</br>"
+		result += "<b> Value </b> " + tx["value"].(string) +"</br>"
+	}
+	result += "</body></html>"
+	return c.HTML(http.StatusOK, result )
 
 }
 

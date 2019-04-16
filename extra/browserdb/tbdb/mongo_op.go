@@ -41,3 +41,12 @@ func (b *TTCBrowserDB) MongoExist(collection string, condition bson.M) bool {
 	}
 	return true
 }
+
+func (b *TTCBrowserDB) MongoQuery(collection string, condition bson.M, skip int, limit int) ([]map[string]interface{}, error) {
+	var res []map[string]interface{}
+	err := b.mongoDB.C(collection).Find(condition).Skip(skip).Limit(limit).All(&res)
+	if err != nil {
+		return nil, err
+	}
+	return res,nil
+}
