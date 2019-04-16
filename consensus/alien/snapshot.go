@@ -414,13 +414,13 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 		cpySigners[i] = signer.Hex()
 	}
 	cpy["signers"] = cpySigners
-	cpy["number"] = s.Number
+	cpy["number"] = s.Number + 1 // s.Number
 	cpy["coinbase"] = header.Coinbase.Hex()
 	cpy["gasLimit"] = header.GasLimit
 	cpy["gasUsed"] = header.GasUsed
 	cpy["headerTime"] = s.HeaderTime
 	cpy["loopStartTime"] = s.LoopStartTime
-	cpy["hash"] = s.Hash.Hex()
+	cpy["hash"] = header.Hash().Hex() //s.Hash.Hex()
 	return cpy
 }
 
