@@ -808,7 +808,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 
 		// Accumulate any block rewards and commit the final state root
 		if err := accumulateRewards(chain.Config(), state, header, snap, refundGas); err != nil {
-			return nil, err
+			return nil, errUnauthorized
 		}
 	} else {
 		// use currentHeaderExtra.SignerQueue as signer queue
