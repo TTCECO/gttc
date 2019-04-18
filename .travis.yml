@@ -4,7 +4,7 @@ sudo: false
 matrix:
   include:
     - os: linux
-      dist: trusty
+      dist: xenial
       sudo: required
       go: 1.9.x
       script:
@@ -15,7 +15,7 @@ matrix:
         - go run build/ci.go test -coverage $TEST_PACKAGES
 
     - os: linux
-      dist: trusty
+      dist: xenial
       sudo: required
       go: 1.10.x
       script:
@@ -26,7 +26,7 @@ matrix:
         - go run build/ci.go test -coverage $TEST_PACKAGES
 
     - os: linux
-      dist: trusty
+      dist: xenial
       sudo: required
       go: 1.11.x
       script:

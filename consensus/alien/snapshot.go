@@ -414,13 +414,13 @@ func (s *Snapshot) copyBrowserData(header *types.Header) map[string]interface{} 
 		cpySigners[i] = signer.Hex()
 	}
 	cpy["signers"] = cpySigners
-	cpy["number"] = s.Number
+	cpy["number"] = s.Number + 1 // s.Number
 	cpy["coinbase"] = header.Coinbase.Hex()
 	cpy["gasLimit"] = header.GasLimit
 	cpy["gasUsed"] = header.GasUsed
 	cpy["headerTime"] = s.HeaderTime
 	cpy["loopStartTime"] = s.LoopStartTime
-	cpy["hash"] = s.Hash.Hex()
+	cpy["hash"] = header.Hash().Hex() //s.Hash.Hex()
 	return cpy
 }
 
@@ -1031,9 +1031,11 @@ func (s *Snapshot) updateSnapshotForExpired(headerNumber *big.Int) {
 	// remove expiredVotes only enough voters left
 	if uint64(len(s.Voters)-len(expiredVotes)) >= s.config.MaxSignerCount {
 		for _, expiredVote := range expiredVotes {
-			s.Tally[expiredVote.Candidate].Sub(s.Tally[expiredVote.Candidate], expiredVote.Stake)
-			if s.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
-				delete(s.Tally, expiredVote.Candidate)
+			if _,ok := s.Tally[expiredVote.Candidate]; ok{
+				s.Tally[expiredVote.Candidate].Sub(s.Tally[expiredVote.Candidate], expiredVote.Stake)
+				if s.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
+					delete(s.Tally, expiredVote.Candidate)
+				}
 			}
 			delete(s.Votes, expiredVote.Voter)
 			delete(s.Voters, expiredVote.Voter)
