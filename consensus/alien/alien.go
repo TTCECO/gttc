@@ -807,7 +807,10 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		}
 
 		// Accumulate any block rewards and commit the final state root
-		accumulateRewards(chain.Config(), state, header, snap, refundGas)
+		err = accumulateRewards(chain.Config(), state, header, snap, refundGas)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// use currentHeaderExtra.SignerQueue as signer queue
 		currentHeaderExtra.SignerQueue = append([]common.Address{header.Coinbase}, parentHeaderExtra.SignerQueue...)
@@ -993,7 +996,7 @@ func sideChainRewards(config *params.ChainConfig, state *state.StateDB, header *
 }
 
 // AccumulateRewards credits the coinbase of the given block with the mining reward.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot, refundGas RefundGas) {
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, snap *Snapshot, refundGas RefundGas) error {
 	// Calculate the block reword by year
 	blockNumPerYear := secondsPerYear / config.Alien.Period
 	initSignerBlockReward := new(big.Int).Div(totalBlockReward, big.NewInt(int64(2*blockNumPerYear)))
@@ -1007,7 +1010,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	votersReward := blockReward.Sub(blockReward, minerReward)
 
 	// rewards for the voters
-	for voter, reward := range snap.calculateVoteReward(header.Coinbase, votersReward) {
+	voteRewardMap, err := snap.calculateVoteReward(header.Coinbase, votersReward)
+	if err != nil {
+		return err
+	}
+	for voter, reward := range voteRewardMap {
 		state.AddBalance(voter, reward)
 	}
 
@@ -1033,6 +1040,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		state.AddBalance(header.Coinbase, minerReward)
 	}
 
+	return nil
 }
 
 // Get the signer missing from last signer till header.Coinbase
