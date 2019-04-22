@@ -1019,7 +1019,7 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 			}
 		}
 
-		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
+		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, new(big.Int).Set(vote.Stake)}
 		s.Voters[vote.Voter] = headerNumber
 	}
 }
@@ -1173,7 +1173,7 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 		}
 	}
 
-	if allStake.Cmp(big.NewInt(0)) <= 0 {
+	if allStake.Cmp(big.NewInt(0)) <= 0 && len(rewards) > 0 {
 		return nil, errAllStakeMissing
 	}
 	for _, stake := range rewards {
