@@ -1013,7 +1013,7 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 
 			s.Tally[vote.Candidate].Add(s.Tally[vote.Candidate], vote.Stake)
 		} else {
-			s.Tally[vote.Candidate] = vote.Stake
+			s.Tally[vote.Candidate] = new(big.Int).Set(vote.Stake)
 			if !candidateNeedPD {
 				s.Candidates[vote.Candidate] = candidateStateNormal
 			}
