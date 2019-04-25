@@ -46,7 +46,7 @@ You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 * [HOWTO_VOTE_ON_GTTC](https://github.com/TTCECO/gttc/wiki//HOWTO_VOTE_ON_GTTC)  : `how to vote on alien testnet and view snapshot through API`
 * [GENESIS_JSON_SAMPLE](https://github.com/TTCECO/gttc/wiki/GENESIS_JSON_SAMPLE) : `genesis.json sample`
 
-* [TTC Node - Technical FAQ](https://www.notion.so/225dfdbfab1640f195307f49cbd1e144)
+* TTC Node - Technical FAQ
 
 #### Contact
 

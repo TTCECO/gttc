@@ -65,6 +65,7 @@ const (
 
 var (
 	errIncorrectTallyCount = errors.New("incorrect tally count")
+	errAllStakeMissing     = errors.New("all stake for this signer is zero")
 )
 
 // SCCurrentBlockReward is base on scMaxCountPerPeriod = 6
@@ -1031,7 +1032,7 @@ func (s *Snapshot) updateSnapshotForExpired(headerNumber *big.Int) {
 	// remove expiredVotes only enough voters left
 	if uint64(len(s.Voters)-len(expiredVotes)) >= s.config.MaxSignerCount {
 		for _, expiredVote := range expiredVotes {
-			if _,ok := s.Tally[expiredVote.Candidate]; ok{
+			if _, ok := s.Tally[expiredVote.Candidate]; ok {
 				s.Tally[expiredVote.Candidate].Sub(s.Tally[expiredVote.Candidate], expiredVote.Stake)
 				if s.Tally[expiredVote.Candidate].Cmp(big.NewInt(0)) == 0 {
 					delete(s.Tally, expiredVote.Candidate)
@@ -1091,13 +1092,13 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 
 			s.Tally[vote.Candidate].Add(s.Tally[vote.Candidate], vote.Stake)
 		} else {
-			s.Tally[vote.Candidate] = vote.Stake
+			s.Tally[vote.Candidate] = new(big.Int).Set(vote.Stake)
 			if !candidateNeedPD {
 				s.Candidates[vote.Candidate] = candidateStateNormal
 			}
 		}
 
-		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, vote.Stake}
+		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, new(big.Int).Set(vote.Stake)}
 		s.Voters[vote.Voter] = headerNumber
 	}
 }
@@ -1240,7 +1241,7 @@ func (s *Snapshot) calculateProposalRefund() map[common.Address]*big.Int {
 	return make(map[common.Address]*big.Int)
 }
 
-func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *big.Int) map[common.Address]*big.Int {
+func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *big.Int) (map[common.Address]*big.Int, error) {
 	rewards := make(map[common.Address]*big.Int)
 	allStake := big.NewInt(0)
 
@@ -1251,12 +1252,14 @@ func (s *Snapshot) calculateVoteReward(coinbase common.Address, votersReward *bi
 		}
 	}
 
+	if allStake.Cmp(big.NewInt(0)) <= 0 && len(rewards) > 0 {
+		return nil, errAllStakeMissing
+	}
 	for _, stake := range rewards {
 		stake.Mul(stake, votersReward)
 		stake.Div(stake, allStake)
 	}
-
-	return rewards
+	return rewards, nil
 }
 
 func (s *Snapshot) calculateGasCharging() map[common.Address]*big.Int {
