@@ -128,6 +128,9 @@ func (t *TTCBrowserWeb) queryAddress(c echo.Context) error {
 	if errVote != nil {
 		vote = "no vote"
 	}
+	if errTxs != nil{
+		return c.HTML(http.StatusOK, "Transaction err : " + errTxs.Error())
+	}
 
 	result := "<html><body>"
 	result += "<b> Address </b> " +c.QueryParam("address") +"</br>"
