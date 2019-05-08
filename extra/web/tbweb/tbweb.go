@@ -26,6 +26,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,7 +34,8 @@ import (
 )
 
 var (
-	errRPCResultMissing = errors.New("rpc result missing")
+	errRPCResultMissing      = errors.New("rpc result missing")
+	errRPCResponseIdNotMatch = errors.New("response id not match request id")
 )
 
 type TTCBrowserWeb struct {
@@ -48,9 +50,10 @@ func getIndex(c echo.Context) error {
 
 func getLocalRPC(method string, params []interface{}, result *map[string]interface{}) error {
 
+	requestId := rand.Intn(100)
 	localURL := fmt.Sprintf("http://127.0.0.1:%d", node.DefaultHTTPPort)
 	contentType := "application/json"
-	data := map[string]interface{}{"jsonrpc": "2.0", "method": method, "params": params, "id": 67}
+	data := map[string]interface{}{"jsonrpc": "2.0", "method": method, "params": params, "id": requestId}
 	jsonValue, _ := json.Marshal(data)
 	resp, err := http.Post(localURL, contentType, bytes.NewBuffer(jsonValue))
 	if err != nil {
@@ -61,9 +64,12 @@ func getLocalRPC(method string, params []interface{}, result *map[string]interfa
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(body, result)
-	if err != nil {
+	if err = json.Unmarshal(body, result); err != nil {
 		return err
+	}
+
+	if responseId, ok := (*result)["id"]; !ok || responseId.(int) != requestId {
+		return errRPCResponseIdNotMatch
 	}
 	return nil
 }
@@ -119,7 +125,7 @@ func (t *TTCBrowserWeb) queryAddress(c echo.Context) error {
 	}()
 	go func() {
 		defer wg.Done()
-		txs, errTxs = t.db.MongoQuery("txs", map[string]interface{}{"from":strings.ToLower(address)},0,10)
+		txs, errTxs = t.db.MongoQuery("txs", map[string]interface{}{"from": strings.ToLower(address)}, 0, 10)
 	}()
 	wg.Wait()
 	if errBalance != nil {
@@ -128,23 +134,23 @@ func (t *TTCBrowserWeb) queryAddress(c echo.Context) error {
 	if errVote != nil {
 		vote = "no vote"
 	}
-	if errTxs != nil{
-		return c.HTML(http.StatusOK, "Transaction err : " + errTxs.Error())
+	if errTxs != nil {
+		return c.HTML(http.StatusOK, "Transaction err : "+errTxs.Error())
 	}
 
 	result := "<html><body>"
-	result += "<b> Address </b> " +c.QueryParam("address") +"</br>"
-	result += "<b> Balance </b> " + balance +"</br>"
-	result += "<b> Vote </b> " + vote +"</br>"
+	result += "<b> Address </b> " + c.QueryParam("address") + "</br>"
+	result += "<b> Balance </b> " + balance + "</br>"
+	result += "<b> Vote </b> " + vote + "</br>"
 	result += "<b> ==================</br>"
 
-	for _,tx :=range txs {
-		result += "<b> From </b> " + tx["from"].(string) +"</br>"
-		result += "<b> To </b> " + tx["to"].(string) +"</br>"
-		result += "<b> Value </b> " + tx["value"].(string) +"</br>"
+	for _, tx := range txs {
+		result += "<b> From </b> " + tx["from"].(string) + "</br>"
+		result += "<b> To </b> " + tx["to"].(string) + "</br>"
+		result += "<b> Value </b> " + tx["value"].(string) + "</br>"
 	}
 	result += "</body></html>"
-	return c.HTML(http.StatusOK, result )
+	return c.HTML(http.StatusOK, result)
 
 }
 
