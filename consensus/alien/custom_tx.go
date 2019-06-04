@@ -628,7 +628,7 @@ func (a *Alien) processEventConfirm(currentBlockConfirmations []Confirmation, ch
 
 func (a *Alien) processPredecessorVoter(modifyPredecessorVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address, snap *Snapshot) []Vote {
 	// process normal transaction which relate to voter
-	if tx.Value().Cmp(big.NewInt(0)) > 0 {
+	if tx.Value().Cmp(big.NewInt(0)) > 0 && tx.To() != nil {
 		if snap.isVoter(voter) {
 			a.lock.RLock()
 			stake := state.GetBalance(voter)
