@@ -32,14 +32,53 @@ func TestAlien_Penalty(t *testing.T) {
 	}{
 		{
 			/* 	Case 0:
-			 *
-			 *
+			 *  simple loop order
 			 */
 			last:    "A",
 			current: "B",
 			queue:   []string{"A", "B", "C"},
 			newLoop: false,
 			result:  []string{},
+		},
+		{
+			/* 	Case 1:
+			 * simple loop order, new loop, no matter which one is current signer
+			 */
+			last:    "C",
+			current: "A",
+			queue:   []string{"A", "B", "C"},
+			newLoop: true,
+			result:  []string{},
+		},
+		{
+			/* 	Case 2:
+			 * simple loop order, new loop, no matter which one is current signer
+			 */
+			last:    "C",
+			current: "B",
+			queue:   []string{"A", "B", "C"},
+			newLoop: true,
+			result:  []string{},
+		},
+		{
+			/* 	Case 3:
+			 * simple loop order, new loop, missing in last loop
+			 */
+			last:    "B",
+			current: "C",
+			queue:   []string{"A", "B", "C"},
+			newLoop: true,
+			result:  []string{"C"},
+		},
+		{
+			/* 	Case 4:
+			 * simple loop order, new loop, two signers missing in last loop
+			 */
+			last:    "A",
+			current: "C",
+			queue:   []string{"A", "B", "C"},
+			newLoop: true,
+			result:  []string{"B", "C"},
 		},
 	}
 
@@ -54,15 +93,17 @@ func TestAlien_Penalty(t *testing.T) {
 
 		extra := HeaderExtra{SignerQueue: addrQueue}
 		missing := getSignerMissing(accounts.address(tt.last), accounts.address(tt.current), extra, tt.newLoop)
-		if len(missing) != len(tt.result) {
-			t.Errorf("test %d: the length of missing not equal to the length of result", i)
-		}
-		var signersMissing []string
+
+		signersMissing := make(map[string]bool)
 		for _, signer := range missing {
-			signersMissing = append(signersMissing, accounts.name(signer))
+			signersMissing[accounts.name(signer)] = true
 		}
+		if len(missing) != len(tt.result) {
+			t.Errorf("test %d: the length of missing not equal to the length of result, Result is %v not %v  ", i, signersMissing, tt.result)
+		}
+
 		for j := 0; j < len(missing); j++ {
-			if signersMissing[j] != tt.result[j] {
+			if _, ok := signersMissing[tt.result[j]]; !ok {
 				t.Errorf("test %d: the signersMissing is not equal Result is %v not %v ", i, signersMissing, tt.result)
 			}
 		}
