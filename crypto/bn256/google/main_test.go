@@ -13,7 +13,7 @@ func TestRandomG2Marshal(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		t.Logf("%d: %x\n", n, g2.Marshal())
+		t.Logf("%d: %x\n", n.Uint64(), g2.Marshal())
 	}
 }
 
