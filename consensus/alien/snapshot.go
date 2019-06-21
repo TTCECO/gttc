@@ -1077,6 +1077,12 @@ func (s *Snapshot) updateSnapshotForPunish(signerMissing []common.Address, heade
 			delete(s.Punished, signerEach)
 		}
 	}
+
+	// clear all punish score at the beginning of trantor block
+	if s.config.IsTrantor(headerNumber) && !s.config.IsTrantor(new(big.Int).Sub(headerNumber, big.NewInt(1))) {
+		s.Punished = make(map[common.Address]uint64)
+	}
+
 }
 
 // inturn returns if a signer at a given block height is in-turn or not.
