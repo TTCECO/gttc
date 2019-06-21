@@ -516,7 +516,12 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			if a.config.IsTrantor(header.Number) {
 				var grandParentHeaderExtra HeaderExtra
 				if number%a.config.MaxSignerCount == 1 {
-					grandParent := chain.GetHeader(parent.ParentHash, number-2)
+					var grandParent *types.Header
+					if len(parents) > 1 {
+						grandParent = parents[len(parents)-2]
+					} else {
+						grandParent = chain.GetHeader(parent.ParentHash, number-2)
+					}
 					if grandParent == nil {
 						return errLastLoopHeaderFail
 					}

@@ -262,7 +262,7 @@ func (s *Snapshot) copy() *Snapshot {
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
 
 		MinerReward: s.MinerReward,
-		MinVB:       new(big.Int).Set(s.MinVB),
+		MinVB:       nil,
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
@@ -367,8 +367,10 @@ func (s *Snapshot) copy() *Snapshot {
 	if s.MinerReward == 0 {
 		cpy.MinerReward = minerRewardPerThousand
 	}
-	if s.MinVB.Cmp(big.NewInt(0)) <= 0 {
-		s.MinVB.Set(minVoterBalance)
+	if s.MinVB == nil {
+		cpy.MinVB = new(big.Int).Set(minVoterBalance)
+	} else {
+		cpy.MinVB = new(big.Int).Set(s.MinVB)
 	}
 
 	return cpy
