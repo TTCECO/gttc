@@ -136,6 +136,9 @@ var (
 
 	// errMissingGenesisLightConfig is returned only in light syncmode if light config missing
 	errMissingGenesisLightConfig = errors.New("light config in genesis is missing")
+
+	// errLastLoopHeaderFail is returned when try to get header of last loop fail
+	errLastLoopHeaderFail = errors.New("get last loop header fail")
 )
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -509,7 +512,29 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			}
 
 			// verify missing signer for punish
-			parentSignerMissing := a.getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, number)
+			var parentSignerMissing []common.Address
+			if a.config.IsTrantor(header.Number) {
+				var grandParentHeaderExtra HeaderExtra
+				if number%a.config.MaxSignerCount == 1 {
+					grandParent := chain.GetHeader(parent.ParentHash, number-2)
+					if grandParent == nil {
+						return errLastLoopHeaderFail
+					}
+					err := decodeHeaderExtra(a.config, grandParent.Number, grandParent.Extra[extraVanity:len(grandParent.Extra)-extraSeal], &grandParentHeaderExtra)
+					if err != nil {
+						log.Info("Fail to decode parent header", "err", err)
+						return err
+					}
+				}
+				parentSignerMissing = getSignerMissingTrantor(parent.Coinbase, header.Coinbase, &parentHeaderExtra, &grandParentHeaderExtra)
+			} else {
+				newLoop := false
+				if number%a.config.MaxSignerCount == 0 {
+					newLoop = true
+				}
+				parentSignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
+			}
+
 			if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 				return errPunishedMissing
 			}
@@ -762,7 +787,29 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		currentHeaderExtra.ConfirmedBlockNumber = parentHeaderExtra.ConfirmedBlockNumber
 		currentHeaderExtra.SignerQueue = parentHeaderExtra.SignerQueue
 		currentHeaderExtra.LoopStartTime = parentHeaderExtra.LoopStartTime
-		currentHeaderExtra.SignerMissing = a.getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, number)
+
+		if a.config.IsTrantor(header.Number) {
+			var grandParentHeaderExtra HeaderExtra
+			if number%a.config.MaxSignerCount == 1 {
+				grandParent := chain.GetHeader(parent.ParentHash, number-2)
+				if grandParent == nil {
+					return nil, errLastLoopHeaderFail
+				}
+				err := decodeHeaderExtra(a.config, grandParent.Number, grandParent.Extra[extraVanity:len(grandParent.Extra)-extraSeal], &grandParentHeaderExtra)
+				if err != nil {
+					log.Info("Fail to decode parent header", "err", err)
+					return nil, err
+				}
+			}
+			currentHeaderExtra.SignerMissing = getSignerMissingTrantor(parent.Coinbase, header.Coinbase, &parentHeaderExtra, &grandParentHeaderExtra)
+		} else {
+			newLoop := false
+			if number%a.config.MaxSignerCount == 0 {
+				newLoop = true
+			}
+			currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
+		}
+
 	}
 
 	// Assemble the voting snapshot to check which votes make sense
@@ -1035,14 +1082,9 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Get the signer missing from last signer till header.Coinbase
-func (a Alien) getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra, headerNumber uint64) []common.Address {
+func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra, newLoop bool) []common.Address {
 
 	var signerMissing []common.Address
-
-	newLoop := false
-	if headerNumber%a.config.MaxSignerCount == 0 {
-		newLoop = true
-	}
 
 	if newLoop {
 		for i, qlen := 0, len(extra.SignerQueue); i < len(extra.SignerQueue); i++ {
@@ -1070,4 +1112,37 @@ func (a Alien) getSignerMissing(lastSigner common.Address, currentSigner common.
 	}
 
 	return signerMissing
+}
+
+// Get the signer missing from last signer till header.Coinbase
+func getSignerMissingTrantor(lastSigner common.Address, currentSigner common.Address, extra *HeaderExtra, gpExtra *HeaderExtra) []common.Address {
+
+	var signerMissing []common.Address
+	signerQueue := append(extra.SignerQueue, extra.SignerQueue...)
+	if gpExtra != nil {
+		for i, v := range gpExtra.SignerQueue {
+			if v == lastSigner {
+				signerQueue[i] = lastSigner
+				signerQueue = signerQueue[i:]
+				break
+			}
+		}
+	}
+
+	recordMissing := false
+	for _, signer := range signerQueue {
+		if !recordMissing && signer == lastSigner {
+			recordMissing = true
+			continue
+		}
+		if recordMissing && signer == currentSigner {
+			break
+		}
+		if recordMissing {
+			signerMissing = append(signerMissing, signer)
+		}
+	}
+
+	return signerMissing
+
 }
