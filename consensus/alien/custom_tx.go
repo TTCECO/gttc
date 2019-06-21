@@ -303,7 +303,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						if txDataInfo[posCategory] == ufoCategoryEvent {
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
-								if txDataInfo[posEventVote] == ufoEventVote && (!candidateNeedPD || snap.isCandidate(*tx.To())) {
+								if txDataInfo[posEventVote] == ufoEventVote && (!candidateNeedPD || snap.isCandidate(*tx.To())) && state.GetBalance(txSender).Cmp(snap.MinVB) > 0 {
 									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
@@ -573,18 +573,16 @@ func (a *Alien) processEventDeclare(currentBlockDeclares []Declare, txDataInfo [
 }
 
 func (a *Alien) processEventVote(currentBlockVotes []Vote, state *state.StateDB, tx *types.Transaction, voter common.Address) []Vote {
-	if state.GetBalance(voter).Cmp(minVoterBalance) > 0 {
 
-		a.lock.RLock()
-		stake := state.GetBalance(voter)
-		a.lock.RUnlock()
+	a.lock.RLock()
+	stake := state.GetBalance(voter)
+	a.lock.RUnlock()
 
-		currentBlockVotes = append(currentBlockVotes, Vote{
-			Voter:     voter,
-			Candidate: *tx.To(),
-			Stake:     stake,
-		})
-	}
+	currentBlockVotes = append(currentBlockVotes, Vote{
+		Voter:     voter,
+		Candidate: *tx.To(),
+		Stake:     stake,
+	})
 
 	return currentBlockVotes
 }
