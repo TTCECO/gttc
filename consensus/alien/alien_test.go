@@ -27,7 +27,8 @@ func TestAlien_Penalty(t *testing.T) {
 		last    string
 		current string
 		queue   []string
-		newLoop bool
+		number  uint64
+		count   uint64
 		result  []string // the result of current snapshot
 	}{
 		{
@@ -37,7 +38,8 @@ func TestAlien_Penalty(t *testing.T) {
 			last:    "A",
 			current: "B",
 			queue:   []string{"A", "B", "C"},
-			newLoop: false,
+			number:  1,
+			count:   7,
 			result:  []string{},
 		},
 		{
@@ -47,38 +49,9 @@ func TestAlien_Penalty(t *testing.T) {
 			last:    "C",
 			current: "A",
 			queue:   []string{"A", "B", "C"},
-			newLoop: true,
+			number:  7,
+			count:   7,
 			result:  []string{},
-		},
-		{
-			/* 	Case 2:
-			 * simple loop order, new loop, no matter which one is current signer
-			 */
-			last:    "C",
-			current: "B",
-			queue:   []string{"A", "B", "C"},
-			newLoop: true,
-			result:  []string{},
-		},
-		{
-			/* 	Case 3:
-			 * simple loop order, new loop, missing in last loop
-			 */
-			last:    "B",
-			current: "C",
-			queue:   []string{"A", "B", "C"},
-			newLoop: true,
-			result:  []string{"C"},
-		},
-		{
-			/* 	Case 4:
-			 * simple loop order, new loop, two signers missing in last loop
-			 */
-			last:    "A",
-			current: "C",
-			queue:   []string{"A", "B", "C"},
-			newLoop: true,
-			result:  []string{"B", "C"},
 		},
 	}
 
@@ -92,7 +65,7 @@ func TestAlien_Penalty(t *testing.T) {
 		}
 
 		extra := HeaderExtra{SignerQueue: addrQueue}
-		missing := getSignerMissing(accounts.address(tt.last), accounts.address(tt.current), extra, tt.newLoop)
+		missing := getSignerMissing(accounts.address(tt.last), accounts.address(tt.current), extra, tt.number, tt.count)
 
 		signersMissing := make(map[string]bool)
 		for _, signer := range missing {

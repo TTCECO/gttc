@@ -509,11 +509,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			}
 
 			// verify missing signer for punish
-			newLoop := false
-			if number%a.config.MaxSignerCount == 0 {
-				newLoop = true
-			}
-			parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
+			parentSignerMissing := getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, number, a.config.MaxSignerCount)
 			if len(parentSignerMissing) != len(currentHeaderExtra.SignerMissing) {
 				return errPunishedMissing
 			}
@@ -766,11 +762,7 @@ func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, stat
 		currentHeaderExtra.ConfirmedBlockNumber = parentHeaderExtra.ConfirmedBlockNumber
 		currentHeaderExtra.SignerQueue = parentHeaderExtra.SignerQueue
 		currentHeaderExtra.LoopStartTime = parentHeaderExtra.LoopStartTime
-		newLoop := false
-		if number%a.config.MaxSignerCount == 0 {
-			newLoop = true
-		}
-		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, newLoop)
+		currentHeaderExtra.SignerMissing = getSignerMissing(parent.Coinbase, header.Coinbase, parentHeaderExtra, number, a.config.MaxSignerCount)
 	}
 
 	// Assemble the voting snapshot to check which votes make sense
@@ -1043,9 +1035,14 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 }
 
 // Get the signer missing from last signer till header.Coinbase
-func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra, newLoop bool) []common.Address {
+func getSignerMissing(lastSigner common.Address, currentSigner common.Address, extra HeaderExtra, headerNumber uint64, signerCount uint64) []common.Address {
 
 	var signerMissing []common.Address
+
+	newLoop := false
+	if headerNumber%signerCount == 0 {
+		newLoop = true
+	}
 
 	if newLoop {
 		for i, qlen := 0, len(extra.SignerQueue); i < len(extra.SignerQueue); i++ {
