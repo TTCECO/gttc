@@ -70,7 +70,7 @@ var (
 	mcNonce                          = uint64(0)                                             // the current Nonce of coinbase on main chain
 	mcTxDefaultGasPrice              = big.NewInt(30000000)                                  // default gas price to build transaction for main chain
 	mcTxDefaultGasLimit              = uint64(3000000)                                       // default limit to build transaction for main chain
-	proposalDeposit                  = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(1e+4)) // current proposalDeposit
+	proposalDeposit                  = new(big.Int).Mul(big.NewInt(1e+18), big.NewInt(1e+4)) // default current proposalDeposit
 	scRentLengthRecommend            = uint64(0)                                             // block number for split each side chain rent fee
 )
 
@@ -1042,7 +1042,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	blockReward := new(big.Int).Rsh(initSignerBlockReward, uint(yearCount))
 
 	minerReward := new(big.Int).Set(blockReward)
-	minerReward.Mul(minerReward, big.NewInt(int64(minerRewardPerThousand)))
+	minerReward.Mul(minerReward, new(big.Int).SetUint64(snap.MinerReward))
 	minerReward.Div(minerReward, big.NewInt(1000)) // cause the reward is calculate by cnt per thousand
 
 	votersReward := blockReward.Sub(blockReward, minerReward)

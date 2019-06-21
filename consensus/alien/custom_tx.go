@@ -477,7 +477,7 @@ func (a *Alien) processEventProposal(currentBlockProposals []Proposal, txDataInf
 			proposal.TargetAddress.UnmarshalText([]byte(v))
 		case "mrpt":
 			// miner reward per thousand
-			if mrpt, err := strconv.Atoi(v); err != nil || mrpt < 0 || mrpt > 1000 {
+			if mrpt, err := strconv.Atoi(v); err != nil || mrpt <= 0 || mrpt > 1000 {
 				return currentBlockProposals
 			} else {
 				proposal.MinerRewardPerThousand = uint64(mrpt)

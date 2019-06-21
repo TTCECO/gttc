@@ -141,6 +141,8 @@ type Snapshot struct {
 	SCRewardMap     map[common.Hash]*SCReward                         `json:"sideChainReward"`   // main chain record Side Chain Reward
 	SCNoticeMap     map[common.Hash]*CCNotice                         `json:"sideChainNotice"`   // main chain record Notification to side chain
 	LocalNotice     *CCNotice                                         `json:"localNotice"`       // side chain record Notification
+
+	MinerReward uint64 `json:"minerReward"` // miner reward per thousand
 }
 
 // newSnapshot creates a new snapshot with the specified startup parameters. only ever use if for
@@ -172,6 +174,7 @@ func newSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, hash common
 		SCNoticeMap:     make(map[common.Hash]*CCNotice),
 		LocalNotice:     &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund:  make(map[uint64]map[common.Address]*big.Int),
+		MinerReward:     minerRewardPerThousand,
 	}
 	snap.HistoryHash = append(snap.HistoryHash, hash)
 
@@ -256,6 +259,8 @@ func (s *Snapshot) copy() *Snapshot {
 		SCNoticeMap:    make(map[common.Hash]*CCNotice),
 		LocalNotice:    &CCNotice{CurrentCharging: make(map[common.Hash]GasCharging), ConfirmReceived: make(map[common.Hash]NoticeCR)},
 		ProposalRefund: make(map[uint64]map[common.Address]*big.Int),
+
+		MinerReward: s.MinerReward,
 	}
 	copy(cpy.HistoryHash, s.HistoryHash)
 	copy(cpy.Signers, s.Signers)
@@ -354,6 +359,11 @@ func (s *Snapshot) copy() *Snapshot {
 		for proposer, deposit := range refund {
 			cpy.ProposalRefund[number][proposer] = new(big.Int).Set(deposit)
 		}
+	}
+	// miner reward per thousand proposal must larger than 0
+	// so minerReward is zeron only when update the program
+	if s.MinerReward == 0 {
+		cpy.MinerReward = minerRewardPerThousand
 	}
 
 	return cpy
@@ -865,7 +875,7 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 						delete(s.Candidates, proposal.TargetAddress)
 					}
 				case proposalTypeMinerRewardDistributionModify:
-					minerRewardPerThousand = s.Proposals[hashKey].MinerRewardPerThousand
+					s.MinerReward = s.Proposals[hashKey].MinerRewardPerThousand
 
 				case proposalTypeSideChainAdd:
 					if _, ok := s.SCRecordMap[proposal.SCHash]; !ok {
