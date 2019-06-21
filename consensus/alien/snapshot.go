@@ -889,9 +889,9 @@ func (s *Snapshot) calculateProposalResult(headerNumber *big.Int) {
 						delete(s.SCRecordMap, proposal.SCHash)
 					}
 				case proposalTypeMinVoterBalanceModify:
-					minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
+					//minVoterBalance = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].MinVoterBalance), big.NewInt(1e+18))
 				case proposalTypeProposalDepositModify:
-					proposalDeposit = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].ProposalDeposit), big.NewInt(1e+18))
+					//proposalDeposit = new(big.Int).Mul(new(big.Int).SetUint64(s.Proposals[hashKey].ProposalDeposit), big.NewInt(1e+18))
 				case proposalTypeRentSideChain:
 					// check if buy success
 					if _, ok := s.SCRecordMap[proposal.SCHash]; !ok {
