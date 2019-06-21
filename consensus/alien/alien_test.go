@@ -17,6 +17,7 @@
 package alien
 
 import (
+	"github.com/TTCECO/gttc/params"
 	"testing"
 
 	"github.com/TTCECO/gttc/common"
@@ -57,6 +58,8 @@ func TestAlien_Penalty(t *testing.T) {
 
 	// Run through the test
 	for i, tt := range tests {
+
+		alien := Alien{config: &params.AlienConfig{MaxSignerCount: tt.count}}
 		// Create the account pool and generate the initial set of all address in addrNames
 		accounts := newTesterAccountPool()
 		addrQueue := make([]common.Address, len(tt.queue))
@@ -65,7 +68,7 @@ func TestAlien_Penalty(t *testing.T) {
 		}
 
 		extra := HeaderExtra{SignerQueue: addrQueue}
-		missing := getSignerMissing(accounts.address(tt.last), accounts.address(tt.current), extra, tt.number, tt.count)
+		missing := alien.getSignerMissing(accounts.address(tt.last), accounts.address(tt.current), extra, tt.number)
 
 		signersMissing := make(map[string]bool)
 		for _, signer := range missing {
