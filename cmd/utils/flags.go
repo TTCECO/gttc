@@ -548,12 +548,12 @@ var (
 	SCAMainRPCAddrFlag = cli.StringFlag{
 		Name:  "sca.mainrpcaddr",
 		Usage: "Address of main chain ",
-		Value: node.DefaultHTTPHost,
+		Value: "",
 	}
 	SCAMainRPCPortFlag = cli.IntFlag{
 		Name:  "sca.mainrpcport",
 		Usage: "Port of main chain rpc port",
-		Value: node.DefaultHTTPPort,
+		Value: 0,
 	}
 	SCAPeriod = cli.IntFlag{
 		Name:  "sca.period",
