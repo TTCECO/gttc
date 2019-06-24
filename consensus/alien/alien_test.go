@@ -22,6 +22,131 @@ import (
 	"github.com/TTCECO/gttc/common"
 )
 
+func TestAlien_PenaltyTrantor(t *testing.T) {
+	tests := []struct {
+		last    string
+		current string
+		queue   []string
+		lastQ   []string
+		result  []string // the result of missing
+	}{
+		{
+			/* 	Case 0:
+			 *  simple loop order, miss nothing
+			 *  A -> B -> C
+			 */
+			last:    "A",
+			current: "B",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{},
+			result:  []string{},
+		},
+		{
+			/* 	Case 1:
+			 *  same loop, missing B
+			 *  A -> B -> C
+			 */
+			last:    "A",
+			current: "C",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{},
+			result:  []string{"B"},
+		},
+		{
+			/* 	Case 2:
+			 *  same loop, not start from the first one
+			 *  C -> A -> B
+			 */
+			last:    "C",
+			current: "B",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{},
+			result:  []string{"A"},
+		},
+		{
+			/* 	Case 3:
+			 *  same loop, missing two
+			 *  A -> B -> C
+			 */
+			last:    "C",
+			current: "C",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{},
+			result:  []string{"A", "B"},
+		},
+		{
+			/* 	Case 4:
+			 *  cross loop
+			 *  B -> A -> B -> C -> A
+			 */
+			last:    "B",
+			current: "B",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{"C", "A", "B"},
+			result:  []string{"A"},
+		},
+		{
+			/* 	Case 5:
+			 *  cross loop, nothing missing
+			 *  A -> C -> A -> B -> C
+			 */
+			last:    "A",
+			current: "C",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{"C", "A", "B"},
+			result:  []string{},
+		},
+		{
+			/* 	Case 6:
+			 *  cross loop, two signers missing in last loop
+			 *  C -> B -> C -> A
+			 */
+			last:    "C",
+			current: "A",
+			queue:   []string{"A", "B", "C"},
+			lastQ:   []string{"C", "A", "B"},
+			result:  []string{"B", "C"},
+		},
+	}
+
+	// Run through the test
+	for i, tt := range tests {
+		// Create the account pool and generate the initial set of all address in addrNames
+		accounts := newTesterAccountPool()
+		addrQueue := make([]common.Address, len(tt.queue))
+		for j, signer := range tt.queue {
+			addrQueue[j] = accounts.address(signer)
+		}
+
+		extra := HeaderExtra{SignerQueue: addrQueue}
+		var lastExtra HeaderExtra
+		if len(tt.lastQ) > 0 {
+			lastAddrQueue := make([]common.Address, len(tt.lastQ))
+			for j, signer := range tt.lastQ {
+				lastAddrQueue[j] = accounts.address(signer)
+			}
+			lastExtra = HeaderExtra{SignerQueue: lastAddrQueue}
+		}
+
+		missing := getSignerMissingTrantor(accounts.address(tt.last), accounts.address(tt.current), &extra, &lastExtra)
+
+		signersMissing := make(map[string]bool)
+		for _, signer := range missing {
+			signersMissing[accounts.name(signer)] = true
+		}
+		if len(missing) != len(tt.result) {
+			t.Errorf("test %d: the length of missing not equal to the length of result, Result is %v not %v  ", i, signersMissing, tt.result)
+		}
+
+		for j := 0; j < len(missing); j++ {
+			if _, ok := signersMissing[tt.result[j]]; !ok {
+				t.Errorf("test %d: the signersMissing is not equal Result is %v not %v ", i, signersMissing, tt.result)
+			}
+		}
+
+	}
+}
+
 func TestAlien_Penalty(t *testing.T) {
 	tests := []struct {
 		last    string
