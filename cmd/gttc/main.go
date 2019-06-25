@@ -305,12 +305,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
 
 		// got random rpc
-		var mainRPCnode string
-		if ctx.GlobalBool(utils.TestnetFlag.Name) {
-			mainRPCnode = params.TestnetRPCnodes[rand.Intn(len(params.TestnetRPCnodes))]
-		} else {
-			mainRPCnode = params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
-		}
+		mainRPCnode := params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
 
 		if mcRPCAddress == "" {
 			mcRPCAddress = strings.Split(mainRPCnode, ":")[0]
