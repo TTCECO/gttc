@@ -620,6 +620,8 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	urls := params.MainnetBootnodes
 	switch {
+	case ctx.GlobalBool(SCAEnableFlag.Name):
+	    urls = params.SidechainBootnodes
 	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV4Flag.Name):
 		if ctx.GlobalIsSet(BootnodesV4Flag.Name) {
 			urls = strings.Split(ctx.GlobalString(BootnodesV4Flag.Name), ",")

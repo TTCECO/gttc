@@ -40,6 +40,14 @@ var TestnetBootnodes = []string{
 	"enode://bfbdf7ecb9be785ea0105a28db115dbdb61f6e486d6310859985974f05555d10e531290bd821a962efafdec087c075f6e5d15efd94937fb00d10c053b2bd56ed@47.111.177.154:30313",
 }
 
+// SidechainBootnodes are the enode URLs of the P2P bootstrap nodes running on the
+// TTC sidechain network.
+var SidechainBootnodes = []string{
+	// todo : the enode below is the test address local
+	"enode://1a4cc9c8512256ff475990c4ab03636ac7771315a42432a240c6161befa162324be5af0f65828f0b7ec468b3d2183c430fb4a33d88ba5057eaa35b36a3af4b56@127.0.0.1:30510",
+}
+
+
 // RinkebyBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Rinkeby test network.
 var RinkebyBootnodes = []string{
