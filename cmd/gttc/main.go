@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"runtime"
 	"sort"
@@ -302,21 +303,22 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
 		mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
+
+		// got random rpc
+		var mainRPCnode string
+		if ctx.GlobalBool(utils.TestnetFlag.Name) {
+			mainRPCnode = params.TestnetRPCnodes[rand.Intn(len(params.TestnetRPCnodes))]
+		} else {
+			mainRPCnode = params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
+		}
+
 		if mcRPCAddress == "" {
-			if ctx.GlobalBool(utils.TestnetFlag.Name) {
-				mcRPCAddress = strings.Split(params.TestnetRPCnode, ":")[0]
-			} else {
-				mcRPCAddress = strings.Split(params.MainnetRPCnode, ":")[0]
-			}
+			mcRPCAddress = strings.Split(mainRPCnode, ":")[0]
 		}
 
 		mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
 		if mcRPCPort == 0 {
-			if ctx.GlobalBool(utils.TestnetFlag.Name) {
-				mcRPCAddress = strings.Split(params.TestnetRPCnode, ":")[1]
-			} else {
-				mcRPCAddress = strings.Split(params.MainnetRPCnode, ":")[1]
-			}
+			mcRPCPort, _ = strconv.Atoi(strings.Split(mainRPCnode, ":")[1])
 		}
 
 		mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)

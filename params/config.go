@@ -40,9 +40,9 @@ var (
 		ByzantiumBlock:      big.NewInt(4),
 		ConstantinopleBlock: nil,
 		Alien: &AlienConfig{
-			Period:           3,
-			Epoch:            201600,
-			MaxSignerCount:   21,
+			Period:         3,
+			Epoch:          201600,
+			MaxSignerCount: 21,
 			//TrantorBlock:     new(big.Int).SetUint64('the block number should be July 15'),
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
 			GenesisTimestamp: 1554004800,
