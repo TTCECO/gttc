@@ -20,7 +20,6 @@ package params
 var MainnetRPCnodes = []string{
 	"rpc-us.ttcnet.io:80",
 	"rpc-tokyo.ttcnet.io:80",
-	"rpc-europe.ttcnet.io:80",
 }
 
 // TestnetRPCnodes are the RPC URLs of TTC test network.
