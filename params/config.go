@@ -125,6 +125,27 @@ var (
 		},
 	}
 
+	// SideChainConfig contains the chain parameters to run a node on the Ropsten test network.
+	SideChainConfig = &ChainConfig{
+		ChainId:             big.NewInt(8123),
+		HomesteadBlock:      big.NewInt(1),
+		EIP150Block:         big.NewInt(2),
+		EIP150Hash:          common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:         big.NewInt(3),
+		EIP158Block:         big.NewInt(3),
+		ByzantiumBlock:      big.NewInt(4),
+		ConstantinopleBlock: nil,
+		Alien: &AlienConfig{
+			Period:           1,
+			Epoch:            201600,
+			MaxSignerCount:   21,
+			TrantorBlock: 	  big.NewInt(5),
+			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
+			GenesisTimestamp: 1554004800,
+			SelfVoteSigners: []common.UnprefixedAddress{},
+		},
+	}
+
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
 	RinkebyChainConfig = &ChainConfig{
 		ChainId:             big.NewInt(4),
