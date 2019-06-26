@@ -590,12 +590,12 @@ var (
 	SCAMainRPCAddrFlag = cli.StringFlag{
 		Name:  "sca.mainrpcaddr",
 		Usage: "Address of main chain ",
-		Value: node.DefaultHTTPHost,
+		Value: "",
 	}
 	SCAMainRPCPortFlag = cli.IntFlag{
 		Name:  "sca.mainrpcport",
 		Usage: "Port of main chain rpc port",
-		Value: node.DefaultHTTPPort,
+		Value: 0,
 	}
 	SCAPeriod = cli.IntFlag{
 		Name:  "sca.period",
@@ -608,6 +608,9 @@ var (
 // the a subdirectory of the specified datadir will be used.
 func MakeDataDir(ctx *cli.Context) string {
 	if path := ctx.GlobalString(DataDirFlag.Name); path != "" {
+		if ctx.GlobalBool(SCAEnableFlag.Name) {
+			return filepath.Join(path, "sidechain")
+		}
 		if ctx.GlobalBool(TestnetFlag.Name) {
 			return filepath.Join(path, "testnet")
 		}
@@ -658,6 +661,8 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	urls := params.MainnetBootnodes
 	switch {
+	case ctx.GlobalBool(SCAEnableFlag.Name):
+	    urls = params.SidechainBootnodes
 	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV4Flag.Name):
 		if ctx.GlobalIsSet(BootnodesV4Flag.Name) {
 			urls = strings.Split(ctx.GlobalString(BootnodesV4Flag.Name), ",")
@@ -950,6 +955,8 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = ctx.GlobalString(DataDirFlag.Name)
 	case ctx.GlobalBool(DeveloperFlag.Name):
 		cfg.DataDir = "" // unless explicitly requested, use memory databases
+	case ctx.GlobalBool(SCAEnableFlag.Name):
+		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "sidechain")
 	case ctx.GlobalBool(TestnetFlag.Name):
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "testnet")
 	case ctx.GlobalBool(RinkebyFlag.Name):
@@ -1145,6 +1152,12 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 
 	// Override any default configs for hard coded networks.
 	switch {
+	case ctx.GlobalBool(SCAEnableFlag.Name):
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkId = 8123
+		}
+		cfg.SyncMode = downloader.FullSync
+		cfg.Genesis = core.DefaultSCGenesisBlock()
 	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 8341

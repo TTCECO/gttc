@@ -41,9 +41,10 @@ var (
 		ByzantiumBlock:      big.NewInt(4),
 		ConstantinopleBlock: nil,
 		Alien: &AlienConfig{
-			Period:           3,
-			Epoch:            201600,
-			MaxSignerCount:   21,
+			Period:         3,
+			Epoch:          201600,
+			MaxSignerCount: 21,
+			//TrantorBlock:     new(big.Int).SetUint64('the block number should be July 15'),
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
 			GenesisTimestamp: 1554004800,
 			SelfVoteSigners: []common.UnprefixedAddress{
@@ -122,6 +123,27 @@ var (
 				common.UnprefixedAddress(common.HexToAddress("t04909b4e54395de9e313ad8a2254fe2dcda99e91c")),
 				common.UnprefixedAddress(common.HexToAddress("t0a034350c8e80eb4d15ac62310657b29c711bb3d5")),
 			},
+		},
+	}
+
+	// SideChainConfig contains the chain parameters to run a node on the Ropsten test network.
+	SideChainConfig = &ChainConfig{
+		ChainId:             big.NewInt(8123),
+		HomesteadBlock:      big.NewInt(1),
+		EIP150Block:         big.NewInt(2),
+		EIP150Hash:          common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		EIP155Block:         big.NewInt(3),
+		EIP158Block:         big.NewInt(3),
+		ByzantiumBlock:      big.NewInt(4),
+		ConstantinopleBlock: nil,
+		Alien: &AlienConfig{
+			Period:           1,
+			Epoch:            201600,
+			MaxSignerCount:   21,
+			TrantorBlock: 	  big.NewInt(5),
+			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
+			GenesisTimestamp: 1554004800,
+			SelfVoteSigners: []common.UnprefixedAddress{},
 		},
 	}
 

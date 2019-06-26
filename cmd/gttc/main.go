@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"math/rand"
 	"os"
 	"runtime"
 	"sort"
@@ -38,6 +39,7 @@ import (
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/metrics"
 	"github.com/TTCECO/gttc/node"
+	"github.com/TTCECO/gttc/params"
 	"github.com/TTCECO/gttc/rpc"
 	"gopkg.in/urfave/cli.v1"
 	"strconv"
@@ -316,7 +318,19 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
 		mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
+
+		// got random rpc
+		mainRPCnode := params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
+
+		if mcRPCAddress == "" {
+			mcRPCAddress = strings.Split(mainRPCnode, ":")[0]
+		}
+
 		mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
+		if mcRPCPort == 0 {
+			mcRPCPort, _ = strconv.Atoi(strings.Split(mainRPCnode, ":")[1])
+		}
+
 		mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
 		client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
 		if err != nil {
