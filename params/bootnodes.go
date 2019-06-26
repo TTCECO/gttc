@@ -47,7 +47,6 @@ var SidechainBootnodes = []string{
 	"enode://1a4cc9c8512256ff475990c4ab03636ac7771315a42432a240c6161befa162324be5af0f65828f0b7ec468b3d2183c430fb4a33d88ba5057eaa35b36a3af4b56@127.0.0.1:30510",
 }
 
-
 // RinkebyBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Rinkeby test network.
 var RinkebyBootnodes = []string{

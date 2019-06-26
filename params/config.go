@@ -116,6 +116,7 @@ var (
 			Epoch:            201600,
 			MaxSignerCount:   21,
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
+			TrantorBlock:     big.NewInt(695000),
 			GenesisTimestamp: 1554004800,
 			SelfVoteSigners: []common.UnprefixedAddress{
 				common.UnprefixedAddress(common.HexToAddress("t0be6865ffcbbe5f9746bef5c84b912f2ad9e52075")),
@@ -139,10 +140,10 @@ var (
 			Period:           1,
 			Epoch:            201600,
 			MaxSignerCount:   21,
-			TrantorBlock: 	  big.NewInt(5),
+			TrantorBlock:     big.NewInt(5),
 			MinVoterBalance:  new(big.Int).Mul(big.NewInt(100), big.NewInt(1e+18)),
 			GenesisTimestamp: 1554004800,
-			SelfVoteSigners: []common.UnprefixedAddress{},
+			SelfVoteSigners:  []common.UnprefixedAddress{},
 		},
 	}
 
