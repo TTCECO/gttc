@@ -82,6 +82,7 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 	minN := new(big.Int).SetUint64(api.chain.Config().Alien.MaxSignerCount)
 	maxN := new(big.Int).Set(header.Number)
 	nextN := new(big.Int).SetInt64(0)
+	isNext := false
 	for {
 		if ceil := new(big.Int).Add(header.Time, period); target.Cmp(header.Time) >= 0 && target.Cmp(ceil) < 0 {
 			snap, err := api.alien.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, nil, defaultLoopCntRecalculateSigners)
@@ -107,9 +108,26 @@ func (api *API) GetSnapshotByHeaderTime(targetTime uint64, scHash common.Hash) (
 			}
 			return &mcs, err
 		} else {
-
 			if minNext := new(big.Int).Add(minN, big.NewInt(1)); maxN.Cmp(minN) == 0 || maxN.Cmp(minNext) == 0 {
-				break
+				if !isNext && maxN.Cmp(minNext) == 0 {
+					var maxHeaderTime, minHeaderTime *big.Int
+					maxH := api.chain.GetHeaderByNumber(maxN.Uint64())
+					if maxH != nil {
+						maxHeaderTime = new(big.Int).Set(maxH.Time)
+					} else {
+						break
+					}
+					minH := api.chain.GetHeaderByNumber(minN.Uint64())
+					if minH != nil {
+						minHeaderTime = new(big.Int).Set(minH.Time)
+					} else {
+						break
+					}
+					period = period.Sub(maxHeaderTime, minHeaderTime)
+					isNext = true
+				} else {
+					break
+				}
 			}
 			// calculate next number
 			nextN.Sub(target, header.Time)
