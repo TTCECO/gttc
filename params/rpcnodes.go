@@ -20,5 +20,7 @@ package params
 var MainnetRPCnodes = []string{
 	//"104.198.125.37:80",   // official
 
-	"47.111.177.215:8511", // testnet
+	"47.111.177.215:8511", // testnet s1
+	"47.111.178.14:8511",  // testnet s2
+	"47.111.177.154:8511", // testnet s3
 }
