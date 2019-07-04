@@ -124,7 +124,8 @@ func (s *Snapshot) createSignerQueue() ([]common.Address, error) {
 			queueLength = len(tallySlice)
 		}
 
-		if s.config.BrowserDB != nil && s.config.BrowserDB.GetDriver() == browserdb.MongoDriver {
+		if s.config.BrowserDB != nil && s.config.BrowserDB.GetDriver() == browserdb.MongoDriver && !s.config.SideChain {
+
 			orderedTally := make([]interface{}, len(tallySlice))
 			for i, t := range tallySlice {
 				orderedTally[i] = map[string]string{"address": t.addr.Hex(), "stake": new(big.Int).Set(t.stake).String()}
