@@ -650,7 +650,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 						}
 					}
 				}
-				txRecord := TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
+				txRecord := TxRecord{mcNumber, tx.Hash().Hex(),
 					strings.ToLower(from.Hex()), strings.ToLower(txTo),
 					tx.Value().String(), txData,
 					tx.Gas(), tx.GasPrice().String(), txCategory}
