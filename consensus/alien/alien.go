@@ -473,6 +473,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 	if number == 0 {
 		return errUnknownBlock
 	}
+	mcNumber := number
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := a.snapshot(chain, number-1, header.ParentHash, parents, nil, defaultLoopCntRecalculateSigners)
 	if err != nil {
@@ -568,9 +569,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			return errUnauthorized
 		}
 	} else {
-		if notice, loopStartTime, period, signerLength, _, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
+		if notice, loopStartTime, period, signerLength, n, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
 			return err
 		} else {
+			mcNumber = n
 			mcLoopStartTime = loopStartTime
 			mcPeriod = period
 			mcSignerLength = signerLength
@@ -610,7 +612,11 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		}
 		parentBlock := chain.GetBlock(parent.Hash(), parent.Number.Uint64())
 		// check hash if exist in snapshot table
-		if parentBlock != nil && !chain.Config().Alien.BrowserDB.MongoExist("txs", map[string]interface{}{"number": parent.Number.Uint64()}) {
+		if !chain.Config().Alien.SideChain {
+			// current chain is main chain
+			mcNumber = parent.Number.Uint64()
+		}
+		if parentBlock != nil && !chain.Config().Alien.BrowserDB.MongoExist("txs", map[string]interface{}{"number": mcNumber}) {
 			var txsData []interface{}
 			for _, tx := range parentBlock.Transactions() {
 				signer := types.NewEIP155Signer(tx.ChainId())
