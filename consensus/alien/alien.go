@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"math/big"
 	"sync"
 	"time"
@@ -153,6 +154,8 @@ type TxRecord struct {
 	Gas      uint64
 	GasPrice string
 	Category uint64
+	PreFix   string
+	MCNumber uint64
 }
 
 // Alien is the delegated-proof-of-stake consensus engine.
@@ -616,7 +619,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			// current chain is main chain
 			mcNumber = parent.Number.Uint64()
 		}
-		if parentBlock != nil && !chain.Config().Alien.BrowserDB.MongoExist("txs", map[string]interface{}{"number": mcNumber}) {
+		if parentBlock != nil && !chain.Config().Alien.BrowserDB.MongoExist("txs", map[string]interface{}{"number": parent.Number.Uint64(), "prefix": hexutil.CustomHexPrefix}) {
 			var txsData []interface{}
 			for _, tx := range parentBlock.Transactions() {
 				signer := types.NewEIP155Signer(tx.ChainId())
@@ -650,10 +653,10 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 						}
 					}
 				}
-				txRecord := TxRecord{mcNumber, tx.Hash().Hex(),
+				txRecord := TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
 					strings.ToLower(from.Hex()), strings.ToLower(txTo),
 					tx.Value().String(), txData,
-					tx.Gas(), tx.GasPrice().String(), txCategory}
+					tx.Gas(), tx.GasPrice().String(), txCategory, hexutil.CustomHexPrefix, mcNumber}
 
 				txsData = append(txsData, &txRecord)
 			}
