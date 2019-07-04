@@ -554,7 +554,7 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 			return errUnauthorized
 		}
 	} else {
-		if notice, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
+		if notice, loopStartTime, period, signerLength, _, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
 			return err
 		} else {
 			mcLoopStartTime = loopStartTime
@@ -620,32 +620,32 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 }
 
 // get the snapshot info from main chain and check if current signer inturn, if inturn then update the info
-func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*CCNotice, uint64, uint64, uint64, error) {
+func (a *Alien) mcSnapshot(chain consensus.ChainReader, signer common.Address, headerTime uint64) (*CCNotice, uint64, uint64, uint64, uint64, error) {
 
 	if chain.Config().Alien.SideChain {
 		chainHash := chain.GetHeaderByNumber(0).ParentHash
 		ms, err := a.getMainChainSnapshotByTime(chain, headerTime, chainHash)
 		if err != nil {
-			return nil, 0, 0, 0, err
+			return nil, 0, 0, 0, 0, err
 		} else if len(ms.Signers) == 0 {
-			return nil, 0, 0, 0, errSignerQueueEmpty
+			return nil, 0, 0, 0, 0, errSignerQueueEmpty
 		} else if ms.Period == 0 {
-			return nil, 0, 0, 0, errMCPeriodMissing
+			return nil, 0, 0, 0, 0, errMCPeriodMissing
 		}
 
 		loopIndex := int((headerTime-ms.LoopStartTime)/ms.Period) % len(ms.Signers)
 		if loopIndex >= len(ms.Signers) {
-			return nil, 0, 0, 0, errInvalidSignerQueue
+			return nil, 0, 0, 0, 0, errInvalidSignerQueue
 		} else if *ms.Signers[loopIndex] != signer {
-			return nil, 0, 0, 0, errUnauthorized
+			return nil, 0, 0, 0, 0, errUnauthorized
 		}
 		notice := &CCNotice{}
 		if mcNotice, ok := ms.SCNoticeMap[chainHash]; ok {
 			notice = mcNotice
 		}
-		return notice, ms.LoopStartTime, ms.Period, uint64(len(ms.Signers)), nil
+		return notice, ms.LoopStartTime, ms.Period, uint64(len(ms.Signers)), ms.Number, nil
 	}
-	return nil, 0, 0, 0, errNotSideChain
+	return nil, 0, 0, 0, 0, errNotSideChain
 }
 
 func (a *Alien) parseNoticeInfo(notice *CCNotice) string {
@@ -953,7 +953,7 @@ func (a *Alien) Seal(chain consensus.ChainReader, block *types.Block, stop <-cha
 			return nil, errUnauthorized
 		}
 	} else {
-		if notice, loopStartTime, period, signerLength, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
+		if notice, loopStartTime, period, signerLength, _, err := a.mcSnapshot(chain, signer, header.Time.Uint64()); err != nil {
 			<-stop
 			return nil, err
 		} else {
