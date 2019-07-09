@@ -313,7 +313,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	}()
 
 	// Start auxiliary services if enabled
-	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) || ctx.GlobalBool(utils.BrowserEnabledFlag.Name) || ctx.GlobalBool(utils.SCAEnableFlag.Name) {
+	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) || ctx.GlobalBool(utils.BrowserEnabledFlag.Name) {
 
 		var ethereum *eth.Ethereum
 		if err := stack.Service(&ethereum); err != nil {
@@ -360,6 +360,33 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				stack.SetBrowserWeb(ttcWeb)
 			}
 
+			// Set Side chain config
+			if ethereum.BlockChain().Config().Alien != nil && ctx.GlobalBool(utils.SCAEnableFlag.Name) {
+
+				mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
+
+				// got random rpc
+				mainRPCnode := params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
+
+				if mcRPCAddress == "" {
+					mcRPCAddress = strings.Split(mainRPCnode, ":")[0]
+				}
+
+				mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
+				if mcRPCPort == 0 {
+					mcRPCPort, _ = strconv.Atoi(strings.Split(mainRPCnode, ":")[1])
+				}
+
+				mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
+				client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
+				if err != nil {
+					utils.Fatalf("Main net rpc connect fail: %v", err)
+				}
+				ethereum.BlockChain().Config().Alien.SideChain = true
+				ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
+				ethereum.BlockChain().Config().Alien.MCRPCClient = client
+			}
+
 		}
 		if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
 			// Set the gas price to the limits from the CLI and start mining
@@ -369,31 +396,5 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 		}
 
-		// Set Side chain config
-		if ethereum.BlockChain().Config().Alien != nil && ctx.GlobalBool(utils.SCAEnableFlag.Name) {
-
-			mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
-
-			// got random rpc
-			mainRPCnode := params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
-
-			if mcRPCAddress == "" {
-				mcRPCAddress = strings.Split(mainRPCnode, ":")[0]
-			}
-
-			mcRPCPort := ctx.GlobalInt(utils.SCAMainRPCPortFlag.Name)
-			if mcRPCPort == 0 {
-				mcRPCPort, _ = strconv.Atoi(strings.Split(mainRPCnode, ":")[1])
-			}
-
-			mcPeriod := ctx.GlobalInt(utils.SCAPeriod.Name)
-			client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
-			if err != nil {
-				utils.Fatalf("Main net rpc connect fail: %v", err)
-			}
-			ethereum.BlockChain().Config().Alien.SideChain = true
-			ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
-			ethereum.BlockChain().Config().Alien.MCRPCClient = client
-		}
 	}
 }
