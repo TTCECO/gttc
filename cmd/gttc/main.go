@@ -351,20 +351,9 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 			ethereum.BlockChain().Config().Alien.BrowserDB = ttcBrowserDB
 			stack.SetBrowserDBConn(ttcBrowserDB)
-
-			web := ctx.GlobalBool(utils.BrowserWebEnabledFlag.Name)
-			if web {
-				webPort := ctx.GlobalInt(utils.BrowserWebPortFlag.Name)
-				ttcWeb := &tbweb.TTCBrowserWeb{}
-				ttcWeb.New(uint64(webPort))
-				stack.SetBrowserWeb(ttcWeb)
-			}
-
 			// Set Side chain config
-			if ethereum.BlockChain().Config().Alien != nil && ctx.GlobalBool(utils.SCAEnableFlag.Name) {
-
+			if ctx.GlobalBool(utils.SCAEnableFlag.Name) {
 				mcRPCAddress := ctx.GlobalString(utils.SCAMainRPCAddrFlag.Name)
-
 				// got random rpc
 				mainRPCnode := params.MainnetRPCnodes[rand.Intn(len(params.MainnetRPCnodes))]
 
@@ -381,10 +370,19 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 				client, err := rpc.Dial("http://" + mcRPCAddress + ":" + strconv.Itoa(mcRPCPort))
 				if err != nil {
 					utils.Fatalf("Main net rpc connect fail: %v", err)
+				} else {
+					log.Info("RPC connect :", "client", client)
 				}
 				ethereum.BlockChain().Config().Alien.SideChain = true
 				ethereum.BlockChain().Config().Alien.Period = uint64(mcPeriod)
 				ethereum.BlockChain().Config().Alien.MCRPCClient = client
+			}
+			web := ctx.GlobalBool(utils.BrowserWebEnabledFlag.Name)
+			if web {
+				webPort := ctx.GlobalInt(utils.BrowserWebPortFlag.Name)
+				ttcWeb := &tbweb.TTCBrowserWeb{}
+				ttcWeb.New(uint64(webPort))
+				stack.SetBrowserWeb(ttcWeb)
 			}
 
 		}
