@@ -219,6 +219,15 @@ func loadSnapshot(config *params.AlienConfig, sigcache *lru.ARCCache, db ethdb.D
 	}
 	snap.config = config
 	snap.sigcache = sigcache
+
+	// miner reward per thousand proposal must larger than 0
+	// so minerReward is zeron only when update the program
+	if snap.MinerReward == 0 {
+		snap.MinerReward = minerRewardPerThousand
+	}
+	if snap.MinVB == nil {
+		snap.MinVB = new(big.Int).Set(minVoterBalance)
+	}
 	return snap, nil
 }
 
