@@ -21,12 +21,14 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which in [consensus/
 
 Alien use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners base on the snapshot. Code annotation will show the details about how it works.
 
-**Current Mainnet is deploy the code of branch release/v0.1.7**
-**Next version will be release on July 12, which contain the hard-fork at block height 2968888**
-**Please make sure your node upgrade to release/v0.2.0 before that block height.(before July 17,2019 UTC/GMT+8)**
+## Mainnet Information
+
+* **Current Mainnet is deploy the code of branch release/v0.1.7**
+* **Next version will be release on July 12, which contain the hard-fork at block height 2968888**
+* **Please make sure your node upgrade to release/v0.2.0 before that block height.(before July 17,2019 UTC/GMT+8)**
 
 
-## Minimum requirements
+## Minimum Requirements
 
 Requirement|Notes
 ---|---
