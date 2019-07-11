@@ -1,4 +1,4 @@
-## Go TTC
+# Go TTC
 
 Golang implementation of the TTC protocol.
 
@@ -6,35 +6,39 @@ Golang implementation of the TTC protocol.
 [![GoReport](https://goreportcard.com/badge/github.com/TTCECO/gttc)](https://goreportcard.com/report/github.com/TTCECO/gttc)
 [![Travis](https://travis-ci.org/TTCECO/gttc.svg?branch=master)](https://travis-ci.org/TTCECO/gttc)
 [![License](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](LICENSE)
-#### About gttc
+## About gttc
 
-gttc is base on [go-ethereum (v1.8.9)](https://github.com/ethereum/go-ethereum), the main part be modified is in [consensus](consensus/) directory. We add a new consensus algorithm named [alien](consensus/alien/) in it.
+gttc is base on [go-ethereum](https://github.com/ethereum/go-ethereum), the main part be modified is in [consensus](consensus/) directory. We add a new consensus algorithm named [alien](consensus/alien/) in it.
 
-Alien is a simple version of DPOS-PBFT consensus algorithm, which contain 7 files in [consensus/alien](consensus/alien/):
+Alien is a simple version of DPOS-PBFT consensus algorithm, which in [consensus/alien](consensus/alien/):
 
-* **alien.go**    : Implement the consensus interface
-* **custom_tx.go** : Process the custom transaction such as vote,proposal,declare and so on...
-* **snapshot.go** : Keep the snapshot of vote and confirm status for each block
-* **snapshot_test.go** : test for snapshot
-* **signer_queue.go**  : calculate the order of signer queue
-* **signer_queue_test.go** : test for signer_queue
-* **api.go**      : API
+* **alien.go**          : Implement the consensus interface
+* **custom_tx.go**      : Process the custom transaction such as vote,proposal,declare and so on...
+* **snapshot.go**       : Keep the snapshot of vote and confirm status for each block
+* **signer_queue.go**   : calculate the order of signer queue
+* **api.go**            : API
+* **cross_chain.go**    : Cross chain communication by custom transaction
 
-If you familiar with clique, you will find alien like that very much. We also use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners from the snapshot. Code annotation will show the details about how it works.
+Alien use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners base on the snapshot. Code annotation will show the details about how it works.
 
-**Current Mainnet and Testnet is deploy the code of branch release/v0.2.0**
+## Mainnet Information
+* **Current Mainnet and Testnet is deploy the code of branch release/v0.2.0**
+* **Next version will be release on July 12, which contain the hard-fork at block height 2968888**
+* **Please make sure your node upgrade to release/v0.2.0 before that block height.(before July 17,2019 UTC/GMT+8)**
 
-#### Minimum requirements
+More information about this upgrade will be found [UPGRADE TO GTTC V0.2.0](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.0)
+
+## Minimum Requirements
 
 Requirement|Notes
 ---|---
 Go version | Go1.9 or higher
 
-#### Install
+## Install
 
 See the [HOWTO_INSTALL](https://github.com/TTCECO/gttc/wiki/Building-GTTC)
 
-#### Other Documents List
+## Other Documents List
 
 You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 
@@ -48,6 +52,6 @@ You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 
 * TTC Node - Technical FAQ
 
-#### Contact
+## Contact
 
 email: liupeng@tataufo.com
