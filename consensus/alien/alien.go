@@ -652,6 +652,8 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 							txCategory = browserCategoryDeclare
 						}
 					}
+				} else {
+					txData = common.Bytes2Hex(tx.Data())
 				}
 				txRecord := TxRecord{parent.Number.Uint64(), tx.Hash().Hex(),
 					strings.ToLower(from.Hex()), strings.ToLower(txTo),
