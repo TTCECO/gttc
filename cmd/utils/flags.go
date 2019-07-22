@@ -129,8 +129,8 @@ var (
 	}
 	NetworkIdFlag = cli.Uint64Flag{
 		Name:  "networkid",
-		Usage: "Network identifier (integer, 8848=Mainnet, 8341=Testnet)",
-		Value: params.MainnetChainConfig.ChainId.Uint64(),
+		Usage: "Network identifier (integer, 8848=Mainnet, 8341=Testnet, 8123= Sidechain)",
+		Value: params.SideChainConfig.ChainId.Uint64(),
 	}
 	TestnetFlag = cli.BoolFlag{
 		Name:  "testnet",
