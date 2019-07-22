@@ -30,6 +30,7 @@ const (
 // Version holds the textual version string.
 var Version = func() string {
 	v := fmt.Sprintf("%d.%d.%d", VersionMajor, VersionMinor, VersionPatch)
+	v += "-sidechain"
 	if VersionMeta != "" {
 		v += "-" + VersionMeta
 	}
