@@ -54,4 +54,4 @@ You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 
 ## Contact
 
-email: liupeng@tataufo.com
+email: peng@ttc.eco
