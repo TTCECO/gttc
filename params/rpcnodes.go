@@ -18,9 +18,12 @@ package params
 
 // MainnetRPCnodes are the RPC URLs of TTC main network.
 var MainnetRPCnodes = []string{
-	//"104.198.125.37:80",   // official
+	"35.200.80.194:80",   // official
+	"35.205.95.24:80", // official
+	"34.74.182.148:80", // official
+	"34.85.14.244:80", // official
 
-	"47.111.177.215:8511", // testnet s1
-	"47.111.178.14:8511",  // testnet s2
-	"47.111.177.154:8511", // testnet s3
+	//"47.111.177.215:8511", // testnet s1
+	//"47.111.178.14:8511",  // testnet s2
+	//"47.111.177.154:8511", // testnet s3
 }
