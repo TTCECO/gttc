@@ -1046,7 +1046,7 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 		}
 
 		s.Votes[vote.Voter] = &Vote{vote.Voter, vote.Candidate, new(big.Int).Set(vote.Stake)}
-		s.Voters[vote.Voter] = headerNumber
+		s.Voters[vote.Voter] = new(big.Int).Set(headerNumber)
 	}
 }
 
