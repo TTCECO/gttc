@@ -52,7 +52,8 @@ You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 * [HOWTO_VOTE_ON_GTTC](https://github.com/TTCECO/gttc/wiki//HOWTO_VOTE_ON_GTTC)  : `how to vote on alien testnet and view snapshot through API`
 * [GENESIS_JSON_SAMPLE](https://github.com/TTCECO/gttc/wiki/GENESIS_JSON_SAMPLE) : `genesis.json sample`
 
-* TTC Node - Technical FAQ
+* [build slave network instruction](https://github.com/TTCECO/gttc/wiki/build-slave-network-instruction)
+* [how to check running status of slave network](https://github.com/TTCECO/gttc/wiki/how-to-check-running-status-of-slave-network)
 
 ## Contact
 
