@@ -38,6 +38,8 @@ Go version | Go1.9 or higher
 
 See the [HOWTO_INSTALL](https://github.com/TTCECO/gttc/wiki/Building-GTTC)
 
+[Enode list for Mainnet & Slavenet](https://github.com/TTCECO/gttc/wiki/Public-Enode-address)
+
 ## Other Documents List
 
 You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
