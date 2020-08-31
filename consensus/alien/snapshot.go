@@ -60,6 +60,8 @@ const (
 	mcNoticeClearDelayLoopCount = 4 // this count can be hundreds times
 	scNoticeClearDelayLoopCount = mcNoticeClearDelayLoopCount * scMaxCountPerPeriod * 2
 	scGasChargingDelayLoopCount = 1 // 1 is always enough
+	// bug fix
+	bugFixBlockNumber = 14456164   // fix bug for header
 )
 
 var (
@@ -410,7 +412,7 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		if err != nil {
 			return nil, err
 		}
-		if coinbase.Str() != header.Coinbase.Str() {
+		if coinbase.Str() != header.Coinbase.Str() && header.Number.Cmp(big.NewInt(bugFixBlockNumber)) != 0{
 			return nil, errUnauthorized
 		}
 

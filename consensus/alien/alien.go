@@ -471,6 +471,13 @@ func (a *Alien) verifySeal(chain consensus.ChainReader, header *types.Header, pa
 		return err
 	}
 
+	// check the coinbase == signer
+	if header.Number.Cmp(big.NewInt(bugFixBlockNumber)) > 0 {
+		if signer != header.Coinbase {
+			return errUnauthorized
+		}
+	}
+
 	if !chain.Config().Alien.SideChain {
 
 		if number > a.config.MaxSignerCount {
