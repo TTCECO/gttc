@@ -1293,6 +1293,11 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	return &SignTransactionResult{data, tx}, nil
 }
 
+// ChainId returns the chainId of chain config
+func (s *PublicTransactionPoolAPI) ChainId() (*big.Int, error) {
+	return s.b.ChainConfig().ChainId, nil
+}
+
 // PendingTransactions returns the transactions that are in the transaction pool and have a from address that is one of
 // the accounts this node manages.
 func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, error) {
