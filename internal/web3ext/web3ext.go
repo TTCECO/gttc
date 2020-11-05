@@ -475,6 +475,10 @@ web3._extend({
 				return formatted;
 			}
 		}),
+		new web3._extend.Property({
+			name: 'chainId',
+			getter: 'eth_chainId'
+		}),
 	]
 });
 `

@@ -22,9 +22,9 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which in [consensus/
 Alien use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners base on the snapshot. Code annotation will show the details about how it works.
 
 ## Mainnet Information
-* **Current Mainnet and Testnet is deploy the code of branch release/v0.2.0**
+* **Current Mainnet and Testnet is deploy the code of branch release/v0.2.1**
 * **Next version will be release on July 12, which contain the hard-fork at block height 2968888**
-* **Please make sure your node upgrade to release/v0.2.0 before that block height.(before July 17,2019 UTC/GMT+8)**
+* **Please make sure your node upgrade to release/v0.2.1 before that block height.(before July 17,2019 UTC/GMT+8)**
 
 More information about this upgrade will be found [UPGRADE TO GTTC V0.2.0](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.0)
 
@@ -38,6 +38,8 @@ Go version | Go1.9 or higher
 
 See the [HOWTO_INSTALL](https://github.com/TTCECO/gttc/wiki/Building-GTTC)
 
+[Enode list for Mainnet & Slavenet](https://github.com/TTCECO/gttc/wiki/Public-Enode-address)
+
 ## Other Documents List
 
 You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
@@ -50,8 +52,9 @@ You can find all documents in our [Wiki](https://github.com/TTCECO/gttc/wiki/)
 * [HOWTO_VOTE_ON_GTTC](https://github.com/TTCECO/gttc/wiki//HOWTO_VOTE_ON_GTTC)  : `how to vote on alien testnet and view snapshot through API`
 * [GENESIS_JSON_SAMPLE](https://github.com/TTCECO/gttc/wiki/GENESIS_JSON_SAMPLE) : `genesis.json sample`
 
-* TTC Node - Technical FAQ
+* [build slave network instruction](https://github.com/TTCECO/gttc/wiki/build-slave-network-instruction)
+* [how to check running status of slave network](https://github.com/TTCECO/gttc/wiki/how-to-check-running-status-of-slave-network)
 
 ## Contact
 
-email: liupeng@tataufo.com
+email: peng@ttc.eco
