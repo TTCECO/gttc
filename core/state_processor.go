@@ -92,7 +92,10 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
+	config.Txhash = tx.Hash()
+	config.SaveState = true
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	config.SaveState = false
 	if err != nil {
 		return nil, 0, err
 	}

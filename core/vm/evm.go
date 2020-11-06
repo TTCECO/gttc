@@ -24,6 +24,9 @@ import (
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/crypto"
 	"github.com/TTCECO/gttc/params"
+	"github.com/TTCECO/gttc/log"
+	"github.com/TTCECO/gttc/extra/browserdb"
+	"strings"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -37,6 +40,16 @@ type (
 	// and is used by the BLOCKHASH EVM op code.
 	GetHashFunc func(uint64) common.Hash
 )
+
+// InternalTxRecord is the record of one internal transaction. The data save into MongoDB for browser
+type InternalTxRecord struct {
+	number   *big.Int
+	Hash     string
+	From     string
+	To       string
+	Value    string
+}
+
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
@@ -137,6 +150,8 @@ func (evm *EVM) Cancel() {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+
+
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -171,6 +186,23 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
 
+
+	if evm.chainConfig.Alien.BrowserDB != nil && evm.chainConfig.Alien.BrowserDB.GetDriver() == browserdb.MongoDriver && evm.chainConfig.SaveState && evm.chainConfig.IsInternal {
+
+		var internalTxData []interface{}
+		internalTxRecord := InternalTxRecord{ evm.Context.BlockNumber,evm.ChainConfig().Txhash.Hex(),
+			strings.ToLower(caller.Address().Hex()), strings.ToLower(to.Address().Hex()), value.String()}
+
+		internalTxData = append(internalTxData, &internalTxRecord)
+		if len(internalTxData) > 0 {
+			err := evm.chainConfig.Alien.BrowserDB.MongoSave("internal_tx", internalTxData...)
+			if err != nil {
+				log.Info("save transaction into mongodb fail ", "error", err)
+			}
+		}
+		evm.chainConfig.IsInternal = false
+	}
+
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
@@ -187,7 +219,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}()
 	}
 	ret, err = run(evm, contract, input)
-
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
