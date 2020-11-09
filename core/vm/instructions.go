@@ -679,7 +679,7 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	evm.chainConfig.IsInternal = true
+	evm.Context.IsInternal = true
 	ret, returnGas, err := evm.Call(contract, toAddr, args, gas, value)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())

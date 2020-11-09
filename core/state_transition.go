@@ -25,7 +25,6 @@ import (
 	"github.com/TTCECO/gttc/core/vm"
 	"github.com/TTCECO/gttc/log"
 	"github.com/TTCECO/gttc/params"
-	"github.com/TTCECO/gttc/core/types"
 )
 
 var (
@@ -59,8 +58,6 @@ type StateTransition struct {
 	data       []byte
 	state      vm.StateDB
 	evm        *vm.EVM
-	tx 		   *types.Transaction
-	config 	   *params.ChainConfig
 }
 
 // Message represents a message sent to a contract.
@@ -208,7 +205,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
-
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {

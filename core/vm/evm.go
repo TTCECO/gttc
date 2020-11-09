@@ -79,6 +79,9 @@ type Context struct {
 	// Message information
 	Origin   common.Address // Provides information for ORIGIN
 	GasPrice *big.Int       // Provides information for GASPRICE
+	TxHash common.Hash		// tx hash
+	IsSave bool				// save if true
+	IsInternal bool			// is internal tx if true
 
 	// Block information
 	Coinbase    common.Address // Provides information for COINBASE
@@ -185,12 +188,11 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		evm.StateDB.CreateAccount(addr)
 	}
 	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
-
-
-	if evm.chainConfig.Alien.BrowserDB != nil && evm.chainConfig.Alien.BrowserDB.GetDriver() == browserdb.MongoDriver && evm.chainConfig.SaveState && evm.chainConfig.IsInternal {
+	
+	if evm.chainConfig.Alien.BrowserDB != nil && evm.chainConfig.Alien.BrowserDB.GetDriver() == browserdb.MongoDriver && evm.Context.IsSave && evm.Context.IsInternal {
 
 		var internalTxData []interface{}
-		internalTxRecord := InternalTxRecord{ evm.Context.BlockNumber,evm.ChainConfig().Txhash.Hex(),
+		internalTxRecord := InternalTxRecord{ evm.Context.BlockNumber,evm.Context.TxHash.Hex(),
 			strings.ToLower(caller.Address().Hex()), strings.ToLower(to.Address().Hex()), value.String()}
 
 		internalTxData = append(internalTxData, &internalTxRecord)
@@ -200,7 +202,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 				log.Info("save transaction into mongodb fail ", "error", err)
 			}
 		}
-		evm.chainConfig.IsInternal = false
+		evm.Context.IsInternal = false
 	}
 
 	// Initialise a new contract and set the code that is to be used by the EVM.

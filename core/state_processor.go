@@ -88,14 +88,14 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	}
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
+	context.TxHash = tx.Hash()
+	context.IsSave = true
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
-	config.Txhash = tx.Hash()
-	config.SaveState = true
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
-	config.SaveState = false
+	vmenv.Context.IsSave = false
 	if err != nil {
 		return nil, 0, err
 	}
