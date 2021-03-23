@@ -317,7 +317,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 						if txDataInfo[posCategory] == ufoCategoryEvent {
 							if len(txDataInfo) > ufoMinSplitLen {
 								// check is vote or not
-								if txDataInfo[posEventVote] == ufoEventVote && (!candidateNeedPD || snap.isCandidate(*tx.To())) && state.GetBalance(txSender).Cmp(snap.MinVB) > 0 {
+								if txDataInfo[posEventVote] == ufoEventVote  && tx.To() != nil && (!candidateNeedPD || snap.isCandidate(*tx.To())) && state.GetBalance(txSender).Cmp(snap.MinVB) > 0 {
 									headerExtra.CurrentBlockVotes = a.processEventVote(headerExtra.CurrentBlockVotes, state, tx, txSender)
 								} else if txDataInfo[posEventConfirm] == ufoEventConfirm && snap.isCandidate(txSender) {
 									headerExtra.CurrentBlockConfirmations, refundHash = a.processEventConfirm(headerExtra.CurrentBlockConfirmations, chain, txDataInfo, number, tx, txSender, refundHash)
@@ -357,7 +357,7 @@ func (a *Alien) processCustomTx(headerExtra HeaderExtra, chain consensus.ChainRe
 								} else if txDataInfo[posEventSetCoinbase] == ufoEventSetCoinbase && snap.isCandidate(txSender) {
 									if len(txDataInfo) > ufoMinSplitLen+1 {
 										// the signer of main chain must send some value to coinbase of side chain for confirm tx of side chain
-										if tx.Value().Cmp(minSCSetCoinbaseValue) >= 0 {
+										if tx.Value().Cmp(minSCSetCoinbaseValue) >= 0  && tx.To() != nil {
 											headerExtra.SideChainSetCoinbases = a.processSCEventSetCoinbase(headerExtra.SideChainSetCoinbases,
 												common.HexToHash(txDataInfo[ufoMinSplitLen+1]), txSender, *tx.To())
 										}

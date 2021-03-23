@@ -688,6 +688,16 @@ func (a *Alien) Prepare(chain consensus.ChainReader, header *types.Header) error
 
 	// Set the correct difficulty
 	header.Difficulty = new(big.Int).Set(defaultDifficulty)
+	number := header.Number.Uint64()
+	// Ensure the timestamp has the correct delay
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return  consensus.ErrUnknownAncestor
+	}
+	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(a.config.Period))
+	if header.Time.Int64() < time.Now().Unix() {
+		header.Time = big.NewInt(time.Now().Unix())
+	}
 	// If now is later than genesis timestamp, skip prepare
 	if a.config.GenesisTimestamp < uint64(time.Now().Unix()) {
 		return nil
@@ -837,20 +847,15 @@ func (a *Alien) mcConfirmBlock(chain consensus.ChainReader, header *types.Header
 // rewards given, and returns the final block.
 func (a *Alien) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 
-	number := header.Number.Uint64()
 
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = common.Hash{}
-
-	// Ensure the timestamp has the correct delay
+	number := header.Number.Uint64()
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
 		return nil, consensus.ErrUnknownAncestor
 	}
-	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(a.config.Period))
-	if header.Time.Int64() < time.Now().Unix() {
-		header.Time = big.NewInt(time.Now().Unix())
-	}
+
 
 	// Ensure the extra data has all it's components
 	if len(header.Extra) < extraVanity {

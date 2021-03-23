@@ -26,7 +26,7 @@ Alien use header.extra to record the all infomation of current block and keep si
 * **Next version will be release on July 12, which contain the hard-fork at block height 2968888**
 * **Please make sure your node upgrade to release/v0.2.1 before that block height.(before July 17,2019 UTC/GMT+8)**
 
-More information about this upgrade will be found [UPGRADE TO GTTC V0.2.0](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.0)
+More information about this upgrade will be found [UPGRADE TO GTTC V0.2.1](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.1)
 
 ## Minimum Requirements
 
