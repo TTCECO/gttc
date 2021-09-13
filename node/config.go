@@ -261,6 +261,12 @@ func DefaultWSEndpoint() string {
 	return config.WSEndpoint()
 }
 
+// ExtRPCEnabled returns the indicator whether node enables the external
+// RPC(http, ws or graphql).
+func (c *Config) ExtRPCEnabled() bool {
+	return c.HTTPHost != "" || c.WSHost != "" || c.GraphQLHost != ""
+}
+
 // NodeName returns the devp2p node identifier.
 func (c *Config) NodeName() string {
 	name := c.name()
