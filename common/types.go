@@ -17,6 +17,7 @@
 package common
 
 import (
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -48,16 +49,18 @@ func BytesToHash(b []byte) Hash {
 	return h
 }
 func BigToHash(b *big.Int) Hash { return BytesToHash(b.Bytes()) }
-func HexToHash(s string) Hash   {
-	s =hexutil.CPToHex(s)
-	return BytesToHash(FromHex(s)) }
+func HexToHash(s string) Hash {
+	s = hexutil.CPToHex(s)
+	return BytesToHash(FromHex(s))
+}
 
 // Get the string representation of the underlying hash
 func (h Hash) Str() string   { return string(h[:]) }
 func (h Hash) Bytes() []byte { return h[:] }
 func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
-func (h Hash) Hex() string   { s := hexutil.Encode(h[:])
-return hexutil.HexToCP(s)
+func (h Hash) Hex() string {
+	s := hexutil.Encode(h[:])
+	return hexutil.HexToCP(s)
 }
 
 // TerminalString implements log.TerminalStringer, formatting a string for console
@@ -135,6 +138,39 @@ func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
 
 func EmptyHash(h Hash) bool {
 	return h == Hash{}
+}
+
+// Scan implements Scanner for database/sql.
+func (h *Hash) Scan(src interface{}) error {
+	srcB, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("can't scan %T into Hash", src)
+	}
+	if len(srcB) != HashLength {
+		return fmt.Errorf("can't scan []byte of len %d into Hash, want %d", len(srcB), HashLength)
+	}
+	copy(h[:], srcB)
+	return nil
+}
+
+// Value implements valuer for database/sql.
+func (h Hash) Value() (driver.Value, error) {
+	return h[:], nil
+}
+
+// ImplementsGraphQLType returns true if Hash implements the specified GraphQL type.
+func (_ Hash) ImplementsGraphQLType(name string) bool { return name == "Bytes32" }
+
+// UnmarshalGraphQL unmarshals the provided GraphQL query data.
+func (h *Hash) UnmarshalGraphQL(input interface{}) error {
+	var err error
+	switch input := input.(type) {
+	case string:
+		*h = HexToHash(input)
+	default:
+		err = fmt.Errorf("Unexpected type for Bytes32: %v", input)
+	}
+	return err
 }
 
 // UnprefixedHash allows marshaling a Hash without 0x prefix.
@@ -261,6 +297,39 @@ func (a *Address) MarshalJSON() ([]byte, error) {
 		return json.Marshal(hexutil.CustomHexPrefix + a.String()[2:])
 	}
 	return json.Marshal(a.String())
+}
+
+// Scan implements Scanner for database/sql.
+func (a *Address) Scan(src interface{}) error {
+	srcB, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("can't scan %T into Address", src)
+	}
+	if len(srcB) != AddressLength {
+		return fmt.Errorf("can't scan []byte of len %d into Address, want %d", len(srcB), AddressLength)
+	}
+	copy(a[:], srcB)
+	return nil
+}
+
+// Value implements valuer for database/sql.
+func (a Address) Value() (driver.Value, error) {
+	return a[:], nil
+}
+
+// ImplementsGraphQLType returns true if Hash implements the specified GraphQL type.
+func (a Address) ImplementsGraphQLType(name string) bool { return name == "Address" }
+
+// UnmarshalGraphQL unmarshals the provided GraphQL query data.
+func (a *Address) UnmarshalGraphQL(input interface{}) error {
+	var err error
+	switch input := input.(type) {
+	case string:
+		*a = HexToAddress(input)
+	default:
+		err = fmt.Errorf("Unexpected type for Address: %v", input)
+	}
+	return err
 }
 
 // UnprefixedHash allows marshaling an Address without 0x prefix.
