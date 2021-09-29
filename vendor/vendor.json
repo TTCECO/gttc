@@ -165,6 +165,98 @@
 			"revisionTime": "2017-02-15T23:32:05Z"
 		},
 		{
+			"checksumSHA1": "YhQYprcFz/mRy1BZ+Gy/pnMhBe0=",
+			"path": "github.com/graph-gophers/graphql-go",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"path": "github.com/graph-gophers/graphql-go/decode",
+			"revision": ""
+		},
+		{
+			"checksumSHA1": "nSpiywJOLU4e01NPAQf4lBtnKtw=",
+			"path": "github.com/graph-gophers/graphql-go/errors",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "+r7Kq5yH2qVArS16HmSBDT5gV/g=",
+			"path": "github.com/graph-gophers/graphql-go/internal/common",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "Fh5lYDzDT+1pfGW/axUKH36dHmw=",
+			"path": "github.com/graph-gophers/graphql-go/internal/exec",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "pXfGLG4KfQq2oKX29+Dqou4P04U=",
+			"path": "github.com/graph-gophers/graphql-go/internal/exec/packer",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "loNRJjHGZYnwpDXg5AqSLivw2z8=",
+			"path": "github.com/graph-gophers/graphql-go/internal/exec/resolvable",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "oH23emL5WlLuypz86o+LR///DOM=",
+			"path": "github.com/graph-gophers/graphql-go/internal/exec/selected",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "VSDhUJOJzbyTIeYfunqWTTKDBok=",
+			"path": "github.com/graph-gophers/graphql-go/internal/query",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "xA2gQMD4OpcWFfr1RXFOJNHSJrk=",
+			"path": "github.com/graph-gophers/graphql-go/internal/schema",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "bE+86gxeLT6/hX+2eagFdgOvpY8=",
+			"path": "github.com/graph-gophers/graphql-go/internal/validation",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "JY1146PnFG5ZY82Drfti2yW6Wqo=",
+			"path": "github.com/graph-gophers/graphql-go/introspection",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "TiU7a64U/QXVKLJAdfW7m1hVr8s=",
+			"path": "github.com/graph-gophers/graphql-go/log",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "h9lR2l7dWiXo/yF4zq6XZE4MEBY=",
+			"path": "github.com/graph-gophers/graphql-go/relay",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"checksumSHA1": "IOHPFFPYpgnrVD/Uc/k8XTJ1h5Y=",
+			"path": "github.com/graph-gophers/graphql-go/trace",
+			"revision": "21b77bdd71c63afab521b1054b6a1e6a04501b64",
+			"revisionTime": "2021-03-29T11:03:28Z"
+		},
+		{
+			"path": "github.com/graph-gophers/graphql-go/types",
+			"revision": ""
+		},
+		{
 			"checksumSHA1": "d9PxF1XQGLMJZRct2R8qVM/eYlE=",
 			"path": "github.com/hashicorp/golang-lru",
 			"revision": "0a025b7e63adc15a622f29b0b2c4c3848243bbf6",
@@ -314,6 +406,24 @@
 			"path": "github.com/olekukonko/tablewriter",
 			"revision": "febf2d34b54a69ce7530036c7503b1c9fbfdf0bb",
 			"revisionTime": "2017-01-28T05:05:32Z"
+		},
+		{
+			"checksumSHA1": "2THFKKWGIIO0Wojs6bQRNBTl0Uw=",
+			"path": "github.com/opentracing/opentracing-go",
+			"revision": "e2cb74943cd81f680d00b6be69fc4a2557525727",
+			"revisionTime": "2021-09-14T01:44:43Z"
+		},
+		{
+			"checksumSHA1": "EMYPYmYapnWcmu5bQO1TeReRtwQ=",
+			"path": "github.com/opentracing/opentracing-go/ext",
+			"revision": "e2cb74943cd81f680d00b6be69fc4a2557525727",
+			"revisionTime": "2021-09-14T01:44:43Z"
+		},
+		{
+			"checksumSHA1": "k8LOOB1nAWex1tyRzeXeM28Uj54=",
+			"path": "github.com/opentracing/opentracing-go/log",
+			"revision": "e2cb74943cd81f680d00b6be69fc4a2557525727",
+			"revisionTime": "2021-09-14T01:44:43Z"
 		},
 		{
 			"checksumSHA1": "Se195FlZ160eaEk/uVx4KdTPSxU=",
