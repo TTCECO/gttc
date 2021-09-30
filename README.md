@@ -30,7 +30,7 @@ More information about this upgrade will be found [UPGRADE TO GTTC V0.2.2](https
 
 Requirement|Notes
 ---|---
-Go version | Go1.9 or higher
+Go version | Go1.9 ~ Go1.15
 
 ## Install
 
