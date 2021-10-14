@@ -120,6 +120,7 @@ var (
 		utils.GpoBlocksFlag,
 		utils.GpoPercentileFlag,
 		utils.ExtraDataFlag,
+		utils.CustomHexPrefixFlag,
 		configFileFlag,
 	}
 

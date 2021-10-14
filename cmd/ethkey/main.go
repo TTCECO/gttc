@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/TTCECO/gttc/cmd/utils"
-	"github.com/TTCECO/gttc/common/hexutil"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -54,11 +53,7 @@ var (
 		Name:  "json",
 		Usage: "output JSON instead of human-readable format",
 	}
-	customPrefixFlag = cli.StringFlag{
-		Name:  "prefix",
-		Usage: "the custom prefix for common.Address & common.Hash",
-		Value: hexutil.DefaultCustomHexPrefix,
-	}
+	customPrefixFlag = utils.CustomHexPrefixFlag
 )
 
 func main() {

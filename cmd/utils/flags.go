@@ -33,6 +33,7 @@ import (
 	"github.com/TTCECO/gttc/accounts/keystore"
 	"github.com/TTCECO/gttc/common"
 	"github.com/TTCECO/gttc/common/fdlimit"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/consensus"
 	"github.com/TTCECO/gttc/consensus/alien"
 	"github.com/TTCECO/gttc/consensus/clique"
@@ -439,6 +440,12 @@ var (
 		Value: "",
 	}
 
+	CustomHexPrefixFlag = cli.StringFlag{
+		Name:  "prefix",
+		Usage: "the custom hex prefix for common.Address & common.Hash",
+		Value: hexutil.DefaultCustomHexPrefix,
+	}
+
 	GraphQLEnabledFlag = cli.BoolFlag{
 		Name:  "graphql",
 		Usage: "Enable the GraphQL server",
@@ -752,6 +759,15 @@ func setHTTP(ctx *cli.Context, cfg *node.Config) {
 	}
 }
 
+func setCustomPrefix(ctx *cli.Context) {
+	customPrefix := ctx.String(CustomHexPrefixFlag.Name)
+	if customPrefix != "" {
+		if _, ok := hexutil.PossibleCustomHexPrefixMap[customPrefix]; ok {
+			hexutil.CustomHexPrefix = customPrefix
+		}
+	}
+}
+
 // setGraphQL creates the GraphQL listener interface string from the set
 // command line flags, returning empty if the GraphQL endpoint is disabled.
 func setGraphQL(ctx *cli.Context, cfg *node.Config) {
@@ -945,6 +961,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
+	setCustomPrefix(ctx)
 	SetP2PConfig(ctx, &cfg.P2P)
 	setIPC(ctx, cfg)
 	setHTTP(ctx, cfg)
