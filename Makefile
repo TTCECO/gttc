@@ -16,6 +16,11 @@ gttc:
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/gttc\" to launch gttc."
 
+ethkey:
+	build/env.sh go run build/ci.go install ./cmd/ethkey
+	@echo "Done building."
+	@echo "Run \"$(GOBIN)/ethkey\" to launch ethkey."
+
 swarm:
 	build/env.sh go run build/ci.go install ./cmd/swarm
 	@echo "Done building."
