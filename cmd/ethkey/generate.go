@@ -48,6 +48,7 @@ If you want to encrypt an existing private key, it can be specified by setting
 	Flags: []cli.Flag{
 		passphraseFlag,
 		jsonFlag,
+		customPrefixFlag,
 		cli.StringFlag{
 			Name:  "privatekey",
 			Usage: "file containing a raw private key to encrypt",
@@ -63,6 +64,10 @@ If you want to encrypt an existing private key, it can be specified by setting
 			utils.Fatalf("Keyfile already exists at %s.", keyfilepath)
 		} else if !os.IsNotExist(err) {
 			utils.Fatalf("Error checking if keyfile exists: %v", err)
+		}
+
+		if err := getCustomPrefix(ctx); err != nil {
+			return err
 		}
 
 		var privateKey *ecdsa.PrivateKey

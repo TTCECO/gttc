@@ -49,6 +49,7 @@ To sign a message contained in a file, use the --msgfile flag.
 	Flags: []cli.Flag{
 		passphraseFlag,
 		jsonFlag,
+		customPrefixFlag,
 		msgfileFlag,
 	},
 	Action: func(ctx *cli.Context) error {
@@ -59,6 +60,10 @@ To sign a message contained in a file, use the --msgfile flag.
 		keyjson, err := ioutil.ReadFile(keyfilepath)
 		if err != nil {
 			utils.Fatalf("Failed to read the keyfile at '%s': %v", keyfilepath, err)
+		}
+
+		if err := getCustomPrefix(ctx); err != nil {
+			return err
 		}
 
 		// Decrypt key with passphrase.

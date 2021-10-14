@@ -45,6 +45,7 @@ make sure to use this feature with great caution!`,
 	Flags: []cli.Flag{
 		passphraseFlag,
 		jsonFlag,
+		customPrefixFlag,
 		cli.BoolFlag{
 			Name:  "private",
 			Usage: "include the private key in the output",
@@ -58,7 +59,9 @@ make sure to use this feature with great caution!`,
 		if err != nil {
 			utils.Fatalf("Failed to read the keyfile at '%s': %v", keyfilepath, err)
 		}
-
+		if err := getCustomPrefix(ctx); err != nil {
+			return err
+		}
 		// Decrypt key with passphrase.
 		passphrase := getPassPhrase(ctx, false)
 		key, err := keystore.DecryptKey(keyjson, passphrase)

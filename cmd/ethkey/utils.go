@@ -18,15 +18,28 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
 
 	"github.com/TTCECO/gttc/cmd/utils"
+	"github.com/TTCECO/gttc/common/hexutil"
 	"github.com/TTCECO/gttc/console"
 	"github.com/TTCECO/gttc/crypto"
 	"gopkg.in/urfave/cli.v1"
 )
+
+func getCustomPrefix(ctx *cli.Context) error {
+	customPrefix := ctx.String(customPrefixFlag.Name)
+	if customPrefix != "" {
+		if _, ok := hexutil.PossibleCustomHexPrefixMap[customPrefix]; !ok {
+			return errors.New("not valid custom hex prefix")
+		}
+		hexutil.CustomHexPrefix = customPrefix
+	}
+	return nil
+}
 
 // getPassPhrase obtains a passphrase given by the user.  It first checks the
 // --passphrase command line flag and ultimately prompts the user for a
