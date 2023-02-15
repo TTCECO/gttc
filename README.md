@@ -30,7 +30,7 @@ More information about this upgrade will be found [UPGRADE TO GTTC V0.2.3](https
 
 Requirement|Notes
 ---|---
-Go version | Go1.9 ~ Go1.15, Go1.13 should be better
+Go version | Go1.9 ~ Go1.15, Go1.13 is recommended.
 
 ## Install
 
