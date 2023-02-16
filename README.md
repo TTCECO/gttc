@@ -1,6 +1,6 @@
 # Go TTC
 
-Golang implementation of the TTC protocol.
+Golang implementation of MARO Blockchain (Previously known as TTC protocol).
 
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/TTCECO/gttc)
 [![GoReport](https://goreportcard.com/badge/github.com/TTCECO/gttc)](https://goreportcard.com/report/github.com/TTCECO/gttc)
