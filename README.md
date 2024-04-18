@@ -24,7 +24,7 @@ Alien use header.extra to record the all infomation of current block and keep si
 ## Mainnet Information
 * **Current Mainnet and Testnet is deploy the code of branch release/v0.2.4**
 
-More information about this upgrade will be found [UPGRADE TO GTTC V0.2.4](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.3)
+More information about this upgrade will be found [UPGRADE TO GTTC V0.2.4](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.4)
 
 ## Minimum Requirements
 
