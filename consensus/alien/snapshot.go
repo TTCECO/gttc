@@ -1114,7 +1114,9 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 	for _, vote := range votes {
 		// update Votes, Tally, Voters data
 		if lastVote, ok := s.Votes[vote.Voter]; ok {
-			s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
+			if _, ok := s.Tally[lastVote.Candidate]; ok {
+				s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
+			}
 		}
 		if _, ok := s.Tally[vote.Candidate]; ok {
 
