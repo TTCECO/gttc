@@ -1114,7 +1114,9 @@ func (s *Snapshot) updateSnapshotByVotes(votes []Vote, headerNumber *big.Int) {
 	for _, vote := range votes {
 		// update Votes, Tally, Voters data
 		if lastVote, ok := s.Votes[vote.Voter]; ok {
-			s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
+			if _, ok := s.Tally[lastVote.Candidate]; ok {
+				s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
+			}
 		}
 		if _, ok := s.Tally[vote.Candidate]; ok {
 
@@ -1135,10 +1137,12 @@ func (s *Snapshot) updateSnapshotByMPVotes(votes []Vote) {
 	for _, txVote := range votes {
 
 		if lastVote, ok := s.Votes[txVote.Voter]; ok {
-			s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
-			s.Tally[lastVote.Candidate].Add(s.Tally[lastVote.Candidate], txVote.Stake)
-			s.Votes[txVote.Voter] = &Vote{Voter: txVote.Voter, Candidate: lastVote.Candidate, Stake: txVote.Stake}
-			// do not modify header number of snap.Voters
+			if _, ok := s.Tally[lastVote.Candidate]; ok {
+				s.Tally[lastVote.Candidate].Sub(s.Tally[lastVote.Candidate], lastVote.Stake)
+				s.Tally[lastVote.Candidate].Add(s.Tally[lastVote.Candidate], txVote.Stake)
+				s.Votes[txVote.Voter] = &Vote{Voter: txVote.Voter, Candidate: lastVote.Candidate, Stake: txVote.Stake}
+				// do not modify header number of snap.Voters
+			}
 		}
 	}
 }
