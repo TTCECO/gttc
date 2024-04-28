@@ -22,9 +22,9 @@ Alien is a simple version of DPOS-PBFT consensus algorithm, which in [consensus/
 Alien use header.extra to record the all infomation of current block and keep signature of miner. The snapshot keep vote & confirm information of whole chain, which will be update by each Seal or VerifySeal. By the end of each loop, the miner will calculate the next loop miners base on the snapshot. Code annotation will show the details about how it works.
 
 ## Mainnet Information
-* **Current Mainnet and Testnet is deploy the code of branch release/v0.2.4**
+* **Current Mainnet and Testnet is deploy the code of branch release/v0.2.5**
 
-More information about this upgrade will be found [UPGRADE TO GTTC V0.2.4](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.4)
+More information about this upgrade will be found [UPGRADE TO GTTC V0.2.5](https://github.com/TTCECO/gttc/wiki/UPGRADE-TO-GTTC-V0.2.5)
 
 ## Minimum Requirements
 
